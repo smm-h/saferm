@@ -1,5 +1,15 @@
 {
-  "targets": ["go"],
+  "targets": [
+    "go",
+    {
+      "name": "npm",
+      "path": "npm/"
+    },
+    {
+      "name": "pypi",
+      "path": "pypi/"
+    }
+  ],
   "homebrew": {
     "tap": "homebrew-tap",
     "description": "AI-first safe rm replacement",

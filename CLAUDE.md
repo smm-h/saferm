@@ -8,7 +8,8 @@ This project uses [rlsbl](https://github.com/smm-h/rlsbl) for release orchestrat
 - Run `rlsbl release [patch|minor|major]` to bump version and create a GitHub Release
 - CI handles publishing automatically via the publish workflow
 - Never publish manually — always use `rlsbl release`
-- Go library -- no publish step needed. Tagged releases are available via go get.
+- GoReleaser handles binary publishing via GitHub Actions (no secrets needed)
+- Add HOMEBREW_TAP_TOKEN secret (PAT with contents:write on the tap repo)
 - Use `rlsbl release --dry-run` to preview a release without making changes
 
 ## Conventions

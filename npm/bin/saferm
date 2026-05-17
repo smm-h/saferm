@@ -1,0 +1,3 @@
+#!/usr/bin/env node
+console.error("saferm binary not installed. Run 'npm rebuild saferemove' to retry installation.");
+process.exit(1);

@@ -1,0 +1,29 @@
+{
+  "name": "saferemove",
+  "version": "0.1.1",
+  "description": "AI-first safe rm replacement",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smm-h/saferm.git"
+  },
+  "homepage": "https://github.com/smm-h/saferm",
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "bin": {
+    "saferm": "bin/saferm"
+  },
+  "files": [
+    "install.js",
+    "bin/"
+  ],
+  "keywords": [
+    "rm",
+    "safe",
+    "delete",
+    "trash",
+    "undelete",
+    "cli"
+  ]
+}

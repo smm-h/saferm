@@ -9,7 +9,7 @@ permissions:
   id-token: write
 
 jobs:
-  goreleaser:
+  go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -24,13 +24,12 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
 
   npm:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: npm/
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -43,13 +42,8 @@ jobs:
 
   pypi:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: pypi/
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: pypi/dist/

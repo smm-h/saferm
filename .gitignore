@@ -1,4 +1,4 @@
-saferm
+/saferm
 node_modules/
 __pycache__/
 *.pyc
@@ -15,3 +15,4 @@ docs/_build/
 .env
 .env.local
 *.local-only
+pypi/saferm/_bin/
