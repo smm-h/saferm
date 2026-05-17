@@ -2,6 +2,12 @@
 
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **New feature.** SAFERM_HOME environment variable allows overriding the default config/data directory, enabling isolated testing and custom configurations.
+
 ## 0.1.0
 
 ### Features
