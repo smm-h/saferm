@@ -1,0 +1,11 @@
+{
+  "language": "go",
+  "source": [".", "internal/archive", "internal/db", "internal/meta", "internal/config"],
+  "docs": "docs/",
+  "output": "docs/_build/",
+  "base_url": "https://saferm.smmh.dev",
+  "deploy": {
+    "provider": "cloudflare-pages",
+    "project": "saferm"
+  }
+}
