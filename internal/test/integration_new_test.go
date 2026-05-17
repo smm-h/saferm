@@ -1,8 +1,6 @@
 package test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
@@ -532,13 +530,3 @@ func TestSafermHome_IsolatesData(t *testing.T) {
 	}
 }
 
-// hashFileContents computes SHA-256 of file contents.
-func hashFileContents(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading file for hash: %v", err)
-	}
-	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
-}
