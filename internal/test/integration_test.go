@@ -47,15 +47,18 @@ func TestMain(m *testing.M) {
 }
 
 // runSaferm executes the saferm binary with the given args in an isolated
-// HOME directory so that ~/.saferm/ is test-local.
+// environment. SAFERM_HOME is set to homeDir/.saferm/ so that all saferm
+// data (archive, db) lives under the test-local directory without
+// interfering with the real HOME.
 func runSaferm(t *testing.T, homeDir string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
 
 	cmd := exec.Command(safermBinary, args...)
 
-	// Override HOME so saferm's BaseDir() resolves to homeDir/.saferm/.
-	env := filterEnv(os.Environ(), "HOME")
-	env = append(env, "HOME="+homeDir)
+	// Set SAFERM_HOME so saferm's BaseDir() uses the test directory directly.
+	safermHome := filepath.Join(homeDir, ".saferm")
+	env := filterEnv(os.Environ(), "SAFERM_HOME")
+	env = append(env, "SAFERM_HOME="+safermHome)
 	cmd.Env = env
 
 	var outBuf, errBuf bytes.Buffer
