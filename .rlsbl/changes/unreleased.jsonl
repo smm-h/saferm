@@ -1,0 +1,1 @@
+{"commits":["91ff0dc3eb7044b19d2ce4733d93c0bd434f1849"],"user_facing":true,"description":"**New feature.** npm and PyPI binary wrapper packages for easier installation via `npm install -g saferm` and `pipx install saferm`.","type":"feature"}
