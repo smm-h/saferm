@@ -125,15 +125,10 @@ func handleDelete(kwargs map[string]interface{}) int {
 			return ExitArchive
 		}
 
-		// Determine if it was a directory
-		isDir := strings.HasSuffix(result.UUID+".tar.zst", ".tar.zst") && result.Hash != ""
-		// Check archive file to determine type: files are stored as UUID, dirs as UUID.tar.zst
+		// Determine if it was a directory: files are stored as UUID, dirs as UUID.tar.zst
 		archivePath := filepath.Join(cfg.ArchiveDir, result.UUID)
-		if _, statErr := os.Stat(archivePath + ".tar.zst"); statErr == nil {
-			isDir = true
-		} else {
-			isDir = false
-		}
+		_, statErr := os.Stat(archivePath + ".tar.zst")
+		isDir := statErr == nil
 
 		rec := &db.DeletionRecord{
 			UUID:         result.UUID,
