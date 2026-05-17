@@ -25,8 +25,13 @@ var defaultExcludeEnvPatterns = []string{
 	"(?i)credential",
 }
 
-// BaseDir returns the saferm base directory (~/.saferm/), expanding ~.
+// BaseDir returns the saferm base directory. If SAFERM_HOME is set, its value
+// is used as-is (expected to be an absolute path). Otherwise falls back to
+// ~/.saferm/.
 func BaseDir() string {
+	if override := os.Getenv("SAFERM_HOME"); override != "" {
+		return override
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// Fall back to HOME env var if UserHomeDir fails

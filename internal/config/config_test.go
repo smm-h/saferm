@@ -7,6 +7,53 @@ import (
 	"testing"
 )
 
+func TestBaseDir_Default(t *testing.T) {
+	// Ensure SAFERM_HOME is not set
+	t.Setenv("SAFERM_HOME", "")
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("cannot determine home dir: %v", err)
+	}
+
+	got := BaseDir()
+	want := filepath.Join(home, ".saferm")
+	if got != want {
+		t.Errorf("BaseDir() = %q, want %q", got, want)
+	}
+}
+
+func TestBaseDir_Override(t *testing.T) {
+	override := t.TempDir()
+	t.Setenv("SAFERM_HOME", override)
+
+	got := BaseDir()
+	if got != override {
+		t.Errorf("BaseDir() = %q, want %q", got, override)
+	}
+}
+
+func TestLoad_UsesOverride(t *testing.T) {
+	override := t.TempDir()
+	t.Setenv("SAFERM_HOME", override)
+
+	// Write a config.toml inside the override directory
+	content := `archive_dir = "/override/archive"
+`
+	if err := os.WriteFile(filepath.Join(override, "config.toml"), []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+
+	if cfg.ArchiveDir != "/override/archive" {
+		t.Errorf("ArchiveDir = %q, want /override/archive", cfg.ArchiveDir)
+	}
+}
+
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 
