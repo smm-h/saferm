@@ -123,7 +123,7 @@ func parseAllIDs(t *testing.T, listOutput string) []string {
 }
 
 func TestDeleteAndUndelete_Roundtrip(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	content := "hello, saferm roundtrip test!"
@@ -168,7 +168,7 @@ func TestDeleteAndUndelete_Roundtrip(t *testing.T) {
 }
 
 func TestDeleteDirectory_Roundtrip(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	dirPath := testutil.CreateTempDir(t, workDir, "mydir")
@@ -219,7 +219,7 @@ func TestDeleteDirectory_Roundtrip(t *testing.T) {
 }
 
 func TestDelete_RequiresDescription(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "nodesc.txt", "content")
@@ -231,7 +231,7 @@ func TestDelete_RequiresDescription(t *testing.T) {
 }
 
 func TestDelete_RequiresRecursiveForDir(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	dirPath := testutil.CreateTempDir(t, workDir, "norecursive")
@@ -246,7 +246,7 @@ func TestDelete_RequiresRecursiveForDir(t *testing.T) {
 }
 
 func TestUndelete_ConflictError(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "conflict.txt", "original")
@@ -284,7 +284,7 @@ func TestUndelete_ConflictError(t *testing.T) {
 }
 
 func TestUndelete_ForceOverwrite(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "forcetest.txt", "original content")
@@ -319,7 +319,7 @@ func TestUndelete_ForceOverwrite(t *testing.T) {
 }
 
 func TestPurge_ById(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "purge-me.txt", "to be purged")
@@ -358,7 +358,7 @@ func TestPurge_ById(t *testing.T) {
 }
 
 func TestList_PathFilter(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	// Create files with different path patterns.
@@ -374,9 +374,8 @@ func TestList_PathFilter(t *testing.T) {
 		}
 	}
 
-	// Filter by glob matching beta path.
-	// filepath.Match requires full path match, so we construct the pattern.
-	pattern := filepath.Join(workDir, "beta.txt")
+	// Filter by actual glob pattern: * matches any non-separator chars in the filename.
+	pattern := filepath.Join(workDir, "*eta*")
 	stdout, stderr, code := runSaferm(t, homeDir, "list", "--path", pattern)
 	if code != 0 {
 		t.Fatalf("list --path failed (exit %d): stderr=%q", code, stderr)
@@ -393,7 +392,7 @@ func TestList_PathFilter(t *testing.T) {
 }
 
 func TestInfo_ShowsMetadata(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "info-test.txt", "metadata test")

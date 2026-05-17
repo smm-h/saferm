@@ -13,7 +13,7 @@ import (
 )
 
 func TestDelete_ReadOnlyFile(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	// Create a file and make it read-only.
@@ -55,7 +55,7 @@ func TestDelete_ReadOnlyFile(t *testing.T) {
 }
 
 func TestDelete_LargeFile(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	// Create a 10MB file with random content.
@@ -110,7 +110,7 @@ func TestDelete_LargeFile(t *testing.T) {
 }
 
 func TestDelete_DeeplyNestedDir(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	// Create 5 levels of nesting.
@@ -163,7 +163,7 @@ func TestDelete_DeeplyNestedDir(t *testing.T) {
 }
 
 func TestDelete_EmptyDirectory(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	emptyDir := filepath.Join(workDir, "emptydir")
@@ -202,7 +202,7 @@ func TestDelete_EmptyDirectory(t *testing.T) {
 }
 
 func TestDelete_DirWithSymlinks(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	// Create a directory with a symlink inside.
@@ -256,7 +256,7 @@ func TestDelete_DirWithSymlinks(t *testing.T) {
 }
 
 func TestDelete_SpecialCharsInPath(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	// Filename with parens, brackets, ampersand.
@@ -295,7 +295,7 @@ func TestDelete_SpecialCharsInPath(t *testing.T) {
 }
 
 func TestPurge_VerifyArchiveDeleted(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "purge-archive.txt", "to be purged from disk")

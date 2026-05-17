@@ -1,5 +1,6 @@
 ---
 title: saferm
+description: AI-first safe rm replacement -- archives files instead of deleting them
 ---
 
 # saferm

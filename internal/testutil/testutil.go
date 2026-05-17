@@ -7,13 +7,13 @@ import (
 )
 
 // SetupTestEnv creates a temporary directory structure mimicking ~/.saferm/
-// with archive/ and db/ subdirectories. Returns the saferm base directory path
-// and a cleanup function that removes everything.
-func SetupTestEnv(t *testing.T) (safermDir string, cleanup func()) {
+// with archive/ and db/ subdirectories. Returns the home directory (parent of
+// .saferm/) suitable for passing to runSaferm which appends .saferm itself.
+func SetupTestEnv(t *testing.T) string {
 	t.Helper()
 
-	tmpDir := t.TempDir()
-	safermDir = filepath.Join(tmpDir, ".saferm")
+	homeDir := t.TempDir()
+	safermDir := filepath.Join(homeDir, ".saferm")
 
 	archiveDir := filepath.Join(safermDir, "archive")
 	dbDir := filepath.Join(safermDir, "db")
@@ -25,11 +25,7 @@ func SetupTestEnv(t *testing.T) (safermDir string, cleanup func()) {
 		t.Fatalf("creating db dir: %v", err)
 	}
 
-	cleanup = func() {
-		os.RemoveAll(tmpDir)
-	}
-
-	return safermDir, cleanup
+	return homeDir
 }
 
 // CreateTempFile creates a file with the given name and content inside dir.

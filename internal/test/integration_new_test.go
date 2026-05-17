@@ -10,7 +10,7 @@ import (
 )
 
 func TestDeleteMultipleFiles(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	f1 := testutil.CreateTempFile(t, workDir, "file1.txt", "one")
@@ -43,7 +43,7 @@ func TestDeleteMultipleFiles(t *testing.T) {
 }
 
 func TestDeleteWithMeta(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "meta-test.txt", "metadata content")
@@ -86,7 +86,7 @@ func TestDeleteWithMeta(t *testing.T) {
 }
 
 func TestDeleteWithForce_NonexistentSkipped(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	existsPath := testutil.CreateTempFile(t, workDir, "exists.txt", "I exist")
@@ -118,7 +118,7 @@ func TestDeleteWithForce_NonexistentSkipped(t *testing.T) {
 }
 
 func TestUndeleteByPath(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	content := "undelete by path content"
@@ -147,7 +147,7 @@ func TestUndeleteByPath(t *testing.T) {
 }
 
 func TestUndeleteByPath_MultipleMatches(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "multi-match.txt", "first version")
@@ -201,7 +201,7 @@ func TestUndeleteByPath_MultipleMatches(t *testing.T) {
 }
 
 func TestPurgeOlderThan(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	f1 := testutil.CreateTempFile(t, workDir, "old1.txt", "old content 1")
@@ -236,7 +236,7 @@ func TestPurgeOlderThan(t *testing.T) {
 }
 
 func TestPurgeAll(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	f1 := testutil.CreateTempFile(t, workDir, "purge1.txt", "content1")
@@ -276,7 +276,7 @@ func TestPurgeAll(t *testing.T) {
 }
 
 func TestListAll_IncludesRestored(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "restored-list.txt", "content")
@@ -319,7 +319,7 @@ func TestListAll_IncludesRestored(t *testing.T) {
 }
 
 func TestListOrdering(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	fileA := testutil.CreateTempFile(t, workDir, "aaa.txt", "a")
@@ -364,7 +364,7 @@ func TestListOrdering(t *testing.T) {
 }
 
 func TestInfoDirectory(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	dirPath := testutil.CreateTempDir(t, workDir, "info-dir")
@@ -390,7 +390,7 @@ func TestInfoDirectory(t *testing.T) {
 }
 
 func TestInfoRestoredRecord(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "info-restored.txt", "content")
@@ -425,7 +425,7 @@ func TestInfoRestoredRecord(t *testing.T) {
 }
 
 func TestDeleteSameFileTwice(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "twice.txt", "first")
@@ -477,8 +477,8 @@ func TestDeleteSameFileTwice(t *testing.T) {
 
 func TestSafermHome_IsolatesData(t *testing.T) {
 	// Use two separate SAFERM_HOME directories to verify isolation.
-	homeDirA := t.TempDir()
-	homeDirB := t.TempDir()
+	homeDirA := testutil.SetupTestEnv(t)
+	homeDirB := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	fileA := testutil.CreateTempFile(t, workDir, "isolated.txt", "isolated content")

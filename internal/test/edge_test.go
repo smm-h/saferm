@@ -10,7 +10,7 @@ import (
 )
 
 func TestDelete_NonexistentFile(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	nonexistent := filepath.Join(workDir, "does-not-exist.txt")
@@ -33,7 +33,7 @@ func TestDelete_NonexistentFile(t *testing.T) {
 }
 
 func TestDelete_FileWithSpaces(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	content := "file with spaces in the name"
@@ -70,7 +70,7 @@ func TestDelete_FileWithSpaces(t *testing.T) {
 }
 
 func TestDelete_FileWithUnicode(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	content := "Unicode filename content"
@@ -105,7 +105,7 @@ func TestDelete_FileWithUnicode(t *testing.T) {
 }
 
 func TestDelete_EmptyFile(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	filePath := testutil.CreateTempFile(t, workDir, "empty.txt", "")
@@ -139,7 +139,7 @@ func TestDelete_EmptyFile(t *testing.T) {
 }
 
 func TestDelete_Symlink(t *testing.T) {
-	homeDir := t.TempDir()
+	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
 	// Create a target file and a symlink to it.
@@ -172,5 +172,32 @@ func TestDelete_Symlink(t *testing.T) {
 	}
 	if string(got) != targetContent {
 		t.Fatalf("target content changed: got %q", string(got))
+	}
+
+	// Undelete the symlink and verify it's restored as a symlink.
+	stdout, _, _ := runSaferm(t, homeDir, "list")
+	id := parseFirstID(t, stdout)
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", id)
+	if code != 0 {
+		t.Fatalf("undelete symlink failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Verify restored path is a symlink (not a regular file).
+	info, err := os.Lstat(symlinkPath)
+	if err != nil {
+		t.Fatalf("lstat restored symlink: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("restored path should be a symlink")
+	}
+
+	// Verify symlink points to the correct target.
+	linkTarget, err := os.Readlink(symlinkPath)
+	if err != nil {
+		t.Fatalf("readlink restored symlink: %v", err)
+	}
+	if linkTarget != targetPath {
+		t.Fatalf("symlink target mismatch: got %q, want %q", linkTarget, targetPath)
 	}
 }
