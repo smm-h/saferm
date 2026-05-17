@@ -1,0 +1,16 @@
+{
+  "VERSION": "f7af902eefb89f3a2216d798078294bb927e71c64bad70551f80effabd375875",
+  ".github/workflows/ci.yml": "385e0e219cbcab500ab0823cc3b23b6e618296e50817e64410156c9d327d054d",
+  "CHANGELOG.md": "fca781960bc4a70fce00e622926810542c6c62b34357a1228fa2e8432108c013",
+  ".gitignore": "c89d76c6c43e7f0897b3472a15b7c0103e0be5b3a04c2b44e585fa48bdcda2bb",
+  "LICENSE": "e958892abc1dd5d991fca6d528e695d335f25773d373d2e0be5f4a9507d8f8d5",
+  "CLAUDE.md": "7a9a9386afc038011a449cc01b093574c8c941bc8c6e10856bcd7065412da34b",
+  ".rlsbl/hooks/pre-checks.sh": "60c57d4563263124530e6f33aca77550ea2161ad3b33b3ba6ad1c03fea9eb6e2",
+  ".rlsbl/hooks/pre-release.sh": "b2dc17c243d0b1a2c1e23c1c25db6f94878596df81dc76c41b32d95f740a7d44",
+  ".rlsbl/hooks/post-release.sh": "b455f8511e0b2655509ecf5dcb0ab7da5bb7c961f47910ff8e00cab5bd51f833",
+  ".claude/settings.json": "78922a784ee78e9e50587e93628cd3b9d4dfbe49087adc4514e6781cea38cbb9",
+  ".rlsbl/lint/python.toml": "9cfbcef2e010d5fad243437bf2fd8df54a1fae70ee0762f9d11da70fe207501c",
+  ".rlsbl/lint/go.toml": "807d5cf760baad6d571a5bfd43cb163efe356f7462ba9f1918d72de45f62339f",
+  ".rlsbl/lint/npm.toml": "baa36014e65923d8cc5c8b83c77fa651da79351627570476402da66840027645",
+  ".rlsbl/changes/unreleased.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
