@@ -2,6 +2,12 @@
 
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **New feature.** npm and PyPI binary wrapper packages for easier installation via `npm install -g saferm` and `pipx install saferm`.
+
 ## 0.1.1
 
 ### Features

@@ -1,6 +1,6 @@
 {
   "name": "saferemove",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "AI-first safe rm replacement",
   "license": "MIT",
   "repository": {
@@ -24,6 +24,7 @@
     "delete",
     "trash",
     "undelete",
-    "cli"
+    "cli",
+    "rlsbl"
   ]
 }
