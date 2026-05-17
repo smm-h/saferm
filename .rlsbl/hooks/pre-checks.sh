@@ -3,3 +3,7 @@ set -euo pipefail
 # This hook runs BEFORE built-in pre-release checks (tests, lint).
 # Use it for setup tasks: starting services, setting env vars, etc.
 # Built-in checks run after this hook. Custom validation goes in pre-release.sh.
+
+# Run full test suite (mirrors the pre-push hook but without -short)
+echo "Running tests (pre-release)..."
+go test ./... -count=1
