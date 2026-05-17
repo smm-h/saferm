@@ -1,5 +1,8 @@
 {
-  "targets": [
-    "go"
-  ]
+  "targets": ["go"],
+  "homebrew": {
+    "tap": "homebrew-tap",
+    "description": "AI-first safe rm replacement",
+    "license": "MIT"
+  }
 }
