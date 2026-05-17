@@ -1,0 +1,297 @@
+package db
+
+import (
+	"database/sql"
+	"errors"
+	"time"
+
+	_ "modernc.org/sqlite"
+)
+
+// ErrNotFound is returned when a queried record does not exist.
+var ErrNotFound = errors.New("record not found")
+
+// DB wraps a *sql.DB connection to the saferm SQLite database.
+type DB struct {
+	conn *sql.DB
+}
+
+// DeletionRecord represents a single archived deletion in the database.
+type DeletionRecord struct {
+	ID           int64
+	UUID         string
+	OriginalPath string
+	OriginalName string
+	Size         int64
+	Hash         string
+	IsDirectory  bool
+	DeletedAt    time.Time
+	Command      string     // may be empty
+	Description  string
+	Metadata     string     // JSON blob
+	RestoredAt   *time.Time // nil if not restored
+	RestoredTo   *string    // nil if not restored
+}
+
+// Open opens (or creates) the SQLite database at dbPath with WAL mode and
+// busy_timeout=5000ms, then runs the schema DDL.
+func Open(dbPath string) (*DB, error) {
+	// Pass pragmas via DSN so they take effect on every connection in the pool.
+	dsn := dbPath + "?_pragma=busy_timeout%3d5000&_pragma=journal_mode%3dWAL"
+	conn, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create tables and indexes.
+	if _, err := conn.Exec(SchemaSQL); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	return &DB{conn: conn}, nil
+}
+
+// Close closes the underlying database connection.
+func (d *DB) Close() error {
+	return d.conn.Close()
+}
+
+// Insert inserts a DeletionRecord and returns the auto-increment ID.
+func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
+	result, err := d.conn.Exec(
+		`INSERT INTO deletions (uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		rec.UUID,
+		rec.OriginalPath,
+		rec.OriginalName,
+		rec.Size,
+		rec.Hash,
+		boolToInt(rec.IsDirectory),
+		rec.DeletedAt.Format(time.RFC3339),
+		nullableString(rec.Command),
+		rec.Description,
+		nullableString(rec.Metadata),
+		nullableTime(rec.RestoredAt),
+		rec.RestoredTo,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+// QueryByID retrieves a single record by ID. Returns ErrNotFound if it does
+// not exist.
+func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
+	row := d.conn.QueryRow(
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+		 FROM deletions WHERE id = ?`, id)
+	rec, err := scanRecord(row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return rec, nil
+}
+
+// QueryByPath returns all non-restored records matching the given original_path,
+// ordered by deleted_at DESC (newest first).
+func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
+	rows, err := d.conn.Query(
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+		 FROM deletions WHERE original_path = ? AND restored_at IS NULL ORDER BY deleted_at DESC`, path)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRecords(rows)
+}
+
+// QueryAll returns all records ordered by deleted_at DESC. If includeRestored
+// is false, restored records are excluded.
+func (d *DB) QueryAll(includeRestored bool) ([]*DeletionRecord, error) {
+	query := `SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+		 FROM deletions`
+	if !includeRestored {
+		query += " WHERE restored_at IS NULL"
+	}
+	query += " ORDER BY deleted_at DESC"
+
+	rows, err := d.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRecords(rows)
+}
+
+// MarkRestored sets restored_at to now and restored_to to the given path.
+// Returns ErrNotFound if the record does not exist.
+func (d *DB) MarkRestored(id int64, restoredTo string) error {
+	now := time.Now().Format(time.RFC3339)
+	result, err := d.conn.Exec(
+		`UPDATE deletions SET restored_at = ?, restored_to = ? WHERE id = ?`,
+		now, restoredTo, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// Delete permanently removes a record by ID (used for purge).
+// Returns ErrNotFound if the record does not exist.
+func (d *DB) Delete(id int64) error {
+	result, err := d.conn.Exec(`DELETE FROM deletions WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// QueryOlderThan returns all non-restored records deleted before the given time.
+func (d *DB) QueryOlderThan(before time.Time) ([]*DeletionRecord, error) {
+	rows, err := d.conn.Query(
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+		 FROM deletions WHERE deleted_at < ? AND restored_at IS NULL ORDER BY deleted_at DESC`,
+		before.Format(time.RFC3339))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRecords(rows)
+}
+
+// scanRecord scans a single row into a DeletionRecord.
+func scanRecord(row *sql.Row) (*DeletionRecord, error) {
+	var rec DeletionRecord
+	var isDir int
+	var deletedAtStr string
+	var command sql.NullString
+	var metadata sql.NullString
+	var restoredAtStr sql.NullString
+	var restoredTo sql.NullString
+
+	err := row.Scan(
+		&rec.ID, &rec.UUID, &rec.OriginalPath, &rec.OriginalName,
+		&rec.Size, &rec.Hash, &isDir, &deletedAtStr,
+		&command, &rec.Description, &metadata,
+		&restoredAtStr, &restoredTo,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	rec.IsDirectory = isDir != 0
+	rec.DeletedAt, err = time.Parse(time.RFC3339, deletedAtStr)
+	if err != nil {
+		return nil, err
+	}
+	if command.Valid {
+		rec.Command = command.String
+	}
+	if metadata.Valid {
+		rec.Metadata = metadata.String
+	}
+	if restoredAtStr.Valid {
+		t, err := time.Parse(time.RFC3339, restoredAtStr.String)
+		if err != nil {
+			return nil, err
+		}
+		rec.RestoredAt = &t
+	}
+	if restoredTo.Valid {
+		rec.RestoredTo = &restoredTo.String
+	}
+
+	return &rec, nil
+}
+
+// scanRecords scans multiple rows into a slice of DeletionRecords.
+func scanRecords(rows *sql.Rows) ([]*DeletionRecord, error) {
+	var records []*DeletionRecord
+	for rows.Next() {
+		var rec DeletionRecord
+		var isDir int
+		var deletedAtStr string
+		var command sql.NullString
+		var metadata sql.NullString
+		var restoredAtStr sql.NullString
+		var restoredTo sql.NullString
+
+		err := rows.Scan(
+			&rec.ID, &rec.UUID, &rec.OriginalPath, &rec.OriginalName,
+			&rec.Size, &rec.Hash, &isDir, &deletedAtStr,
+			&command, &rec.Description, &metadata,
+			&restoredAtStr, &restoredTo,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		rec.IsDirectory = isDir != 0
+		rec.DeletedAt, err = time.Parse(time.RFC3339, deletedAtStr)
+		if err != nil {
+			return nil, err
+		}
+		if command.Valid {
+			rec.Command = command.String
+		}
+		if metadata.Valid {
+			rec.Metadata = metadata.String
+		}
+		if restoredAtStr.Valid {
+			t, err := time.Parse(time.RFC3339, restoredAtStr.String)
+			if err != nil {
+				return nil, err
+			}
+			rec.RestoredAt = &t
+		}
+		if restoredTo.Valid {
+			rec.RestoredTo = &restoredTo.String
+		}
+
+		records = append(records, &rec)
+	}
+	return records, rows.Err()
+}
+
+// boolToInt converts a bool to an int for SQLite storage.
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// nullableString returns a sql.NullString for optional string fields.
+func nullableString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: s, Valid: true}
+}
+
+// nullableTime formats a *time.Time as a sql.NullString for SQLite storage.
+func nullableTime(t *time.Time) sql.NullString {
+	if t == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: t.Format(time.RFC3339), Valid: true}
+}
