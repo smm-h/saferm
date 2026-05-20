@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/smm-h/saferm/internal/archive"
 	"github.com/smm-h/saferm/internal/config"
 	"github.com/smm-h/saferm/internal/db"
+	gitutil "github.com/smm-h/saferm/internal/git"
 	"github.com/smm-h/strictcli/go/strictcli"
 )
 
@@ -97,6 +99,14 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	if err := database.MarkRestored(rec.ID, dest); err != nil {
 		fmt.Fprintf(os.Stderr, "error: updating database: %s\n", err)
 		return ExitDatabase
+	}
+
+	// Stage the restored file in git if inside a git repo.
+	destDir := filepath.Dir(dest)
+	if gitutil.IsInGitRepo(destDir) {
+		if err := gitutil.GitAdd(dest); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: git add failed for %s: %s\n", dest, err)
+		}
 	}
 
 	fmt.Printf("Restored %s\n", dest)

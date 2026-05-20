@@ -12,6 +12,7 @@ import (
 	"github.com/smm-h/saferm/internal/archive"
 	"github.com/smm-h/saferm/internal/config"
 	"github.com/smm-h/saferm/internal/db"
+	gitutil "github.com/smm-h/saferm/internal/git"
 	"github.com/smm-h/saferm/internal/meta"
 	"github.com/smm-h/strictcli/go/strictcli"
 )
@@ -25,6 +26,7 @@ func registerDeleteCmd(app *strictcli.App) {
 			strictcli.StringFlag("description", "Why this deletion is happening"),
 			strictcli.StringFlag("command", "The original bash command that triggered this", strictcli.Default("")),
 			strictcli.StringFlag("meta", "Additional metadata as key=value", strictcli.Repeatable(), strictcli.Default(nil)),
+			strictcli.BoolFlag("no-git", "Do not update the git index after archiving"),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("files", "Files or directories to archive", strictcli.Variadic()),
@@ -38,6 +40,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 	interactive := kwargs["interactive"].(bool)
 	description := kwargs["description"].(string)
 	command := kwargs["command"].(string)
+	noGit := kwargs["no_git"].(bool)
 	metaValues := kwargs["meta"].([]interface{})
 	filesRaw := kwargs["files"].([]interface{})
 	verbose, _ := kwargs["verbose"].(bool)
@@ -129,6 +132,15 @@ func handleDelete(kwargs map[string]interface{}) int {
 		archivePath := filepath.Join(cfg.ArchiveDir, result.UUID)
 		_, statErr := os.Stat(archivePath + ".tar.zst")
 		isDir := statErr == nil
+
+		// Stage removal in git index if the file was tracked.
+		if !noGit && metadata.GitRoot != "" && gitutil.IsGitTracked(absPath) {
+			if err := gitutil.GitRmCached(absPath, isDir); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
+			} else if verbose {
+				fmt.Printf("Staged removal in git: %s\n", file)
+			}
+		}
 
 		rec := &db.DeletionRecord{
 			UUID:         result.UUID,
