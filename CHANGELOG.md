@@ -2,6 +2,12 @@
 
 # Changelog
 
+## 0.2.0
+
+### Features
+
+- **Automatic git index management.** When deleting a git-tracked file, saferm now runs `git rm --cached` to stage the removal. When restoring via `undelete`, it runs `git add`. Use `--no-git` on delete to suppress. Both operations are best-effort -- failures produce warnings, not errors.
+
 ## 0.1.3
 
 - No user-facing changes.
