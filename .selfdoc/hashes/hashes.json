@@ -1,6 +1,122 @@
 {
+  "cli-delete.md": {
+    "content": "f59ac26d407e145e680dff9101548a32222c3769affc3cc039705592b1cfc330",
+    "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d"
+  },
+  "cli-index.md": {
+    "content": "2e016db1e0c4f37ade34727aae0a490378670c2115404ce76c2655c1ee519a78",
+    "description": "c29f159b2c8376a6e6fbfef8446ca34d26087187b10d269922892f3ae9f835fe"
+  },
+  "cli-info.md": {
+    "content": "b13019fc6f82316af4048ab102aca099d861f80ee7ab6bca5d3b10bc9153d83e",
+    "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed"
+  },
+  "cli-list.md": {
+    "content": "a869887e67a196cb5f64905fb823c318a12e3ee63a83052a0f01448ed3a8eeb1",
+    "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1"
+  },
+  "cli-purge.md": {
+    "content": "aafc500f0b48b5fe10c920b96a4633942912dc8ba5b88357107c86b17fc222f6",
+    "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451"
+  },
+  "cli-undelete.md": {
+    "content": "428a499c32ed1657313546b44a625787563d2e489285c2cc36a7ea849fb83d30",
+    "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c"
+  },
+  "delete.md": {
+    "content": "60f1e22db5174a77a087765d4f9e1a7885cec44edc408250705f76a7f815b604",
+    "description": "17cdb0e70d67010caa328d8c735917c7a22dccfa4869298454be1436593e3fc1"
+  },
+  "exitcodes.md": {
+    "content": "5e90f3617972e3413f4d727e451dd98b205dbf37ff4380c5c121f4297acadd84",
+    "description": "cf52e88f53f18695a2ad7da739d319ddd402a64a5da300a4470fc44398f447ec"
+  },
+  "gen-index.md": {
+    "content": "09a2b3d75fd8bd7116b0c7072ce0c308d65559db0041e5431346748c20bb991a",
+    "description": "bb3cd9d34f014c0674a9285c25ee14b5b4abc5cf941f0d83594c301405e8f3b6"
+  },
+  "helpers.md": {
+    "content": "e2f5a60932535509b713dd16760b168652230cc2240afad3946e04d60afee8e1",
+    "description": "6a2b8b55c691830dfe593391040e523cbd9efa548700fbbcdf08f58d650dd84b"
+  },
   "index.md": {
-    "content": "ff8ab64d954a2f998a695cc0cebbf00dd3fab613271b16682546209e170f77a5",
+    "content": "9cbb453477fe21c3c1ff9153d742d303349eca52ab27fb4776d1a80040a7658d",
     "description": "fe5ad3a9ee058bd037559da8cf1c7b0b2af8998e5fb5a75a97dcf0f46d4d5134"
+  },
+  "info.md": {
+    "content": "89d61bfe7a7607506deeab00e9b6b18a88c62872a1b83a05f2dc3266e25a147a",
+    "description": "d01f646230df14d10e8f9b33611dd180e0fe848d0bd6d3409775fb5cb07e0829"
+  },
+  "internal-archive-archive.md": {
+    "content": "d928c4253e8ef8ddbbf648ab97bec832e0647342d76b6cf382ef1bc655137896",
+    "description": "a831cc01027b744c5da92247d4047ca80eb3af36875804bb7f3b543ff6b1a6d3"
+  },
+  "internal-archive-doc.md": {
+    "content": "ff6c080e3bc1e572311dc25654eec6f6211360f76d96876c64fdc3c91ac55b4d",
+    "description": "d1148768c80a4c2bb05d0c353652c3b973a0c491a82ea45b3b4e1ba42689cced"
+  },
+  "internal-config-config.md": {
+    "content": "69e87175d44c7f7927a970d0a4f0653011d3b381ec695bf2ef01787829c77d34",
+    "description": "ae07cba7cd3f3c36c74f2f53a1aef8f719b15af057717fab172b53642f5abdff"
+  },
+  "internal-config-doc.md": {
+    "content": "338bd1c9716a2dc31c8f6335a766718c8cc0faaeb630264c60e4861106624554",
+    "description": "012137a8cfc7d6d1dec9bb138463c2eded438d64facc681f1b2c6552476f3bee"
+  },
+  "internal-db-db.md": {
+    "content": "39668f58735d193137abc60fc679ab65471f82a1b9251e9af467384c76fd7bc4",
+    "description": "c26cb4f6c82e86908a1e6d9e13b9d2544f8df52108fccf6db77549282b27a984"
+  },
+  "internal-db-doc.md": {
+    "content": "2656d2e6ba9bb85a60d0fcf402aae39606627044dd411204b29ec457a52a5310",
+    "description": "e79b806c9497df25031ff4e143834623c97df14291509239825ed240611b79ef"
+  },
+  "internal-db-schema.md": {
+    "content": "6657421ac14d36bb6911ea0359ef1692efc62e32b72d33ddb740a1b1dc9fbb39",
+    "description": "2a7a261fa67ff9ba19a2f1237e8192757feb5e61a5d238c38aed1d4ccd311572"
+  },
+  "internal-git-git.md": {
+    "content": "95dbd23ecc15e9ec9109eb283cb61baf5db3c8bfc8c0f294cbd6b0aa566a2b13",
+    "description": "5f40cfed7a33186ec80eb8f38c5c1a0edd46aea95ff30319304628d4e150834b"
+  },
+  "internal-meta-doc.md": {
+    "content": "3c0fa99375123c3be4ba602294f1e50a68763e0f7a8b6750f0eb995de8a31f97",
+    "description": "700508094dda2d9d37ca62143755d5aeafaef7bd5b53c25951047a50e75c2cc6"
+  },
+  "internal-meta-meta.md": {
+    "content": "540e7ff49da34e65733386703cb7079877e807629dbf9311572aeb8a17d0039e",
+    "description": "e72fdf3a090d94abbd66bde4f48f1c6997afa07bbc424ec7d802b4ba20c29b1a"
+  },
+  "internal-meta-proc_darwin.md": {
+    "content": "49b7efb3adb1dd291c5f4a29e55fc7b1dfa7310b18bdf2ce938a0f23068aae04",
+    "description": "d904e8cd6822e6b98727660e5f2f08a52d4db582eb05d12ad0490881777f0d8d"
+  },
+  "internal-meta-proc_linux.md": {
+    "content": "c7f15e10f615ed17f2b223b455a4a627bd99a70a7a327616c243a1e71625d24a",
+    "description": "e95070bb71e9e59532c13ac6f5377aaca6113f1f9682d28c89880cc1362fb257"
+  },
+  "internal-testutil-testutil.md": {
+    "content": "41087aea9554df97ab5ec0f718c4cfa49609ea631c4985da8831507c10338e35",
+    "description": "0adc2f43be4efe900f70468639b586ae01f92250d3534704818bb2b718021a82"
+  },
+  "list.md": {
+    "content": "1d189afc8b2f82ef8b80399ff7491962af8897eca5e3eeebc17c0ac998fa3d10",
+    "description": "a02ed01be99c1434d6ff02da76b77c5df868aabe7985e57b121e2a667f3bfa87"
+  },
+  "main.md": {
+    "content": "75fc035b4c92b8afb3056ed7f5a699c3b6096d87de17f880d917360432e032e8",
+    "description": "71c680cd4103417ad698a49afeee8cadc2b18ea5d877cab024d778eff13b5788"
+  },
+  "purge.md": {
+    "content": "c2c6e95065c2dd3edb6257d311f592cbb92c786148db262d5a458dd38db42536",
+    "description": "0c7a3da91e9ddd5eded028db8f2f4d3b7d74f2d39b9265b76ce78b64a42422ba"
+  },
+  "undelete.md": {
+    "content": "1bef775c91ad6c5356a0fd631048366debf8a1289d05b0c700b12b45d0ce892d",
+    "description": "4bb9638d1c3ccb3becec0443bb3bf935ea31376cfca8303b2d0a047e637b6ba5"
+  },
+  "version.md": {
+    "content": "3a5b914a947384dd032c10927466915ee353c2622400cfcd64f47b0ff3b5a145",
+    "description": "f4c381952a55f3df22dca1fd7b32babd603f056e20a3bf099eb1105392bb0a03"
   }
 }
