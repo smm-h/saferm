@@ -2,17 +2,17 @@ module github.com/smm-h/saferm
 
 go 1.25.0
 
-require github.com/smm-h/strictcli/go v0.0.0-20260515092524-7b18f5a6746d
+require github.com/smm-h/strictcli/go v0.4.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0
+	github.com/klauspost/compress v1.18.6
 	modernc.org/sqlite v1.50.1
 )
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
