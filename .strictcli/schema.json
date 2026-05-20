@@ -1,0 +1,236 @@
+{
+  "commands": {
+    "delete": {
+      "args": [
+        {
+          "help": "Files or directories to archive",
+          "name": "files",
+          "required": true,
+          "variadic": true
+        }
+      ],
+      "flags": [
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Allow deletion of directories",
+          "hidden": false,
+          "name": "recursive",
+          "negatable": true,
+          "repeatable": false,
+          "short": "r",
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Ignore nonexistent files, skip prompts",
+          "hidden": false,
+          "name": "force",
+          "negatable": true,
+          "repeatable": false,
+          "short": "f",
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Prompt before each deletion",
+          "hidden": false,
+          "name": "interactive",
+          "negatable": true,
+          "repeatable": false,
+          "short": "i",
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "env": null,
+          "help": "Why this deletion is happening",
+          "hidden": false,
+          "name": "description",
+          "negatable": null,
+          "repeatable": false,
+          "short": null,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": "",
+          "env": null,
+          "help": "The original bash command that triggered this",
+          "hidden": false,
+          "name": "command",
+          "negatable": null,
+          "repeatable": false,
+          "short": null,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "env": null,
+          "help": "Additional metadata as key=value",
+          "hidden": false,
+          "name": "meta",
+          "negatable": null,
+          "repeatable": true,
+          "short": null,
+          "type": "str"
+        }
+      ],
+      "help": "Archive files safely (instead of rm)",
+      "name": "delete",
+      "passthrough": false
+    },
+    "info": {
+      "args": [
+        {
+          "help": "ID of the archived item",
+          "name": "id",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": [],
+      "help": "Show full metadata for a deletion",
+      "name": "info",
+      "passthrough": false
+    },
+    "list": {
+      "args": [],
+      "flags": [
+        {
+          "choices": null,
+          "default": "",
+          "env": null,
+          "help": "Filter by path glob pattern",
+          "hidden": false,
+          "name": "path",
+          "negatable": null,
+          "repeatable": false,
+          "short": null,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Include already-restored items",
+          "hidden": false,
+          "name": "all",
+          "negatable": true,
+          "repeatable": false,
+          "short": null,
+          "type": "bool"
+        }
+      ],
+      "help": "List archived items",
+      "name": "list",
+      "passthrough": false
+    },
+    "purge": {
+      "args": [
+        {
+          "help": "Specific IDs to purge",
+          "name": "ids",
+          "required": false,
+          "variadic": true
+        }
+      ],
+      "flags": [
+        {
+          "choices": null,
+          "default": "",
+          "env": null,
+          "help": "Purge items older than duration (e.g., 30d, 24h, 1w)",
+          "hidden": false,
+          "name": "older-than",
+          "negatable": null,
+          "repeatable": false,
+          "short": null,
+          "type": "str"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Skip confirmation prompt",
+          "hidden": false,
+          "name": "force",
+          "negatable": true,
+          "repeatable": false,
+          "short": "f",
+          "type": "bool"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Purge everything",
+          "hidden": false,
+          "name": "all",
+          "negatable": true,
+          "repeatable": false,
+          "short": null,
+          "type": "bool"
+        }
+      ],
+      "help": "Permanently remove items from archive",
+      "name": "purge",
+      "passthrough": false
+    },
+    "undelete": {
+      "args": [
+        {
+          "help": "Numeric ID or original file path to restore",
+          "name": "target",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "flags": [
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Overwrite existing file at destination",
+          "hidden": false,
+          "name": "force",
+          "negatable": true,
+          "repeatable": false,
+          "short": null,
+          "type": "bool"
+        }
+      ],
+      "help": "Restore a file from archive",
+      "name": "undelete",
+      "passthrough": false
+    }
+  },
+  "config": false,
+  "deprecated": {},
+  "env_prefix": "SAFERM",
+  "global_flags": [
+    {
+      "choices": null,
+      "default": false,
+      "env": null,
+      "help": "Enable verbose output",
+      "hidden": false,
+      "name": "verbose",
+      "negatable": true,
+      "repeatable": false,
+      "short": null,
+      "type": "bool"
+    }
+  ],
+  "groups": {},
+  "help": "AI-first safe rm replacement",
+  "name": "saferm",
+  "version": "(devel)"
+}
