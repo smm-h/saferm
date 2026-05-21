@@ -7,7 +7,7 @@ import tarfile
 import urllib.request
 
 
-VERSION = "0.1.1"
+__version__ = "0.2.0"
 _BIN_DIR = os.path.join(os.path.dirname(__file__), "_bin")
 
 
@@ -30,11 +30,11 @@ def _ensure_binary():
     arch = _detect_arch()
 
     url = (
-        f"https://github.com/smm-h/saferm/releases/download/v{VERSION}/"
-        f"saferm_{VERSION}_{os_name}_{arch}.tar.gz"
+        f"https://github.com/smm-h/saferm/releases/download/v{__version__}/"
+        f"saferm_{__version__}_{os_name}_{arch}.tar.gz"
     )
 
-    print(f"Downloading saferm v{VERSION} for {os_name}/{arch}...", file=sys.stderr)
+    print(f"Downloading saferm v{__version__} for {os_name}/{arch}...", file=sys.stderr)
 
     try:
         response = urllib.request.urlopen(url)

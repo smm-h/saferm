@@ -14,5 +14,8 @@ keywords = ["rm", "safe", "delete", "trash", "undelete", "cli", "rlsbl"]
 Homepage = "https://github.com/smm-h/saferm"
 Repository = "https://github.com/smm-h/saferm"
 
+[tool.setuptools]
+packages = ["saferm"]
+
 [project.scripts]
 saferm = "saferm:main"
