@@ -244,5 +244,5 @@
   "groups": {},
   "help": "AI-first safe rm replacement",
   "name": "saferm",
-  "version": "(devel)"
+  "version": "0.2.1-0.20260521140527-58dc3c3642cd+dirty"
 }
