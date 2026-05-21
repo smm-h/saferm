@@ -81,6 +81,18 @@
           "repeatable": true,
           "short": null,
           "type": "str"
+        },
+        {
+          "choices": null,
+          "default": false,
+          "env": null,
+          "help": "Do not update the git index after archiving",
+          "hidden": false,
+          "name": "no-git",
+          "negatable": true,
+          "repeatable": false,
+          "short": null,
+          "type": "bool"
         }
       ],
       "help": "Archive files safely (instead of rm)",
