@@ -27,6 +27,58 @@
     "content": "60f1e22db5174a77a087765d4f9e1a7885cec44edc408250705f76a7f815b604",
     "description": "17cdb0e70d67010caa328d8c735917c7a22dccfa4869298454be1436593e3fc1"
   },
+  "en/cli-delete.md": {
+    "content": "f59ac26d407e145e680dff9101548a32222c3769affc3cc039705592b1cfc330",
+    "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d"
+  },
+  "en/cli-index.md": {
+    "content": "2e016db1e0c4f37ade34727aae0a490378670c2115404ce76c2655c1ee519a78",
+    "description": "c29f159b2c8376a6e6fbfef8446ca34d26087187b10d269922892f3ae9f835fe"
+  },
+  "en/cli-info.md": {
+    "content": "b13019fc6f82316af4048ab102aca099d861f80ee7ab6bca5d3b10bc9153d83e",
+    "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed"
+  },
+  "en/cli-list.md": {
+    "content": "a869887e67a196cb5f64905fb823c318a12e3ee63a83052a0f01448ed3a8eeb1",
+    "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1"
+  },
+  "en/cli-purge.md": {
+    "content": "aafc500f0b48b5fe10c920b96a4633942912dc8ba5b88357107c86b17fc222f6",
+    "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451"
+  },
+  "en/cli-undelete.md": {
+    "content": "428a499c32ed1657313546b44a625787563d2e489285c2cc36a7ea849fb83d30",
+    "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c"
+  },
+  "en/gen-index.md": {
+    "content": "77b26abe69da3a05549e49ce64a424607918ca7cfb8913353870f1d7ae523870",
+    "description": "bb3cd9d34f014c0674a9285c25ee14b5b4abc5cf941f0d83594c301405e8f3b6"
+  },
+  "en/index.md": {
+    "content": "63f1f78fbc390a1955c5de3e8a1cdc50d4dcb68e0936cd1793572ae00251666d",
+    "description": "0802097e2bbec002564026abfea939420b1c8fea6431cda14e6c50a28c51f57b"
+  },
+  "en/internal-archive.md": {
+    "content": "fd35384bb48233369eba24151e747eb5b8f94d95e2d658dba4514890608452c5",
+    "description": "95cb91ba53d634db650eba55aac1036312be246f65670a212ab9ecb4d8db5232"
+  },
+  "en/internal-config.md": {
+    "content": "534084ddf550be25b902d3bd66c45a41aea0702f716bfe6886a3a93fdb1989b0",
+    "description": "822a01945c472831efa6c4e3405c219d871501208cffa763c704e71d0168d1df"
+  },
+  "en/internal-db.md": {
+    "content": "94ace9967ecd6ad43c69e0060eb77b4abca570b12bd2ba05bb2a47185631540f",
+    "description": "2e9f0245d7e86c35f86f8ee60d3e23af337442c0f63189f34dab858a82212369"
+  },
+  "en/internal-git.md": {
+    "content": "e01df6161998892a8cd178d27c366e7fca97faef8fe9cdd530f8992c7dabbed7",
+    "description": "082aa35a5b966e5e308dee787df64518be7d384b097be56c711427373671d804"
+  },
+  "en/internal-meta.md": {
+    "content": "8bdc2561126e16f08c62f6c6b4a1f65aab1f71ec19dc50502e130a7c2ae7e292",
+    "description": "aacf9c2e88775f46cecfbf41ccfb0495231947b4cebdc49bcfc26cead9486814"
+  },
   "exitcodes.md": {
     "content": "5e90f3617972e3413f4d727e451dd98b205dbf37ff4380c5c121f4297acadd84",
     "description": "cf52e88f53f18695a2ad7da739d319ddd402a64a5da300a4470fc44398f447ec"
