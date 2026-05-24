@@ -1,4 +1,5 @@
 {
+  "version": "0.2.0",
   "language": "go",
   "source": [".", "internal/archive", "internal/db", "internal/git", "internal/meta", "internal/config"],
   "docs": "docs/",
