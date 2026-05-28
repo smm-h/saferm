@@ -15,5 +15,6 @@
     "description": "AI-first safe rm replacement",
     "license": "MIT"
   },
-  "private": false
+  "private": false,
+  "push_timeout": 120
 }
