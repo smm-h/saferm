@@ -16,3 +16,4 @@ docs/_build/
 .env.local
 *.local-only
 pypi/saferm/_bin/
+.wrangler/
