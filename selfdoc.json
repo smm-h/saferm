@@ -1,7 +1,6 @@
 {
   "version": "0.2.0",
-  "language": "go",
-  "source": [".", "internal/archive", "internal/db", "internal/git", "internal/meta", "internal/config"],
+  "source": [{"path": ".", "language": "go"}, {"path": "internal/archive", "language": "go"}, {"path": "internal/db", "language": "go"}, {"path": "internal/git", "language": "go"}, {"path": "internal/meta", "language": "go"}, {"path": "internal/config", "language": "go"}],
   "docs": "docs/",
   "output": "docs/_build/",
   "base_url": "https://saferm.smmh.dev",
