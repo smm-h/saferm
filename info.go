@@ -54,7 +54,9 @@ func handleInfo(kwargs map[string]interface{}) int {
 	}
 
 	fileType := "file"
-	if rec.IsDirectory {
+	if rec.SymlinkTarget != nil {
+		fileType = "symlink"
+	} else if rec.IsDirectory {
 		fileType = "directory"
 	}
 

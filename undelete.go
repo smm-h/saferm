@@ -86,7 +86,11 @@ func handleUndelete(kwargs map[string]interface{}) int {
 
 	dest := rec.OriginalPath
 
-	err = archive.Restore(rec.UUID, cfg.ArchiveDir, dest, rec.IsDirectory, force)
+	symlinkTarget := ""
+	if rec.SymlinkTarget != nil {
+		symlinkTarget = *rec.SymlinkTarget
+	}
+	err = archive.Restore(rec.UUID, cfg.ArchiveDir, dest, rec.IsDirectory, force, symlinkTarget)
 	if err != nil {
 		if errors.Is(err, archive.ErrConflict) {
 			fmt.Fprintf(os.Stderr, "error: %s already exists (use --force to overwrite)\n", dest)
