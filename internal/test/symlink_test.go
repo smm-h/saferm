@@ -241,6 +241,131 @@ func TestDelete_Symlink_Relative(t *testing.T) {
 	}
 }
 
+// TestList_Symlink_TypeIndicator tests that symlinks show [sym] in list output
+// and regular files do not have any type indicator.
+func TestList_Symlink_TypeIndicator(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	// Create a regular file.
+	targetContent := "list indicator target"
+	targetPath := testutil.CreateTempFile(t, workDir, "regular.txt", targetContent)
+
+	// Create a symlink to the target.
+	symlinkPath := filepath.Join(workDir, "symlink.txt")
+	if err := os.Symlink(targetPath, symlinkPath); err != nil {
+		t.Fatalf("creating symlink: %v", err)
+	}
+
+	// Delete both: the symlink first, then the regular file.
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "list indicator test sym", symlinkPath)
+	if code != 0 {
+		t.Fatalf("delete symlink failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	_, stderr, code = runSaferm(t, homeDir, "delete", "--description", "list indicator test reg", targetPath)
+	if code != 0 {
+		t.Fatalf("delete regular file failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Run saferm list.
+	stdout, stderr, code := runSaferm(t, homeDir, "list")
+	if code != 0 {
+		t.Fatalf("list failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Parse lines to find entries for each file.
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	var symlinkLine, regularLine string
+	for _, line := range lines {
+		if strings.Contains(line, "symlink.txt") {
+			symlinkLine = line
+		}
+		if strings.Contains(line, "regular.txt") {
+			regularLine = line
+		}
+	}
+
+	if symlinkLine == "" {
+		t.Fatalf("symlink entry not found in list output:\n%s", stdout)
+	}
+	if regularLine == "" {
+		t.Fatalf("regular file entry not found in list output:\n%s", stdout)
+	}
+
+	// Symlink line should contain [sym].
+	if !strings.Contains(symlinkLine, "[sym]") {
+		t.Errorf("symlink list entry should contain [sym], got: %q", symlinkLine)
+	}
+
+	// Regular file line should NOT contain [sym] or [dir].
+	if strings.Contains(regularLine, "[sym]") || strings.Contains(regularLine, "[dir]") {
+		t.Errorf("regular file list entry should not contain type indicator, got: %q", regularLine)
+	}
+}
+
+// TestPurge_Symlink tests that purging a symlink entry removes the .symlink
+// metadata file from the archive and deletes the database record.
+func TestPurge_Symlink(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	// Create a file and a symlink to it.
+	targetPath := testutil.CreateTempFile(t, workDir, "purge-target.txt", "purge target content")
+	symlinkPath := filepath.Join(workDir, "purge-link.txt")
+	if err := os.Symlink(targetPath, symlinkPath); err != nil {
+		t.Fatalf("creating symlink: %v", err)
+	}
+
+	// Delete the symlink via saferm.
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "purge symlink test", symlinkPath)
+	if code != 0 {
+		t.Fatalf("delete symlink failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Get the deletion ID.
+	stdout, _, _ := runSaferm(t, homeDir, "list")
+	id := parseFirstID(t, stdout)
+
+	// Verify the .symlink file exists in the archive before purge.
+	archiveDir := filepath.Join(homeDir, ".saferm", "archive")
+	entries, err := os.ReadDir(archiveDir)
+	if err != nil {
+		t.Fatalf("reading archive dir: %v", err)
+	}
+	foundSymlink := false
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".symlink") {
+			foundSymlink = true
+			break
+		}
+	}
+	if !foundSymlink {
+		t.Fatal("expected .symlink file in archive before purge")
+	}
+
+	// Purge by ID with -f to skip confirmation.
+	_, stderr, code = runSaferm(t, homeDir, "purge", "-f", id)
+	if code != 0 {
+		t.Fatalf("purge symlink failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Verify the archive directory is now empty (the .symlink file was removed).
+	entries, err = os.ReadDir(archiveDir)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("reading archive dir after purge: %v", err)
+	}
+	for _, entry := range entries {
+		t.Errorf("archive dir should be empty after purge, found: %s", entry.Name())
+	}
+
+	// Verify info fails (record is gone).
+	_, _, code = runSaferm(t, homeDir, "info", id)
+	if code == 0 {
+		t.Fatal("info should fail after purge")
+	}
+}
+
 // TestDelete_Symlink_Dangling tests that saferm can delete a dangling symlink
 // (one whose target no longer exists) without erroring.
 func TestDelete_Symlink_Dangling(t *testing.T) {
