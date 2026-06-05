@@ -6,9 +6,3 @@
 set -euo pipefail
 
 echo "Post-release: v$RLSBL_VERSION"
-
-if command -v selfdoc &> /dev/null && [ -f selfdoc.json ]; then
-  echo "Building and deploying docs..."
-  selfdoc build
-  selfdoc deploy
-fi
