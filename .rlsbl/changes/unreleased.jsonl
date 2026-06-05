@@ -4,3 +4,4 @@
 {"commits":["7047af794271857d6c9350dac3c44b8c540337c2"],"user_facing":true,"description":"**New feature.** `saferm info` now shows symlink type and target path for symlink deletions.","type":"feature"}
 {"commits":["a8b16a26899b038a9d65b0bd013b36ee67bbd1ec","088cc1c783eb1a81ea372401349c95bb28678910","2eac118d40c24cde02025b580168a0cf3d6aa281"],"user_facing":false}
 {"commits":["a7c26af8ddac067b0ec0c7486f2ea53435a1098b","67b721ea625ab7b4ad1bdd51de0e0e2d91e3c710"],"user_facing":false}
+{"commits":["17e038bd57c47c7f38d57601dc15bd52a2a6d391","a2f0ba3d3ca8180b9cb697067d5110114313ed6b","c1dc711cc4196722065ac3ec7f8f5897d715c965","a78a0b26f2b8ae11ecddb6c05cdc4fe4040f3d18","9e30d823336d9bb21de35d310ab9ca5188f72300"],"user_facing":false}
