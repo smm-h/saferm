@@ -60,6 +60,9 @@ func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, 
 	if info.IsDir() {
 		return archiveDirectory(path, archiveDir, uuid)
 	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return archiveSymlink(path, archiveDir, uuid)
+	}
 	return archiveFile(path, archiveDir, uuid)
 }
 
