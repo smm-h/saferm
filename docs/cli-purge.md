@@ -14,7 +14,7 @@ Permanently remove items from archive
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
-|------|-------|------|---------|-----|-------------|
+| --- | --- | --- | --- | --- | --- |
 | `--older-than` |  | str |  |  | Purge items older than duration (e.g., 30d, 24h, 1w) |
 | `--force` | `-f` | bool |  |  | Skip confirmation prompt |
 | `--all` |  | bool |  |  | Purge everything |
@@ -22,5 +22,5 @@ Permanently remove items from archive
 ## Arguments
 
 | Name | Required | Description |
-|------|----------|-------------|
+| --- | --- | --- |
 | `ids` | no | Specific IDs to purge |

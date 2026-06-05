@@ -14,11 +14,11 @@ Restore a file from archive
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
-|------|-------|------|---------|-----|-------------|
+| --- | --- | --- | --- | --- | --- |
 | `--force` |  | bool |  |  | Overwrite existing file at destination |
 
 ## Arguments
 
 | Name | Required | Description |
-|------|----------|-------------|
+| --- | --- | --- |
 | `target` | yes | Numeric ID or original file path to restore |

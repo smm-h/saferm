@@ -14,6 +14,6 @@ List archived items
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
-|------|-------|------|---------|-----|-------------|
+| --- | --- | --- | --- | --- | --- |
 | `--path` |  | str |  |  | Filter by path glob pattern |
 | `--all` |  | bool |  |  | Include already-restored items |

@@ -191,5 +191,5 @@
   "help": "AI-first safe rm replacement",
   "name": "saferm",
   "project_id": "github.com/smm-h/saferm",
-  "version": "0.2.1-0.20260529221630-5fd88ea145ec+dirty"
+  "version": "(devel)"
 }

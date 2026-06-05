@@ -2,6 +2,14 @@
 
 # Changelog
 
+## 0.2.1
+
+Dependency upgrades and housekeeping
+
+### Features
+
+- **Upgrade.** strictcli framework upgraded to v0.11.0.
+
 ## 0.2.0
 
 ### Features

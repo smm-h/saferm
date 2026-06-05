@@ -14,16 +14,17 @@ Archive files safely (instead of rm)
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
-|------|-------|------|---------|-----|-------------|
+| --- | --- | --- | --- | --- | --- |
 | `--recursive` | `-r` | bool |  |  | Allow deletion of directories |
 | `--force` | `-f` | bool |  |  | Ignore nonexistent files, skip prompts |
 | `--interactive` | `-i` | bool |  |  | Prompt before each deletion |
 | `--description` |  | str |  |  | Why this deletion is happening |
 | `--command` |  | str |  |  | The original bash command that triggered this |
 | `--meta` |  | str |  |  | Additional metadata as key=value |
+| `--no-git` |  | bool |  |  | Do not update the git index after archiving |
 
 ## Arguments
 
 | Name | Required | Description |
-|------|----------|-------------|
+| --- | --- | --- |
 | `files` | yes | Files or directories to archive |

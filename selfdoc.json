@@ -1,13 +1,51 @@
 {
-  "version": "0.2.0",
-  "source": [{"path": ".", "language": "go"}, {"path": "internal/archive", "language": "go"}, {"path": "internal/db", "language": "go"}, {"path": "internal/git", "language": "go"}, {"path": "internal/meta", "language": "go"}, {"path": "internal/config", "language": "go"}],
+  "version": "0.2.1",
+  "source": [
+    {
+      "path": ".",
+      "language": "go"
+    },
+    {
+      "path": "internal/archive",
+      "language": "go"
+    },
+    {
+      "path": "internal/db",
+      "language": "go"
+    },
+    {
+      "path": "internal/git",
+      "language": "go"
+    },
+    {
+      "path": "internal/meta",
+      "language": "go"
+    },
+    {
+      "path": "internal/config",
+      "language": "go"
+    }
+  ],
   "docs": "docs/",
   "output": "docs/_build/",
   "base_url": "https://saferm.smmh.dev",
-  "versions": [{"version": "0.2.0", "indexed": true}],
-  "locales": [{"code": "en", "label": "English", "default": true}],
+  "versions": [
+    {
+      "version": "0.2.1",
+      "indexed": true
+    }
+  ],
+  "locales": [
+    {
+      "code": "en",
+      "label": "English",
+      "default": true
+    }
+  ],
   "gen": {
-    "exclude": ["*"]
+    "exclude": [
+      "*"
+    ]
   },
   "deploy": {
     "provider": "cloudflare-pages",

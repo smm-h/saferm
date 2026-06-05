@@ -14,5 +14,5 @@ Show full metadata for a deletion
 ## Arguments
 
 | Name | Required | Description |
-|------|----------|-------------|
+| --- | --- | --- |
 | `id` | yes | ID of the archived item |
