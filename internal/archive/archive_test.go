@@ -71,7 +71,7 @@ func TestArchive_FileRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(result.UUID, archiveDir, restorePath, false, false); err != nil {
+	if err := Restore(result.UUID, archiveDir, restorePath, false, false, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -145,7 +145,7 @@ func TestArchive_DirectoryRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(result.UUID, archiveDir, restoreDir, true, false); err != nil {
+	if err := Restore(result.UUID, archiveDir, restoreDir, true, false, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -211,7 +211,7 @@ func TestRestore_ConflictNoForce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Restore(result.UUID, archiveDir, destFile, false, false)
+	err = Restore(result.UUID, archiveDir, destFile, false, false, "")
 	if err != ErrConflict {
 		t.Errorf("expected ErrConflict, got: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestRestore_ConflictWithForce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = Restore(result.UUID, archiveDir, destFile, false, true)
+	err = Restore(result.UUID, archiveDir, destFile, false, true, "")
 	if err != nil {
 		t.Fatalf("force restore failed: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestArchive_Symlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(result.UUID, archiveDir, restoreDir, true, false); err != nil {
+	if err := Restore(result.UUID, archiveDir, restoreDir, true, false, ""); err != nil {
 		t.Fatal(err)
 	}
 
