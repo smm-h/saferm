@@ -73,9 +73,20 @@ func handleList(kwargs map[string]interface{}) int {
 		}
 
 		path := rec.OriginalPath
-		if len(path) > 40 {
-			path = "..." + path[len(path)-37:]
+
+		// Append type indicator for non-regular files.
+		typeIndicator := ""
+		if rec.SymlinkTarget != nil {
+			typeIndicator = " [sym]"
+		} else if rec.IsDirectory {
+			typeIndicator = " [dir]"
 		}
+
+		if len(path)+len(typeIndicator) > 40 {
+			maxPath := 40 - len(typeIndicator)
+			path = "..." + path[len(path)-(maxPath-3):]
+		}
+		path += typeIndicator
 
 		fmt.Printf("%-6d %-40s %-10s %-16s %s\n",
 			rec.ID,
