@@ -234,8 +234,13 @@ func (d *DB) QueryOlderThan(before time.Time) ([]*DeletionRecord, error) {
 	return scanRecords(rows)
 }
 
-// scanRecord scans a single row into a DeletionRecord.
-func scanRecord(row *sql.Row) (*DeletionRecord, error) {
+// scanner is the common interface between *sql.Row and *sql.Rows.
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+// scanOne scans a single row from any scanner into a DeletionRecord.
+func scanOne(s scanner) (*DeletionRecord, error) {
 	var rec DeletionRecord
 	var isDir int
 	var deletedAtStr string
@@ -244,7 +249,7 @@ func scanRecord(row *sql.Row) (*DeletionRecord, error) {
 	var restoredAtStr sql.NullString
 	var restoredTo sql.NullString
 
-	err := row.Scan(
+	err := s.Scan(
 		&rec.ID, &rec.UUID, &rec.OriginalPath, &rec.OriginalName,
 		&rec.Size, &rec.Hash, &isDir, &deletedAtStr,
 		&command, &rec.Description, &metadata,
@@ -279,51 +284,20 @@ func scanRecord(row *sql.Row) (*DeletionRecord, error) {
 	return &rec, nil
 }
 
-// scanRecords scans multiple rows into a slice of DeletionRecords.
+// scanRecord scans a single *sql.Row into a DeletionRecord.
+func scanRecord(row *sql.Row) (*DeletionRecord, error) {
+	return scanOne(row)
+}
+
+// scanRecords scans multiple *sql.Rows into a slice of DeletionRecords.
 func scanRecords(rows *sql.Rows) ([]*DeletionRecord, error) {
 	var records []*DeletionRecord
 	for rows.Next() {
-		var rec DeletionRecord
-		var isDir int
-		var deletedAtStr string
-		var command sql.NullString
-		var metadata sql.NullString
-		var restoredAtStr sql.NullString
-		var restoredTo sql.NullString
-
-		err := rows.Scan(
-			&rec.ID, &rec.UUID, &rec.OriginalPath, &rec.OriginalName,
-			&rec.Size, &rec.Hash, &isDir, &deletedAtStr,
-			&command, &rec.Description, &metadata,
-			&restoredAtStr, &restoredTo,
-		)
+		rec, err := scanOne(rows)
 		if err != nil {
 			return nil, err
 		}
-
-		rec.IsDirectory = isDir != 0
-		rec.DeletedAt, err = time.Parse(time.RFC3339, deletedAtStr)
-		if err != nil {
-			return nil, err
-		}
-		if command.Valid {
-			rec.Command = command.String
-		}
-		if metadata.Valid {
-			rec.Metadata = metadata.String
-		}
-		if restoredAtStr.Valid {
-			t, err := time.Parse(time.RFC3339, restoredAtStr.String)
-			if err != nil {
-				return nil, err
-			}
-			rec.RestoredAt = &t
-		}
-		if restoredTo.Valid {
-			rec.RestoredTo = &restoredTo.String
-		}
-
-		records = append(records, &rec)
+		records = append(records, rec)
 	}
 	return records, rows.Err()
 }
