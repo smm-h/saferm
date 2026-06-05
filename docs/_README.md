@@ -1,0 +1,145 @@
+---
+title: README.md
+---
+# saferm
+
+AI-first safe rm replacement. Instead of deleting files, saferm archives them to `~/.saferm/` with rich metadata, supporting undelete.
+
+AI agents delete files recklessly -- refactoring, cleaning up, retrying. Every deletion should be justified and reversible. saferm enforces this by requiring a `--description` flag on every delete, capturing environment context automatically, and making restoration trivial.
+
+## Quick start
+
+```
+go install github.com/smm-h/saferm@latest
+```
+
+Or via Homebrew (macOS/Linux):
+
+```
+brew install smm-h/tap/saferm
+```
+
+Delete a file (the `--description` flag is mandatory):
+
+```
+saferm delete --description "removing stale config" old-config.yaml
+```
+
+See what you've archived:
+
+```
+saferm list
+```
+
+Bring it back:
+
+```
+saferm undelete old-config.yaml
+```
+
+## Install
+
+| Method | Command |
+|--------|---------|
+| Go | `go install github.com/smm-h/saferm@latest` |
+| Homebrew | `brew install smm-h/tap/saferm` |
+| npm | `npm install -g saferemove` (not yet published) |
+| PyPI | `pip install saferm` (not yet published) |
+
+## Commands
+
+:-: table-commands path="."
+
+## Example workflow
+
+```
+$ saferm delete --description "broken migration, rewriting from scratch" -r db/migrations/
+Archived db/migrations/ (id: 3)
+
+$ saferm list
+ID  PATH                   SIZE   DELETED
+3   db/migrations/         14K    2 minutes ago
+
+$ saferm info 3
+ID:          3
+Path:        /home/user/project/db/migrations/
+Size:        14382
+Type:        directory
+Description: broken migration, rewriting from scratch
+Deleted:     2026-05-16 14:32:01 UTC
+Git branch:  feature/new-schema
+Git HEAD:    a1b2c3d
+Parent PID:  12345
+Parent cmd:  claude
+
+$ saferm undelete 3
+Restored db/migrations/
+```
+
+## Metadata
+
+Every deletion automatically captures:
+
+- **Description** -- the mandatory `--description` flag
+- **Git context** -- branch, HEAD commit, repo root (auto-detected)
+- **Environment variables** -- filtered by a configurable denylist to exclude secrets
+- **Parent process** -- PID and full command line of the calling process
+- **Claude Code session** -- via `CLAUDE_CODE_SESSION_ID` env var, if present
+- **Custom metadata** -- arbitrary key=value pairs via `--meta`
+
+## Storage
+
+```
+~/.saferm/
+  archive/       files stored by UUID; directories as .tar.zst
+  db/saferm.db   SQLite database (WAL mode)
+  config.toml    optional configuration
+```
+
+Override the base directory with the `SAFERM_HOME` environment variable.
+
+## Configuration
+
+Optional file at `~/.saferm/config.toml`:
+
+```toml
+exclude_env_patterns = [
+  "(?i)token",
+  "(?i)secret",
+  "(?i)password",
+  "(?i)key(?!BOARD)",
+  "(?i)credential",
+]
+```
+
+The `exclude_env_patterns` list controls which environment variables are redacted from captured metadata.
+
+## Concurrency
+
+saferm is safe for concurrent use. SQLite WAL mode with `busy_timeout` and UUID-based archive naming mean multiple AI sessions (or humans) can delete files simultaneously without conflicts.
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Usage error |
+| 3 | File not found |
+| 4 | Permission denied |
+| 5 | Database error |
+| 6 | Archive error |
+| 7 | Conflict |
+
+## Platforms
+
+Linux and macOS (amd64, arm64).
+
+## License
+
+MIT
+
+## Links
+
+- GitHub: https://github.com/smm-h/saferm
+- Docs: https://saferm.smmh.dev

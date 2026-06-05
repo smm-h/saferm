@@ -42,6 +42,10 @@
       "default": true
     }
   ],
+  "root_files": [
+    "docs/_CLAUDE.md",
+    "docs/_README.md"
+  ],
   "gen": {
     "exclude": [
       "*"
