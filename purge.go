@@ -123,7 +123,9 @@ func handlePurge(kwargs map[string]interface{}) int {
 	for _, rec := range records {
 		// Remove the archive file
 		archivePath := filepath.Join(cfg.ArchiveDir, rec.UUID)
-		if rec.IsDirectory {
+		if rec.SymlinkTarget != nil {
+			archivePath += ".symlink"
+		} else if rec.IsDirectory {
 			archivePath += ".tar.zst"
 		}
 		if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
