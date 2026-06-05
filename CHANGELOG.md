@@ -2,9 +2,28 @@
 
 # Changelog
 
-## 0.2.1
+## 0.3.0
 
-Dependency upgrades and housekeeping
+Symlink support and selfdoc root file templates
+
+<details>
+<summary>Context</summary>
+
+Standalone symlinks are now archived correctly instead of following the link target. Previously, archiving a symlink would hash and store the target's content (or fail entirely for dangling symlinks). Now saferm preserves the symlink target path and recreates it on restore. Also adopted selfdoc templates for CLAUDE.md and README.md.
+
+</details>
+
+### Features
+
+- **New feature.** Symlinks are now archived by preserving the link target path instead of following the symlink. Dangling symlinks, relative symlinks, and symlinks to directories are all handled correctly. Restore recreates the original symlink.
+- **New feature.** `saferm list` now shows type indicators: `[sym]` for symlinks, `[dir]` for directories.
+- **New feature.** `saferm info` now shows symlink type and target path for symlink deletions.
+
+### Fixes
+
+- **Fix.** `saferm purge` now correctly removes `.symlink` metadata files from the archive.
+
+## 0.2.1
 
 ### Features
 
