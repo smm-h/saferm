@@ -162,7 +162,9 @@ func archiveDirectory(path string, archiveDir string, uuid string) (*ArchiveResu
 }
 
 // Restore extracts an archived file or directory to destPath.
-func Restore(uuid string, archiveDir string, destPath string, isDirectory bool, force bool) error {
+// When symlinkTarget is non-empty, the entry is restored as a symlink
+// pointing to that target (no physical archive file is read).
+func Restore(uuid string, archiveDir string, destPath string, isDirectory bool, force bool, symlinkTarget string) error {
 	if _, err := os.Lstat(destPath); err == nil {
 		if !force {
 			return ErrConflict
@@ -172,15 +174,30 @@ func Restore(uuid string, archiveDir string, destPath string, isDirectory bool, 
 		}
 	}
 
+	if symlinkTarget != "" {
+		return restoreSymlink(uuid, archiveDir, destPath, symlinkTarget)
+	}
 	if isDirectory {
 		return restoreDirectory(uuid, archiveDir, destPath)
 	}
 	return restoreFile(uuid, archiveDir, destPath)
 }
 
+func restoreSymlink(uuid string, archiveDir string, destPath string, target string) error {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return fmt.Errorf("creating parent directory: %w", err)
+	}
+	if err := os.Symlink(target, destPath); err != nil {
+		return fmt.Errorf("recreating symlink: %w", err)
+	}
+	// Clean up the .symlink metadata file from the archive.
+	os.Remove(filepath.Join(archiveDir, uuid+".symlink"))
+	return nil
+}
+
 func restoreFile(uuid string, archiveDir string, destPath string) error {
 	src := filepath.Join(archiveDir, uuid)
-	if _, err := os.Stat(src); err != nil {
+	if _, err := os.Lstat(src); err != nil {
 		return fmt.Errorf("archive entry not found: %w", err)
 	}
 
