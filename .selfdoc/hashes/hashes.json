@@ -28,27 +28,27 @@
     "description": "17cdb0e70d67010caa328d8c735917c7a22dccfa4869298454be1436593e3fc1"
   },
   "en/cli-delete.md": {
-    "content": "f59ac26d407e145e680dff9101548a32222c3769affc3cc039705592b1cfc330",
+    "content": "b889d5dda9ac849864b78144b5628e312912c580abb674daa277cd76f7f157f6",
     "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d"
   },
   "en/cli-index.md": {
-    "content": "2e016db1e0c4f37ade34727aae0a490378670c2115404ce76c2655c1ee519a78",
+    "content": "2b3d0b6be8a5eda0bbec4252a8f478383ae75f69ba2925a5c9726ff60cb2ec2f",
     "description": "c29f159b2c8376a6e6fbfef8446ca34d26087187b10d269922892f3ae9f835fe"
   },
   "en/cli-info.md": {
-    "content": "b13019fc6f82316af4048ab102aca099d861f80ee7ab6bca5d3b10bc9153d83e",
+    "content": "4151159971bafd2b538e7b100240317008379c7c8262384df453414850283559",
     "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed"
   },
   "en/cli-list.md": {
-    "content": "a869887e67a196cb5f64905fb823c318a12e3ee63a83052a0f01448ed3a8eeb1",
+    "content": "d2339c0998b3158ba52e152942c262af32e51c9926a7ffa08c7a5d995a355d0f",
     "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1"
   },
   "en/cli-purge.md": {
-    "content": "aafc500f0b48b5fe10c920b96a4633942912dc8ba5b88357107c86b17fc222f6",
+    "content": "ed69a9fa83f56c90039a0611158f5fcb8790a561ec1086a1eec0a3bc54da9699",
     "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451"
   },
   "en/cli-undelete.md": {
-    "content": "428a499c32ed1657313546b44a625787563d2e489285c2cc36a7ea849fb83d30",
+    "content": "515d41cb4f801180bf1b79a57a5d743dddf7edd8dacc951eb4eac02faf491bb8",
     "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c"
   },
   "en/gen-index.md": {
