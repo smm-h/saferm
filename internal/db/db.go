@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -49,7 +50,62 @@ func Open(dbPath string) (*DB, error) {
 		return nil, err
 	}
 
+	// Run schema migrations.
+	if err := migrate(conn); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
 	return &DB{conn: conn}, nil
+}
+
+// migrate applies schema migrations based on PRAGMA user_version.
+func migrate(conn *sql.DB) error {
+	var version int
+	if err := conn.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		return fmt.Errorf("reading user_version: %w", err)
+	}
+
+	if version < 1 {
+		// Migration 1: add symlink_target column.
+		// The column exists in fresh databases (from CREATE TABLE) but not
+		// in databases created before this migration was added.
+		if !hasColumn(conn, "deletions", "symlink_target") {
+			if _, err := conn.Exec("ALTER TABLE deletions ADD COLUMN symlink_target TEXT"); err != nil {
+				return fmt.Errorf("migration 1 (add symlink_target): %w", err)
+			}
+		}
+		if _, err := conn.Exec("PRAGMA user_version = 1"); err != nil {
+			return fmt.Errorf("setting user_version to 1: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// hasColumn checks whether a table has a column with the given name.
+func hasColumn(conn *sql.DB, table, column string) bool {
+	rows, err := conn.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var ctype sql.NullString
+		var notnull int
+		var dfltValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+			return false
+		}
+		if name == column {
+			return true
+		}
+	}
+	return false
 }
 
 // Close closes the underlying database connection.
