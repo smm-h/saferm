@@ -16,5 +16,19 @@
     "license": "MIT"
   },
   "private": false,
-  "push_timeout": 120
+  "push_timeout": 120,
+  "pipelines": {
+    "go": {
+      "type": "go",
+      "local": false
+    },
+    "npm": {
+      "type": "npm",
+      "local": false
+    },
+    "pypi": {
+      "type": "pypi",
+      "local": false
+    }
+  }
 }
