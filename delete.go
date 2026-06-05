@@ -128,14 +128,9 @@ func handleDelete(kwargs map[string]interface{}) int {
 			return ExitArchive
 		}
 
-		// Determine if it was a directory: files are stored as UUID, dirs as UUID.tar.zst
-		archivePath := filepath.Join(cfg.ArchiveDir, result.UUID)
-		_, statErr := os.Stat(archivePath + ".tar.zst")
-		isDir := statErr == nil
-
 		// Stage removal in git index if the file was tracked.
 		if !noGit && metadata.GitRoot != "" && gitutil.IsGitTracked(absPath) {
-			if err := gitutil.GitRmCached(absPath, isDir); err != nil {
+			if err := gitutil.GitRmCached(absPath, result.IsDirectory); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
 			} else if verbose {
 				fmt.Printf("Staged removal in git: %s\n", file)
@@ -148,11 +143,14 @@ func handleDelete(kwargs map[string]interface{}) int {
 			OriginalName: filepath.Base(absPath),
 			Size:         result.Size,
 			Hash:         result.Hash,
-			IsDirectory:  isDir,
+			IsDirectory:  result.IsDirectory,
 			DeletedAt:    time.Now(),
 			Command:      command,
 			Description:  description,
 			Metadata:     string(metaJSON),
+		}
+		if result.IsSymlink {
+			rec.SymlinkTarget = &result.SymlinkTarget
 		}
 
 		if _, err := database.Insert(rec); err != nil {
