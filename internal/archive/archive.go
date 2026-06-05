@@ -27,9 +27,12 @@ var (
 
 // ArchiveResult holds the outcome of archiving a file or directory.
 type ArchiveResult struct {
-	UUID string
-	Hash string
-	Size int64
+	UUID          string
+	Hash          string
+	Size          int64
+	IsSymlink     bool
+	SymlinkTarget string
+	IsDirectory   bool
 }
 
 // Archive moves a file or directory into archiveDir, returning the result.
@@ -130,7 +133,7 @@ func archiveDirectory(path string, archiveDir string, uuid string) (*ArchiveResu
 		return nil, fmt.Errorf("removing original directory: %w", err)
 	}
 
-	return &ArchiveResult{UUID: uuid, Hash: hash, Size: totalSize}, nil
+	return &ArchiveResult{UUID: uuid, Hash: hash, Size: totalSize, IsDirectory: true}, nil
 }
 
 // Restore extracts an archived file or directory to destPath.

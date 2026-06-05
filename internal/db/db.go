@@ -30,8 +30,9 @@ type DeletionRecord struct {
 	Command      string     // may be empty
 	Description  string
 	Metadata     string     // JSON blob
-	RestoredAt   *time.Time // nil if not restored
-	RestoredTo   *string    // nil if not restored
+	RestoredAt    *time.Time // nil if not restored
+	RestoredTo    *string    // nil if not restored
+	SymlinkTarget *string   // nil if not a symlink
 }
 
 // Open opens (or creates) the SQLite database at dbPath with WAL mode and
@@ -116,8 +117,8 @@ func (d *DB) Close() error {
 // Insert inserts a DeletionRecord and returns the auto-increment ID.
 func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
 	result, err := d.conn.Exec(
-		`INSERT INTO deletions (uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO deletions (uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		rec.UUID,
 		rec.OriginalPath,
 		rec.OriginalName,
@@ -130,6 +131,7 @@ func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
 		nullableString(rec.Metadata),
 		nullableTime(rec.RestoredAt),
 		rec.RestoredTo,
+		rec.SymlinkTarget,
 	)
 	if err != nil {
 		return 0, err
@@ -141,7 +143,7 @@ func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
 // not exist.
 func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
 	row := d.conn.QueryRow(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
 		 FROM deletions WHERE id = ?`, id)
 	rec, err := scanRecord(row)
 	if err != nil {
@@ -157,7 +159,7 @@ func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
 // ordered by deleted_at DESC (newest first).
 func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
 	rows, err := d.conn.Query(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
 		 FROM deletions WHERE original_path = ? AND restored_at IS NULL ORDER BY deleted_at DESC`, path)
 	if err != nil {
 		return nil, err
@@ -169,7 +171,7 @@ func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
 // QueryAll returns all records ordered by deleted_at DESC. If includeRestored
 // is false, restored records are excluded.
 func (d *DB) QueryAll(includeRestored bool) ([]*DeletionRecord, error) {
-	query := `SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+	query := `SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
 		 FROM deletions`
 	if !includeRestored {
 		query += " WHERE restored_at IS NULL"
@@ -224,7 +226,7 @@ func (d *DB) Delete(id int64) error {
 // QueryOlderThan returns all non-restored records deleted before the given time.
 func (d *DB) QueryOlderThan(before time.Time) ([]*DeletionRecord, error) {
 	rows, err := d.conn.Query(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
 		 FROM deletions WHERE deleted_at < ? AND restored_at IS NULL ORDER BY deleted_at DESC`,
 		before.Format(time.RFC3339))
 	if err != nil {
@@ -253,7 +255,7 @@ func scanOne(s scanner) (*DeletionRecord, error) {
 		&rec.ID, &rec.UUID, &rec.OriginalPath, &rec.OriginalName,
 		&rec.Size, &rec.Hash, &isDir, &deletedAtStr,
 		&command, &rec.Description, &metadata,
-		&restoredAtStr, &restoredTo,
+		&restoredAtStr, &restoredTo, &rec.SymlinkTarget,
 	)
 	if err != nil {
 		return nil, err
