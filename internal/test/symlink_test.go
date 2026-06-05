@@ -102,6 +102,12 @@ func TestDelete_Symlink_Standalone(t *testing.T) {
 		t.Errorf("symlink type should be 'symlink', got: %q", typeField)
 	}
 
+	// Assert: target should be the absolute path we linked to.
+	targetField := parseInfoField(t, infoOut, "Target")
+	if targetField != targetPath {
+		t.Errorf("symlink target should be %q, got: %q", targetPath, targetField)
+	}
+
 	// Undelete the symlink.
 	_, stderr, code = runSaferm(t, homeDir, "undelete", id)
 	if code != 0 {
@@ -196,6 +202,12 @@ func TestDelete_Symlink_Relative(t *testing.T) {
 	hashField := parseInfoField(t, infoOut, "Hash")
 	if hashField != "" && hashField != "-" {
 		t.Errorf("relative symlink hash should be empty or '-', got: %q", hashField)
+	}
+
+	// Assert: target should be the relative path "../target.txt".
+	targetField := parseInfoField(t, infoOut, "Target")
+	if targetField != "../target.txt" {
+		t.Errorf("relative symlink target should be %q, got: %q", "../target.txt", targetField)
 	}
 
 	// Undelete the symlink.
@@ -427,6 +439,12 @@ func TestDelete_Symlink_Dangling(t *testing.T) {
 	hashField := parseInfoField(t, infoOut, "Hash")
 	if hashField != "" && hashField != "-" {
 		t.Errorf("dangling symlink hash should be empty or '-', got: %q", hashField)
+	}
+
+	// Assert: target should be the original target path (even though it's dangling).
+	targetField := parseInfoField(t, infoOut, "Target")
+	if targetField != targetPath {
+		t.Errorf("dangling symlink target should be %q, got: %q", targetPath, targetField)
 	}
 
 	// Undelete the dangling symlink.

@@ -67,6 +67,9 @@ func handleInfo(kwargs map[string]interface{}) int {
 	fmt.Printf("Size:          %s (%d bytes)\n", humanSize(rec.Size), rec.Size)
 	fmt.Printf("Hash:          %s\n", rec.Hash)
 	fmt.Printf("Type:          %s\n", fileType)
+	if rec.SymlinkTarget != nil {
+		fmt.Printf("Target:        %s\n", *rec.SymlinkTarget)
+	}
 	fmt.Printf("Deleted At:    %s\n", rec.DeletedAt.Format(time.RFC3339))
 	fmt.Printf("Description:   %s\n", rec.Description)
 	if rec.Command != "" {
