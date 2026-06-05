@@ -7,7 +7,29 @@ Go CLI that replaces `rm` with safe archival to `~/.saferm/`. AI-first design: e
 
 ## Project structure
 
-:-: list-tree path="." depth=2
+```
+main.go          -- app setup, registers commands via strictcli
+delete.go        -- saferm delete: archive files/dirs
+undelete.go      -- saferm undelete: restore by ID or path
+list.go          -- saferm list: show archived items
+purge.go         -- saferm purge: permanently remove from archive
+info.go          -- saferm info: full metadata for a deletion
+helpers.go       -- humanSize, humanAge, parseDuration
+exitcodes.go     -- exit codes 0-7
+version.go       -- version from ldflags or debug.ReadBuildInfo
+
+internal/
+  archive/       -- file/dir archival (os.Rename, copy+verify for cross-device, tar+zstd for dirs)
+  db/            -- SQLite database (WAL mode, busy_timeout=5000, CRUD operations)
+  meta/          -- metadata collection (env vars, git context, PPID + parent cmdline)
+  config/        -- TOML config loading (~/.saferm/config.toml), directory init
+  test/          -- integration tests (builds binary, runs as subprocess)
+  testutil/      -- test helpers
+
+npm/             -- npm wrapper package (saferemove)
+pypi/            -- PyPI wrapper package (saferm)
+docs/            -- selfdoc source for saferm.smmh.dev
+```
 
 ## Build and test
 
