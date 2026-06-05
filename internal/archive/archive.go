@@ -66,6 +66,28 @@ func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, 
 	return archiveFile(path, archiveDir, uuid)
 }
 
+func archiveSymlink(path string, archiveDir string, uuid string) (*ArchiveResult, error) {
+	target, err := os.Readlink(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading symlink target: %w", err)
+	}
+
+	// Write the target path to a .symlink metadata file for defense-in-depth
+	// recovery if the database is lost.
+	metaPath := filepath.Join(archiveDir, uuid+".symlink")
+	if err := os.WriteFile(metaPath, []byte(target), 0600); err != nil {
+		return nil, fmt.Errorf("writing symlink metadata: %w", err)
+	}
+
+	if err := os.Remove(path); err != nil {
+		// Clean up metadata file on failure.
+		os.Remove(metaPath)
+		return nil, fmt.Errorf("removing symlink: %w", err)
+	}
+
+	return &ArchiveResult{UUID: uuid, Hash: "", Size: 0, IsSymlink: true, SymlinkTarget: target}, nil
+}
+
 func archiveFile(path string, archiveDir string, uuid string) (*ArchiveResult, error) {
 	hash, err := hashFile(path)
 	if err != nil {
