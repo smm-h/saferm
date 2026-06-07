@@ -2,16 +2,15 @@
 
 # Changelog
 
+## 0.5.0
+
+Purge size filtering and dry-run preview
+
+### Features
+
+- **New feature.** `saferm purge --larger-than SIZE` filters by file size (e.g. `100MB`, `1GB`). `saferm purge --dry-run` previews what would be purged without deleting.
+
 ## 0.4.0
-
-Config migration to strictcli
-
-<details>
-<summary>Context</summary>
-
-Config is now managed by strictcli's built-in config system instead of a hand-rolled TOML loader. The config file stays at ~/.saferm/config.toml with the same keys, but you get config show/set/path/edit subcommands for free. The internal/config package is removed.
-
-</details>
 
 ### Breaking
 
