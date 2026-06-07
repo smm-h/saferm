@@ -2,16 +2,27 @@
 
 # Changelog
 
-## 0.3.0
+## 0.4.0
 
-Symlink support and selfdoc root file templates
+Config migration to strictcli
 
 <details>
 <summary>Context</summary>
 
-Standalone symlinks are now archived correctly instead of following the link target. Previously, archiving a symlink would hash and store the target's content (or fail entirely for dangling symlinks). Now saferm preserves the symlink target path and recreates it on restore. Also adopted selfdoc templates for CLAUDE.md and README.md.
+Config is now managed by strictcli's built-in config system instead of a hand-rolled TOML loader. The config file stays at ~/.saferm/config.toml with the same keys, but you get config show/set/path/edit subcommands for free. The internal/config package is removed.
 
 </details>
+
+### Breaking
+
+- **Breaking.** Removed `internal/config` package. Config is now handled entirely by strictcli flags (`--archive-dir`, `--db-path`, `--exclude-env-patterns`).
+
+### Features
+
+- **New feature.** Config is now managed by strictcli's built-in config system. New subcommands: `saferm config show`, `saferm config set`, `saferm config path`, `saferm config edit`. Config file remains at `~/.saferm/config.toml` with the same keys.
+- **Upgrade.** strictcli framework upgraded to v0.12.1 (array config support, repeatable flag defaults fix).
+
+## 0.3.0
 
 ### Features
 

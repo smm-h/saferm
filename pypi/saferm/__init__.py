@@ -7,7 +7,7 @@ import tarfile
 import urllib.request
 
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 _BIN_DIR = os.path.join(os.path.dirname(__file__), "_bin")
 
 
