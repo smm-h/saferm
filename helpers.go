@@ -85,6 +85,70 @@ func humanAge(t time.Time) string {
 	return fmt.Sprintf("%d years ago", years)
 }
 
+// parseSize parses a human-readable size string into bytes.
+// Supported suffixes (case-insensitive): B, KB (1024), MB (1024^2), GB (1024^3), TB (1024^4).
+// Suffix is mandatory — bare numbers are rejected.
+func parseSize(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty size string")
+	}
+
+	upper := strings.ToUpper(s)
+
+	// Find where the numeric part ends and the suffix begins.
+	suffixStart := -1
+	for i, ch := range upper {
+		if ch < '0' || ch > '9' {
+			suffixStart = i
+			break
+		}
+	}
+
+	if suffixStart <= 0 {
+		// Either no digits at all, or no suffix (bare number).
+		if suffixStart == 0 {
+			return 0, fmt.Errorf("invalid size %q: no numeric part", s)
+		}
+		return 0, fmt.Errorf("invalid size %q: suffix is mandatory (use B, KB, MB, GB, or TB)", s)
+	}
+
+	numStr := s[:suffixStart]
+	suffix := upper[suffixStart:]
+
+	n, err := strconv.ParseInt(numStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q: number part %q is not a valid integer", s, numStr)
+	}
+	if n <= 0 {
+		return 0, fmt.Errorf("invalid size %q: must be positive", s)
+	}
+
+	var multiplier int64
+	switch suffix {
+	case "B":
+		multiplier = 1
+	case "KB":
+		multiplier = 1024
+	case "MB":
+		multiplier = 1024 * 1024
+	case "GB":
+		multiplier = 1024 * 1024 * 1024
+	case "TB":
+		multiplier = 1024 * 1024 * 1024 * 1024
+	default:
+		return 0, fmt.Errorf("invalid size %q: unknown suffix %q (use B, KB, MB, GB, or TB)", s, suffix)
+	}
+
+	result := n * multiplier
+	// Check for overflow: if dividing back doesn't give the original number, it overflowed.
+	if result/multiplier != n {
+		return 0, fmt.Errorf("invalid size %q: value overflows int64", s)
+	}
+
+	return result, nil
+}
+
 // parseDuration parses a human-friendly duration string.
 // Supported suffixes: h (hours), d (days), w (weeks), m (months of 30 days).
 func parseDuration(s string) (time.Duration, error) {

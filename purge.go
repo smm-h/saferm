@@ -17,8 +17,10 @@ func registerPurgeCmd(app *strictcli.App) {
 	app.Command("purge", "Permanently remove items from archive", handlePurge,
 		strictcli.WithFlags(
 			strictcli.StringFlag("older-than", "Purge items older than duration (e.g., 30d, 24h, 1w)", strictcli.Default("")),
+			strictcli.StringFlag("larger-than", "Only purge items larger than this size (e.g. 100MB, 1GB)", strictcli.Default("")),
 			strictcli.BoolFlag("force", "Skip confirmation prompt", strictcli.Short("f")),
 			strictcli.BoolFlag("all", "Purge everything"),
+			strictcli.BoolFlag("dry-run", "Show what would be purged without deleting"),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("ids", "Specific IDs to purge",
@@ -29,17 +31,21 @@ func registerPurgeCmd(app *strictcli.App) {
 
 func handlePurge(kwargs map[string]interface{}) int {
 	olderThan := kwargs["older_than"].(string)
+	largerThan := kwargs["larger_than"].(string)
 	force := kwargs["force"].(bool)
 	purgeAll := kwargs["all"].(bool)
+	dryRun := kwargs["dry_run"].(bool)
 	idsRaw := kwargs["ids"].([]interface{})
 	verbose, _ := kwargs["verbose"].(bool)
 
 	hasIDs := len(idsRaw) > 0
 	hasOlderThan := olderThan != ""
+	hasLargerThan := largerThan != ""
 
-	// Must specify at least one selection method
-	if !hasIDs && !hasOlderThan && !purgeAll {
-		fmt.Fprintln(os.Stderr, "error: specify IDs, --older-than, or --all")
+	// Must specify at least one selection method.
+	// --larger-than alone is valid (acts like --all --larger-than).
+	if !hasIDs && !hasOlderThan && !purgeAll && !hasLargerThan {
+		fmt.Fprintln(os.Stderr, "error: specify IDs, --older-than, --larger-than, or --all")
 		return ExitUsage
 	}
 
@@ -88,7 +94,7 @@ func handlePurge(kwargs map[string]interface{}) int {
 			return ExitDatabase
 		}
 	} else {
-		// --all
+		// --all or --larger-than alone (which implies all records)
 		records, err = database.QueryAll(true)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
@@ -96,8 +102,42 @@ func handlePurge(kwargs map[string]interface{}) int {
 		}
 	}
 
+	// Apply --larger-than filter if set.
+	if hasLargerThan {
+		threshold, err := parseSize(largerThan)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %s\n", err)
+			return ExitUsage
+		}
+		var filtered []*db.DeletionRecord
+		for _, rec := range records {
+			if rec.Size >= threshold {
+				filtered = append(filtered, rec)
+			}
+		}
+		records = filtered
+	}
+
 	if len(records) == 0 {
 		fmt.Println("Nothing to purge.")
+		return ExitSuccess
+	}
+
+	if dryRun {
+		// Display what would be purged in tabular format.
+		fmt.Printf("%-6s %-40s %-10s %-16s\n", "ID", "Path", "Size", "Age")
+		fmt.Printf("%-6s %-40s %-10s %-16s\n", "------", "----------------------------------------", "----------", "----------------")
+		var totalSize int64
+		for _, rec := range records {
+			path := rec.OriginalPath
+			if len(path) > 40 {
+				path = "..." + path[len(path)-37:]
+			}
+			fmt.Printf("%-6d %-40s %-10s %-16s\n",
+				rec.ID, path, humanSize(rec.Size), humanAge(rec.DeletedAt))
+			totalSize += rec.Size
+		}
+		fmt.Printf("\nWould purge %d item(s), freeing ~%s\n", len(records), humanSize(totalSize))
 		return ExitSuccess
 	}
 
