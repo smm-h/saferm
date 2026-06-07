@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/smm-h/saferm/internal/archive"
-	"github.com/smm-h/saferm/internal/config"
 	"github.com/smm-h/saferm/internal/db"
 	gitutil "github.com/smm-h/saferm/internal/git"
 	"github.com/smm-h/strictcli/go/strictcli"
@@ -29,18 +28,15 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	force := kwargs["force"].(bool)
 	target := kwargs["target"].(string)
 
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: loading config: %s\n", err)
-		return ExitGeneral
-	}
+	archiveDir := kwargs["archive_dir"].(string)
+	dbPath := kwargs["db_path"].(string)
 
-	if err := config.EnsureDirectories(cfg); err != nil {
+	if err := ensureDirectories(baseDir(), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
 		return ExitGeneral
 	}
 
-	database, err := db.Open(cfg.DBPath)
+	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
 		return ExitDatabase
@@ -90,7 +86,7 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	if rec.SymlinkTarget != nil {
 		symlinkTarget = *rec.SymlinkTarget
 	}
-	err = archive.Restore(rec.UUID, cfg.ArchiveDir, dest, rec.IsDirectory, force, symlinkTarget)
+	err = archive.Restore(rec.UUID, archiveDir, dest, rec.IsDirectory, force, symlinkTarget)
 	if err != nil {
 		if errors.Is(err, archive.ErrConflict) {
 			fmt.Fprintf(os.Stderr, "error: %s already exists (use --force to overwrite)\n", dest)

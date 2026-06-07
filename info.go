@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smm-h/saferm/internal/config"
 	"github.com/smm-h/saferm/internal/db"
 	"github.com/smm-h/saferm/internal/meta"
 	"github.com/smm-h/strictcli/go/strictcli"
@@ -30,13 +29,9 @@ func handleInfo(kwargs map[string]interface{}) int {
 		return ExitUsage
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: loading config: %s\n", err)
-		return ExitGeneral
-	}
+	dbPath := kwargs["db_path"].(string)
 
-	database, err := db.Open(cfg.DBPath)
+	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
 		return ExitDatabase

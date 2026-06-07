@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/smm-h/saferm/internal/archive"
-	"github.com/smm-h/saferm/internal/config"
 	"github.com/smm-h/saferm/internal/db"
 	gitutil "github.com/smm-h/saferm/internal/git"
 	"github.com/smm-h/saferm/internal/meta"
@@ -62,26 +61,30 @@ func handleDelete(kwargs map[string]interface{}) int {
 		customMeta[key] = value
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: loading config: %s\n", err)
-		return ExitGeneral
-	}
+	archiveDir := kwargs["archive_dir"].(string)
+	dbPath := kwargs["db_path"].(string)
 
-	if err := config.EnsureDirectories(cfg); err != nil {
+	if err := ensureDirectories(baseDir(), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
 		return ExitGeneral
 	}
 
-	database, err := db.Open(cfg.DBPath)
+	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
 		return ExitDatabase
 	}
 	defer database.Close()
 
+	// Extract exclude patterns from args
+	rawPatterns := kwargs["exclude_env_patterns"].([]interface{})
+	patterns := make([]string, len(rawPatterns))
+	for i, p := range rawPatterns {
+		patterns[i] = p.(string)
+	}
+
 	// Collect metadata
-	metadata, err := meta.Collect(cfg, customMeta)
+	metadata, err := meta.Collect(patterns, customMeta)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: collecting metadata: %s\n", err)
 		return ExitGeneral
@@ -115,7 +118,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 			}
 		}
 
-		result, err := archive.Archive(absPath, cfg.ArchiveDir, recursive)
+		result, err := archive.Archive(absPath, archiveDir, recursive)
 		if err != nil {
 			if force && (err == archive.ErrFileNotFound) {
 				continue
