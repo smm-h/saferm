@@ -13,7 +13,7 @@ AI-first safe rm replacement. Archives files instead of deleting them.
 
 ## Packages
 
-saferm is organized into internal packages that handle distinct responsibilities: file and directory archival with integrity verification, SQLite-based metadata storage, git context detection, environment and process metadata capture, and TOML configuration loading. Each package is independently testable and designed for concurrent use via WAL-mode SQLite and atomic file operations.
+saferm is organized into internal packages that handle distinct responsibilities: file and directory archival with integrity verification, SQLite-based metadata storage, git context detection, and environment and process metadata capture. Each package is independently testable and designed for concurrent use via WAL-mode SQLite and atomic file operations. Configuration is handled by strictcli's built-in config system (TOML format at `~/.saferm/config.toml`).
 
 :-: ref path="internal/archive"
 
@@ -22,5 +22,3 @@ saferm is organized into internal packages that handle distinct responsibilities
 :-: ref path="internal/git"
 
 :-: ref path="internal/meta"
-
-:-: ref path="internal/config"

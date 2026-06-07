@@ -22,7 +22,6 @@ internal/
   archive/       -- file/dir archival (os.Rename, copy+verify for cross-device, tar+zstd for dirs)
   db/            -- SQLite database (WAL mode, busy_timeout=5000, CRUD operations)
   meta/          -- metadata collection (env vars, git context, PPID + parent cmdline)
-  config/        -- TOML config loading (~/.saferm/config.toml), directory init
   test/          -- integration tests (builds binary, runs as subprocess)
   testutil/      -- test helpers
 
@@ -53,7 +52,7 @@ go install .                # install locally (picks up changes)
 - **All env vars captured** except those matching denylist patterns (secrets, tokens, keys, etc.).
 - **Git context** auto-detected (branch, HEAD, root).
 - **PPID + parent cmdline** captured (platform-specific: `proc_linux.go`, `proc_darwin.go`).
-- **Config:** `~/.saferm/config.toml` (optional). Key field: `exclude_env_patterns` (regex list).
+- **Config:** `~/.saferm/config.toml` via strictcli's built-in config system (`WithConfig`). Key fields: `archive_dir`, `db_path`, `exclude_env_patterns`. Manage with `saferm config show/set/path/edit`.
 - **`SAFERM_HOME` env var** overrides `~/.saferm/` base dir. Used by tests for isolation.
 - **Exit codes:** 0 (success), 1 (general), 2 (usage), 3 (file not found), 4 (permission), 5 (database), 6 (archive), 7 (conflict). Defined in `exitcodes.go`.
 - **Version:** set via ldflags (`-X main.version=x.y.z`) at build time; falls back to `debug.ReadBuildInfo`, then `"dev"`.
