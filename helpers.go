@@ -2,10 +2,28 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// ensureDirectories creates the base dir, archive dir, and db dir (parent of
+// dbPath) if they don't exist. Uses 0700 permissions.
+func ensureDirectories(baseDir, archiveDir, dbPath string) error {
+	dirs := []string{
+		baseDir,
+		archiveDir,
+		filepath.Dir(dbPath),
+	}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // humanSize formats a byte count as a human-readable string.
 func humanSize(bytes int64) string {
