@@ -16,16 +16,8 @@ github.com/ncruces/go-strftime v1.0.0 h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOF
 github.com/ncruces/go-strftime v1.0.0/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
-github.com/smm-h/go-toml-edit v0.2.0 h1:yT/TWYof2QNnm1k8nPS7S1k/MOg5mkLxEYy+wHgZZAk=
-github.com/smm-h/go-toml-edit v0.2.0/go.mod h1:ateUuu33c4CaaB3XUQgsyuPEsIkAWRV8nahfZqpNhm4=
 github.com/smm-h/go-toml-edit v0.2.1 h1:KXzKYuzDnw7XHCzPNtw9DQzf+PpwPISvSVDns6zekD4=
 github.com/smm-h/go-toml-edit v0.2.1/go.mod h1:ateUuu33c4CaaB3XUQgsyuPEsIkAWRV8nahfZqpNhm4=
-github.com/smm-h/strictcli/go v0.11.0 h1:cnxZTL6CLie6quZQZyXYAIEm2AH6hJ/RSpmi9xA8bZ8=
-github.com/smm-h/strictcli/go v0.11.0/go.mod h1:jbhqK+mPWje/Fr6yrRBdx7PGGdCuH7Sa1riNWp0vDGg=
-github.com/smm-h/strictcli/go v0.11.1 h1:6ZHu57bgjl/l9e68FRUKB9NkaG7cwy2XfJxheB4k9lw=
-github.com/smm-h/strictcli/go v0.11.1/go.mod h1:dMXXawbT6mstBeQ9yKQaaqTkL1/qQ28FCV47TxKYWL4=
-github.com/smm-h/strictcli/go v0.12.0 h1:YJ/S4Dd8FtpSQB6sHbAu3dytN08/Z2gvCDzqa04oAPE=
-github.com/smm-h/strictcli/go v0.12.0/go.mod h1:dMXXawbT6mstBeQ9yKQaaqTkL1/qQ28FCV47TxKYWL4=
 github.com/smm-h/strictcli/go v0.12.1 h1:Sct6YHJCL2H/xs+4VS1f7TAXmGwaBM+l52VUyy/GYOE=
 github.com/smm-h/strictcli/go v0.12.1/go.mod h1:dMXXawbT6mstBeQ9yKQaaqTkL1/qQ28FCV47TxKYWL4=
 github.com/toml-lang/toml-test/v2 v2.2.0 h1:q3ELZu7oPnpl9TClC6OOcAccXwj+jwAyFP8WvzBdK1M=

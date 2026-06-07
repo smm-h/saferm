@@ -5,7 +5,6 @@ go 1.25.7
 require github.com/smm-h/strictcli/go v0.12.1
 
 require (
-	github.com/BurntSushi/toml v1.6.0
 	github.com/klauspost/compress v1.18.6
 	modernc.org/sqlite v1.50.1
 )
