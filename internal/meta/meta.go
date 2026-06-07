@@ -5,8 +5,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-
-	"github.com/smm-h/saferm/internal/config"
 )
 
 // Metadata holds contextual information captured at deletion time.
@@ -22,10 +20,10 @@ type Metadata struct {
 
 // Collect gathers metadata from the current environment.
 // Never fails fatally -- if a collector errors, it populates what it can.
-func Collect(cfg *config.Config, customMeta map[string]string) (*Metadata, error) {
+func Collect(excludePatterns []string, customMeta map[string]string) (*Metadata, error) {
 	m := &Metadata{}
 
-	m.Env = collectEnv(cfg.ExcludeEnvPatterns)
+	m.Env = collectEnv(excludePatterns)
 	m.GitBranch, m.GitHEAD, m.GitRoot = collectGitContext()
 	m.PPID, m.ParentCmd = collectParentProcess()
 

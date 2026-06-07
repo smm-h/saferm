@@ -3,8 +3,6 @@ package meta
 import (
 	"os"
 	"testing"
-
-	"github.com/smm-h/saferm/internal/config"
 )
 
 func TestCollectEnv_FiltersPatterns(t *testing.T) {
@@ -107,9 +105,15 @@ func TestCollectParentProcess(t *testing.T) {
 }
 
 func TestCollect_Integration(t *testing.T) {
-	cfg := config.DefaultConfig()
+	defaultPatterns := []string{
+		"(?i)token",
+		"(?i)secret",
+		"(?i)password",
+		"(?i)key",
+		"(?i)credential",
+	}
 
-	m, err := Collect(cfg, nil)
+	m, err := Collect(defaultPatterns, nil)
 	if err != nil {
 		t.Fatalf("Collect failed: %v", err)
 	}
@@ -119,7 +123,7 @@ func TestCollect_Integration(t *testing.T) {
 	}
 	// Verify default patterns filter sensitive vars.
 	t.Setenv("SAFERM_INTEGRATION_SECRET", "hidden")
-	m2, _ := Collect(cfg, nil)
+	m2, _ := Collect(defaultPatterns, nil)
 	if _, ok := m2.Env["SAFERM_INTEGRATION_SECRET"]; ok {
 		t.Error("SAFERM_INTEGRATION_SECRET should be filtered by default patterns")
 	}
@@ -145,13 +149,12 @@ func TestCollect_Integration(t *testing.T) {
 }
 
 func TestCollect_CustomMeta(t *testing.T) {
-	cfg := config.DefaultConfig()
 	custom := map[string]string{
 		"reason": "cleanup",
 		"ticket": "PROJ-123",
 	}
 
-	m, err := Collect(cfg, custom)
+	m, err := Collect(nil, custom)
 	if err != nil {
 		t.Fatalf("Collect failed: %v", err)
 	}
