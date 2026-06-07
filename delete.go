@@ -25,7 +25,7 @@ func registerDeleteCmd(app *strictcli.App) {
 			strictcli.BoolFlag("interactive", "Prompt before each deletion", strictcli.Short("i")),
 			strictcli.StringFlag("description", "Why this deletion is happening"),
 			strictcli.StringFlag("command", "The original bash command that triggered this", strictcli.Default("")),
-			strictcli.StringFlag("meta", "Additional metadata as key=value", strictcli.Repeatable(), strictcli.Default(nil)),
+			strictcli.StringFlag("meta", "Additional metadata as key=value", strictcli.Repeatable(), strictcli.Unique(false), strictcli.Default(nil)),
 			strictcli.BoolFlag("no-git", "Do not update the git index after archiving"),
 		),
 		strictcli.WithArgs(
