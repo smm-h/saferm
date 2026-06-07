@@ -20,7 +20,7 @@
   "pipelines": {
     "go": {
       "type": "go",
-      "local": false
+      "local": true
     },
     "npm": {
       "type": "npm",
