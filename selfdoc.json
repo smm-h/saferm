@@ -54,5 +54,14 @@
   "deploy": {
     "provider": "cloudflare-pages",
     "project": "saferm"
+  },
+  "topology": {
+    "slug": "saferm",
+    "docs_base": "https://docs.smmh.dev",
+    "posts_base": "https://blog.smmh.dev",
+    "assembly": "smm-h/selfdoc-cache"
+  },
+  "assembly": {
+    "repo": "smm-h/selfdoc-cache"
   }
 }
