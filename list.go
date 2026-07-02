@@ -13,7 +13,7 @@ func registerListCmd(app *strictcli.App) {
 	app.Command("list", "List archived items", handleList,
 		strictcli.WithFlags(
 			strictcli.StringFlag("path", "Filter by path glob pattern", strictcli.Default("")),
-			strictcli.BoolFlag("all", "Include already-restored items"),
+			strictcli.BoolFlag("all", "Include already-restored items", strictcli.Default(false)),
 		),
 	)
 }

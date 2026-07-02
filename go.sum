@@ -18,8 +18,8 @@ github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
 github.com/smm-h/go-toml-edit v0.2.1 h1:KXzKYuzDnw7XHCzPNtw9DQzf+PpwPISvSVDns6zekD4=
 github.com/smm-h/go-toml-edit v0.2.1/go.mod h1:ateUuu33c4CaaB3XUQgsyuPEsIkAWRV8nahfZqpNhm4=
-github.com/smm-h/strictcli/go v0.12.1 h1:Sct6YHJCL2H/xs+4VS1f7TAXmGwaBM+l52VUyy/GYOE=
-github.com/smm-h/strictcli/go v0.12.1/go.mod h1:dMXXawbT6mstBeQ9yKQaaqTkL1/qQ28FCV47TxKYWL4=
+github.com/smm-h/strictcli/go v0.17.0 h1:w42f1UZwZzIK6EUa9RitB2O/KvEw3M21E/sU2D8xgpE=
+github.com/smm-h/strictcli/go v0.17.0/go.mod h1:dMXXawbT6mstBeQ9yKQaaqTkL1/qQ28FCV47TxKYWL4=
 github.com/toml-lang/toml-test/v2 v2.2.0 h1:q3ELZu7oPnpl9TClC6OOcAccXwj+jwAyFP8WvzBdK1M=
 github.com/toml-lang/toml-test/v2 v2.2.0/go.mod h1:TQdjhQItoZ0R+OODNiHUuxxxErtaE0Xsod2ENZbMvxI=
 golang.org/x/mod v0.33.0 h1:tHFzIWbBifEmbwtGz65eaWyGiGZatSrT9prnU8DbVL8=

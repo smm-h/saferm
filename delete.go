@@ -19,13 +19,13 @@ import (
 func registerDeleteCmd(app *strictcli.App) {
 	app.Command("delete", "Archive files safely (instead of rm)", handleDelete,
 		strictcli.WithFlags(
-			strictcli.BoolFlag("recursive", "Allow deletion of directories", strictcli.Short("r")),
-			strictcli.BoolFlag("force", "Ignore nonexistent files, skip prompts", strictcli.Short("f")),
-			strictcli.BoolFlag("interactive", "Prompt before each deletion", strictcli.Short("i")),
+			strictcli.BoolFlag("recursive", "Allow deletion of directories", strictcli.Short("r"), strictcli.Default(false)),
+			strictcli.BoolFlag("ignore-missing", "Ignore nonexistent files", strictcli.Short("f"), strictcli.Default(false)),
+			strictcli.BoolFlag("interactive", "Prompt before each deletion", strictcli.Short("i"), strictcli.Default(false)),
 			strictcli.StringFlag("description", "Why this deletion is happening"),
 			strictcli.StringFlag("command", "The original bash command that triggered this", strictcli.Default("")),
 			strictcli.StringFlag("meta", "Additional metadata as key=value", strictcli.Repeatable(), strictcli.Unique(false), strictcli.Default(nil)),
-			strictcli.BoolFlag("no-git", "Do not update the git index after archiving"),
+			strictcli.BoolFlag("update-git-index", "Update the git index after archiving", strictcli.Default(true)),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("files", "Files or directories to archive", strictcli.Variadic()),
@@ -35,11 +35,11 @@ func registerDeleteCmd(app *strictcli.App) {
 
 func handleDelete(kwargs map[string]interface{}) int {
 	recursive := kwargs["recursive"].(bool)
-	force := kwargs["force"].(bool)
+	ignoreMissing := kwargs["ignore_missing"].(bool)
 	interactive := kwargs["interactive"].(bool)
 	description := kwargs["description"].(string)
 	command := kwargs["command"].(string)
-	noGit := kwargs["no_git"].(bool)
+	updateGitIndex := kwargs["update_git_index"].(bool)
 	metaValues := kwargs["meta"].([]interface{})
 	filesRaw := kwargs["files"].([]interface{})
 	verbose, _ := kwargs["verbose"].(bool)
@@ -104,7 +104,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 		// Resolve to absolute path
 		absPath, err := filepath.Abs(file)
 		if err != nil {
-			if force {
+			if ignoreMissing {
 				continue
 			}
 			fmt.Fprintf(os.Stderr, "error: resolving path %q: %s\n", file, err)
@@ -120,7 +120,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 
 		result, err := archive.Archive(absPath, archiveDir, recursive)
 		if err != nil {
-			if force && (err == archive.ErrFileNotFound) {
+			if ignoreMissing && (err == archive.ErrFileNotFound) {
 				continue
 			}
 			if err == archive.ErrRecursiveRequired {
@@ -132,7 +132,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 		}
 
 		// Stage removal in git index if the file was tracked.
-		if !noGit && metadata.GitRoot != "" && gitutil.IsGitTracked(absPath) {
+		if updateGitIndex && metadata.GitRoot != "" && gitutil.IsGitTracked(absPath) {
 			if err := gitutil.GitRmCached(absPath, result.IsDirectory); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
 			} else if verbose {

@@ -18,9 +18,9 @@ func registerPurgeCmd(app *strictcli.App) {
 		strictcli.WithFlags(
 			strictcli.StringFlag("older-than", "Purge items older than duration (e.g., 30d, 24h, 1w)", strictcli.Default("")),
 			strictcli.StringFlag("larger-than", "Only purge items larger than this size (e.g. 100MB, 1GB)", strictcli.Default("")),
-			strictcli.BoolFlag("force", "Skip confirmation prompt", strictcli.Short("f")),
-			strictcli.BoolFlag("all", "Purge everything"),
-			strictcli.BoolFlag("dry-run", "Show what would be purged without deleting"),
+			strictcli.BoolFlag("skip-confirmation", "Skip confirmation prompt", strictcli.Short("f"), strictcli.Default(false)),
+			strictcli.BoolFlag("all", "Purge everything", strictcli.Default(false)),
+			strictcli.BoolFlag("dry-run", "Show what would be purged without deleting", strictcli.Default(false)),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("ids", "Specific IDs to purge",
@@ -32,7 +32,7 @@ func registerPurgeCmd(app *strictcli.App) {
 func handlePurge(kwargs map[string]interface{}) int {
 	olderThan := kwargs["older_than"].(string)
 	largerThan := kwargs["larger_than"].(string)
-	force := kwargs["force"].(bool)
+	skipConfirmation := kwargs["skip_confirmation"].(bool)
 	purgeAll := kwargs["all"].(bool)
 	dryRun := kwargs["dry_run"].(bool)
 	idsRaw := kwargs["ids"].([]interface{})
@@ -141,7 +141,7 @@ func handlePurge(kwargs map[string]interface{}) int {
 		return ExitSuccess
 	}
 
-	if !force {
+	if !skipConfirmation {
 		fmt.Fprintf(os.Stderr, "Will permanently delete %d item(s):\n", len(records))
 		for _, rec := range records {
 			fmt.Fprintf(os.Stderr, "  [%d] %s (%s, %s)\n",

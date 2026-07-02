@@ -31,7 +31,7 @@ func main() {
 		strictcli.WithConfigFormat("toml"),
 	)
 
-	app.GlobalFlag(strictcli.BoolFlag("verbose", "Enable verbose output"))
+	app.GlobalFlag(strictcli.BoolFlag("verbose", "Enable verbose output", strictcli.Default(false)))
 	app.GlobalFlag(strictcli.StringFlag("archive-dir", "Path to the archive directory",
 		strictcli.Default(filepath.Join(base, "archive"))))
 	app.GlobalFlag(strictcli.StringFlag("db-path", "Path to the SQLite database",

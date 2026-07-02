@@ -16,7 +16,7 @@ import (
 func registerUndeleteCmd(app *strictcli.App) {
 	app.Command("undelete", "Restore a file from archive", handleUndelete,
 		strictcli.WithFlags(
-			strictcli.BoolFlag("force", "Overwrite existing file at destination"),
+			strictcli.BoolFlag("force-overwrite", "Overwrite existing file at destination", strictcli.Default(false)),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("target", "Numeric ID or original file path to restore"),
@@ -25,7 +25,7 @@ func registerUndeleteCmd(app *strictcli.App) {
 }
 
 func handleUndelete(kwargs map[string]interface{}) int {
-	force := kwargs["force"].(bool)
+	forceOverwrite := kwargs["force_overwrite"].(bool)
 	target := kwargs["target"].(string)
 
 	archiveDir := kwargs["archive_dir"].(string)
@@ -86,10 +86,10 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	if rec.SymlinkTarget != nil {
 		symlinkTarget = *rec.SymlinkTarget
 	}
-	err = archive.Restore(rec.UUID, archiveDir, dest, rec.IsDirectory, force, symlinkTarget)
+	err = archive.Restore(rec.UUID, archiveDir, dest, rec.IsDirectory, forceOverwrite, symlinkTarget)
 	if err != nil {
 		if errors.Is(err, archive.ErrConflict) {
-			fmt.Fprintf(os.Stderr, "error: %s already exists (use --force to overwrite)\n", dest)
+			fmt.Fprintf(os.Stderr, "error: %s already exists (use --force-overwrite to overwrite)\n", dest)
 			return ExitConflict
 		}
 		fmt.Fprintf(os.Stderr, "error: restoring: %s\n", err)
