@@ -20,7 +20,8 @@
   "pipelines": {
     "go": {
       "type": "go",
-      "local": true
+      "local": true,
+      "install_paths": ["."]
     },
     "npm": {
       "type": "npm",
