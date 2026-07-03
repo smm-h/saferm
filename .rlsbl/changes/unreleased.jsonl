@@ -3,3 +3,4 @@
 {"commits":["eb120017922e123559c96428db4641e46ea626b7"],"user_facing":false}
 {"commits":["dfc687f6cea8bdb9093101371db239392956fcc2"],"user_facing":true,"description":"**Breaking.** Migrate to strictcli v0.17.0: rename flags and add explicit bool defaults.","type":"breaking"}
 {"commits":["15490048b947ffe2c5de2b9b522698b0b54d475f","446898c86554a4e3b5dbeb505e0242a4df63189e","4b18b1be15bff03a8699df4dafe9fd5937ffec12","575cf1b6b9127e8e2e6bba52afb3bdd74764c311","7069ab3aab832e77175bde157628a11c8933e986"],"user_facing":false}
+{"commits":["7ff60f39e78d9e53d765cd10a6b373ca23e82ec4","908d92ba4a176305891eed0d286cebcb7657c2cc","a35f300d2d2ae95de97fcfe04ab6c8ac88596244","c82c28a3b3f3958f6f8e702df41adf8c14670715"],"user_facing":false}
