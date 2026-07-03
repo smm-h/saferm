@@ -13,9 +13,9 @@
   ".rlsbl/lint/go.toml": "807d5cf760baad6d571a5bfd43cb163efe356f7462ba9f1918d72de45f62339f",
   ".rlsbl/lint/npm.toml": "baa36014e65923d8cc5c8b83c77fa651da79351627570476402da66840027645",
   ".rlsbl/changes/unreleased.jsonl": "e2fe08106285b36150062c5cbe509809c2bce9213994044f7db3c09f5a8d38d6",
-  ".github/workflows/publish.yml": "976215247fad11f797109777ae9899a915794a29a3643aa6dac439177201ff19",
+  ".github/workflows/publish.yml": "fe6712af005df5e9c0618368dfa651e474fce1934ff2d23f978a4706d1c99ac8",
   ".npmignore": "7c0eea9785c0318aeb39bf8b670ce8384f4a5b812fde69ce23d7d018057325a3",
   ".github/workflows/ci-go.yml": "a4eb37a8927ffda2aa646e45ac6f849648a53ea7fb4efe0df4fda3c9946c28f9",
   ".github/workflows/ci-pypi.yml": "55711467d269535f6906c29ccbd8a51a549cdb56626e144355faf4fb077ae5c3",
-  ".goreleaser.yml": "4cfb6ffa22bf65736b76b2213158f38ef8b4404c0ac1732f06895d9b973f3436"
+  ".goreleaser.yml": "0ad4edf267f369cb45c1d823f132c3e9a9132f726b8a7a87713b512d5fe74f7b"
 }
