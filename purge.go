@@ -157,6 +157,11 @@ func handlePurge(kwargs map[string]interface{}) int {
 
 	purged := 0
 	for _, rec := range records {
+		// Skip already-purged items.
+		if rec.PurgedAt != nil {
+			continue
+		}
+
 		// Remove the archive file
 		archivePath := filepath.Join(archiveDir, rec.UUID)
 		if rec.SymlinkTarget != nil {
@@ -168,9 +173,9 @@ func handlePurge(kwargs map[string]interface{}) int {
 			fmt.Fprintf(os.Stderr, "warning: removing archive file %s: %s\n", archivePath, err)
 		}
 
-		// Delete the DB record
-		if err := database.Delete(rec.ID); err != nil {
-			fmt.Fprintf(os.Stderr, "error: deleting record %d: %s\n", rec.ID, err)
+		// Mark the record as purged (preserves metadata).
+		if err := database.MarkPurged(rec.ID); err != nil {
+			fmt.Fprintf(os.Stderr, "error: marking record %d as purged: %s\n", rec.ID, err)
 			continue
 		}
 
