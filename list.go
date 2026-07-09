@@ -63,7 +63,9 @@ func handleList(kwargs map[string]interface{}) int {
 
 	for _, rec := range records {
 		status := "archived"
-		if rec.RestoredAt != nil {
+		if rec.PurgedAt != nil {
+			status = "purged"
+		} else if rec.RestoredAt != nil {
 			status = "restored"
 		}
 

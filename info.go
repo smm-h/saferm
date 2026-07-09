@@ -77,6 +77,9 @@ func handleInfo(kwargs map[string]interface{}) int {
 	if rec.RestoredTo != nil {
 		fmt.Printf("Restored To:   %s\n", *rec.RestoredTo)
 	}
+	if rec.PurgedAt != nil {
+		fmt.Printf("Purged At:     %s\n", rec.PurgedAt.Format(time.RFC3339))
+	}
 
 	// Parse and display metadata
 	if rec.Metadata != "" {
