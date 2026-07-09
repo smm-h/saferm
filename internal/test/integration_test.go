@@ -340,10 +340,23 @@ func TestPurge_ById(t *testing.T) {
 		t.Fatalf("purge failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
 
-	// Info should now fail (record gone).
-	_, _, code = runSaferm(t, homeDir, "info", id)
-	if code == 0 {
-		t.Fatal("info should fail after purge")
+	// Info should still succeed (metadata is preserved after purge).
+	stdout, stderr, code = runSaferm(t, homeDir, "info", id)
+	if code != 0 {
+		t.Fatalf("info should succeed after purge (metadata preserved) (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "Purged At:") {
+		t.Errorf("info output should contain 'Purged At:' after purge:\n%s", stdout)
+	}
+
+	// Default list should hide purged items.
+	stdout, _, code = runSaferm(t, homeDir, "list")
+	if code != 0 {
+		t.Fatalf("list failed (exit %d)", code)
+	}
+	ids := parseAllIDs(t, stdout)
+	if len(ids) != 0 {
+		t.Errorf("expected 0 items in default list after purge, got %d:\n%s", len(ids), stdout)
 	}
 
 	// Verify archive files are gone.

@@ -79,6 +79,118 @@ func TestPurge_LargerThan(t *testing.T) {
 	}
 }
 
+func TestPurge_PreservesMetadata(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	filePath := testutil.CreateTempFile(t, workDir, "preserve.txt", "metadata preservation test")
+
+	// Delete the file.
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "preserve metadata test", filePath)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Get ID from list.
+	stdout, _, code := runSaferm(t, homeDir, "list")
+	if code != 0 {
+		t.Fatalf("list failed (exit %d)", code)
+	}
+	id := parseFirstID(t, stdout)
+
+	// Purge the item.
+	_, stderr, code = runSaferm(t, homeDir, "purge", "-f", id)
+	if code != 0 {
+		t.Fatalf("purge failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Default list should hide purged items.
+	stdout, _, code = runSaferm(t, homeDir, "list")
+	if code != 0 {
+		t.Fatalf("list failed (exit %d)", code)
+	}
+	ids := parseAllIDs(t, stdout)
+	if len(ids) != 0 {
+		t.Errorf("expected 0 items in default list after purge, got %d:\n%s", len(ids), stdout)
+	}
+
+	// list --all should show purged item with "purged" status.
+	stdout, _, code = runSaferm(t, homeDir, "list", "--all")
+	if code != 0 {
+		t.Fatalf("list --all failed (exit %d)", code)
+	}
+	ids = parseAllIDs(t, stdout)
+	if len(ids) != 1 {
+		t.Fatalf("expected 1 item in list --all after purge, got %d:\n%s", len(ids), stdout)
+	}
+	if !strings.Contains(stdout, "purged") {
+		t.Errorf("list --all output should contain 'purged' status:\n%s", stdout)
+	}
+
+	// info should return full metadata for purged item.
+	stdout, _, code = runSaferm(t, homeDir, "info", id)
+	if code != 0 {
+		t.Fatalf("info should succeed for purged item (exit %d)", code)
+	}
+	if !strings.Contains(stdout, "Purged At:") {
+		t.Errorf("info output should contain 'Purged At:':\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "preserve metadata test") {
+		t.Errorf("info output should contain original description:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "preserve.txt") {
+		t.Errorf("info output should contain original filename:\n%s", stdout)
+	}
+
+	// undelete on purged item should error with clear message.
+	_, stderr, code = runSaferm(t, homeDir, "undelete", id)
+	if code != 6 { // ExitArchive
+		t.Fatalf("undelete purged item: expected exit code 6, got %d; stderr=%q", code, stderr)
+	}
+	if !strings.Contains(stderr, "purged") {
+		t.Errorf("undelete error should mention 'purged': stderr=%q", stderr)
+	}
+	if !strings.Contains(stderr, "metadata is preserved") {
+		t.Errorf("undelete error should mention 'metadata is preserved': stderr=%q", stderr)
+	}
+}
+
+func TestPurge_AlreadyPurgedIsNoop(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	filePath := testutil.CreateTempFile(t, workDir, "double-purge.txt", "double purge test")
+
+	// Delete.
+	_, _, code := runSaferm(t, homeDir, "delete", "--description", "double purge test", filePath)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d)", code)
+	}
+
+	// Get ID.
+	stdout, _, code := runSaferm(t, homeDir, "list")
+	if code != 0 {
+		t.Fatalf("list failed (exit %d)", code)
+	}
+	id := parseFirstID(t, stdout)
+
+	// First purge.
+	_, stderr, code := runSaferm(t, homeDir, "purge", "-f", id)
+	if code != 0 {
+		t.Fatalf("first purge failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	// Second purge of same ID should be a no-op (no error).
+	stdout, stderr, code = runSaferm(t, homeDir, "purge", "-f", id)
+	if code != 0 {
+		t.Fatalf("second purge of already-purged item should not error (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	// The item should be skipped (already purged), so 0 items purged.
+	if !strings.Contains(stdout, "0 item(s) purged") {
+		t.Errorf("second purge should report '0 item(s) purged': stdout=%q", stdout)
+	}
+}
+
 func TestPurge_DryRun(t *testing.T) {
 	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()

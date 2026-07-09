@@ -371,10 +371,13 @@ func TestPurge_Symlink(t *testing.T) {
 		t.Errorf("archive dir should be empty after purge, found: %s", entry.Name())
 	}
 
-	// Verify info fails (record is gone).
-	_, _, code = runSaferm(t, homeDir, "info", id)
-	if code == 0 {
-		t.Fatal("info should fail after purge")
+	// Verify info still works (metadata is preserved after purge).
+	stdout, _, code = runSaferm(t, homeDir, "info", id)
+	if code != 0 {
+		t.Fatalf("info should succeed after purge (metadata preserved) (exit %d)", code)
+	}
+	if !strings.Contains(stdout, "Purged At:") {
+		t.Errorf("info output should contain 'Purged At:' after purge:\n%s", stdout)
 	}
 }
 
