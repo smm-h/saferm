@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/smm-h/saferm/internal/archive"
 	"github.com/smm-h/saferm/internal/db"
@@ -78,6 +79,13 @@ func handleUndelete(kwargs map[string]interface{}) int {
 			return ExitUsage
 		}
 		rec = records[0]
+	}
+
+	// Guard: cannot restore a purged item (archive content is gone).
+	if rec.PurgedAt != nil {
+		fmt.Fprintf(os.Stderr, "error: content for %d was purged on %s; metadata is preserved but the file cannot be restored\n",
+			rec.ID, rec.PurgedAt.Format(time.RFC3339))
+		return ExitArchive
 	}
 
 	dest := rec.OriginalPath
