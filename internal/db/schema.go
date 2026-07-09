@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS deletions (
 	metadata      TEXT,
 	restored_at   TEXT,
 	restored_to   TEXT,
-	symlink_target TEXT
+	symlink_target TEXT,
+	purged_at     TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_deletions_original_path ON deletions(original_path);

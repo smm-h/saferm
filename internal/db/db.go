@@ -33,6 +33,7 @@ type DeletionRecord struct {
 	RestoredAt    *time.Time // nil if not restored
 	RestoredTo    *string    // nil if not restored
 	SymlinkTarget *string   // nil if not a symlink
+	PurgedAt      *time.Time // nil if not purged
 }
 
 // Open opens (or creates) the SQLite database at dbPath with WAL mode and
@@ -78,6 +79,20 @@ func migrate(conn *sql.DB) error {
 		}
 		if _, err := conn.Exec("PRAGMA user_version = 1"); err != nil {
 			return fmt.Errorf("setting user_version to 1: %w", err)
+		}
+	}
+
+	if version < 2 {
+		// Migration 2: add purged_at column.
+		// The column exists in fresh databases (from CREATE TABLE) but not
+		// in databases created before this migration was added.
+		if !hasColumn(conn, "deletions", "purged_at") {
+			if _, err := conn.Exec("ALTER TABLE deletions ADD COLUMN purged_at TEXT"); err != nil {
+				return fmt.Errorf("migration 2 (add purged_at): %w", err)
+			}
+		}
+		if _, err := conn.Exec("PRAGMA user_version = 2"); err != nil {
+			return fmt.Errorf("setting user_version to 2: %w", err)
 		}
 	}
 
@@ -143,7 +158,7 @@ func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
 // not exist.
 func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
 	row := d.conn.QueryRow(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
 		 FROM deletions WHERE id = ?`, id)
 	rec, err := scanRecord(row)
 	if err != nil {
@@ -159,8 +174,8 @@ func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
 // ordered by deleted_at DESC (newest first).
 func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
 	rows, err := d.conn.Query(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
-		 FROM deletions WHERE original_path = ? AND restored_at IS NULL ORDER BY deleted_at DESC`, path)
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+		 FROM deletions WHERE original_path = ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`, path)
 	if err != nil {
 		return nil, err
 	}
@@ -168,13 +183,13 @@ func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
 	return scanRecords(rows)
 }
 
-// QueryAll returns all records ordered by deleted_at DESC. If includeRestored
-// is false, restored records are excluded.
-func (d *DB) QueryAll(includeRestored bool) ([]*DeletionRecord, error) {
-	query := `SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
+// QueryAll returns all records ordered by deleted_at DESC. If includeAll
+// is false, restored and purged records are excluded.
+func (d *DB) QueryAll(includeAll bool) ([]*DeletionRecord, error) {
+	query := `SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
 		 FROM deletions`
-	if !includeRestored {
-		query += " WHERE restored_at IS NULL"
+	if !includeAll {
+		query += " WHERE restored_at IS NULL AND purged_at IS NULL"
 	}
 	query += " ORDER BY deleted_at DESC"
 
@@ -206,6 +221,26 @@ func (d *DB) MarkRestored(id int64, restoredTo string) error {
 	return nil
 }
 
+// MarkPurged sets purged_at to now, preserving the metadata record.
+// Returns ErrNotFound if the record does not exist.
+func (d *DB) MarkPurged(id int64) error {
+	now := time.Now().Format(time.RFC3339)
+	result, err := d.conn.Exec(
+		`UPDATE deletions SET purged_at = ? WHERE id = ?`,
+		now, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // Delete permanently removes a record by ID (used for purge).
 // Returns ErrNotFound if the record does not exist.
 func (d *DB) Delete(id int64) error {
@@ -223,11 +258,11 @@ func (d *DB) Delete(id int64) error {
 	return nil
 }
 
-// QueryOlderThan returns all non-restored records deleted before the given time.
+// QueryOlderThan returns all non-restored, non-purged records deleted before the given time.
 func (d *DB) QueryOlderThan(before time.Time) ([]*DeletionRecord, error) {
 	rows, err := d.conn.Query(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target
-		 FROM deletions WHERE deleted_at < ? AND restored_at IS NULL ORDER BY deleted_at DESC`,
+		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+		 FROM deletions WHERE deleted_at < ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`,
 		before.Format(time.RFC3339))
 	if err != nil {
 		return nil, err
@@ -250,12 +285,14 @@ func scanOne(s scanner) (*DeletionRecord, error) {
 	var metadata sql.NullString
 	var restoredAtStr sql.NullString
 	var restoredTo sql.NullString
+	var purgedAtStr sql.NullString
 
 	err := s.Scan(
 		&rec.ID, &rec.UUID, &rec.OriginalPath, &rec.OriginalName,
 		&rec.Size, &rec.Hash, &isDir, &deletedAtStr,
 		&command, &rec.Description, &metadata,
 		&restoredAtStr, &restoredTo, &rec.SymlinkTarget,
+		&purgedAtStr,
 	)
 	if err != nil {
 		return nil, err
@@ -281,6 +318,13 @@ func scanOne(s scanner) (*DeletionRecord, error) {
 	}
 	if restoredTo.Valid {
 		rec.RestoredTo = &restoredTo.String
+	}
+	if purgedAtStr.Valid {
+		t, err := time.Parse(time.RFC3339, purgedAtStr.String)
+		if err != nil {
+			return nil, err
+		}
+		rec.PurgedAt = &t
 	}
 
 	return &rec, nil
