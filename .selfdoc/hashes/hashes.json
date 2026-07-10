@@ -2,13 +2,11 @@
   "_hash_version": 2,
   "en/cli-config.md": {
     "content": "0298ae4d3e685efc79a698043c3dc402fbe00f599f0acaf974a12a6c1908fbea",
-    "description": "7ee798adb5cec834c9a968f4ab8fe755869ecd29a453c38de008c08ed32bba2d",
-    "schema_hash": "5b5c676bbbfde226d8731b4b9a47f7483fd130fd306eea684e41a3d955f06d7d"
+    "description": "7ee798adb5cec834c9a968f4ab8fe755869ecd29a453c38de008c08ed32bba2d"
   },
   "en/cli-delete.md": {
     "content": "d4d513d4e407723076907ec66d4bc75bfbf6dde2d45e5dbac41cd457f67b0d29",
-    "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d",
-    "schema_hash": "873f66680e5b0722870f61379b627726ebf9dfaaabef98e548b2a3e6b22c6986"
+    "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d"
   },
   "en/cli-index.md": {
     "content": "cfe22931b5355cd96ec627c24434c918a709e87d19c5cbe7f98c46b00e00e45e",
@@ -16,23 +14,19 @@
   },
   "en/cli-info.md": {
     "content": "4151159971bafd2b538e7b100240317008379c7c8262384df453414850283559",
-    "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed",
-    "schema_hash": "4410f654b08da3e68384c498772f07538c64baa87165911678d6c9ebfab12ad7"
+    "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed"
   },
   "en/cli-list.md": {
     "content": "d2339c0998b3158ba52e152942c262af32e51c9926a7ffa08c7a5d995a355d0f",
-    "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1",
-    "schema_hash": "c3d0ac0d7ab34e9678e6f8e24e8d6600372ba3269bc98c55c6a858ff3d677368"
+    "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1"
   },
   "en/cli-purge.md": {
     "content": "05365750483b729b49985791e6af40d13806d27ea313d2a384c1cea42c08554a",
-    "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451",
-    "schema_hash": "38a991a4dc1d4dc07dfee0d2d05df041ba2ca0e38cb164000df7a8eda03585d9"
+    "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451"
   },
   "en/cli-undelete.md": {
     "content": "8873fa5952bc163cad5a8e4bcc66d267f38e8e99f8de2b758301d3bf031f52a5",
-    "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c",
-    "schema_hash": "0af31f36316e2a51f447c40c236fdf42c79de28f082be1e5172c626aaa0f8856"
+    "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c"
   },
   "en/gen-index.md": {
     "content": "77b26abe69da3a05549e49ce64a424607918ca7cfb8913353870f1d7ae523870",
@@ -40,27 +34,22 @@
   },
   "en/index.md": {
     "content": "8b2d4500436368630e683e98f3716633f8977cdd21ef73d8d06c156ebe9c8979",
-    "description": "0802097e2bbec002564026abfea939420b1c8fea6431cda14e6c50a28c51f57b",
-    "source_docstring": "74047ed38fa7d454ebcc2227d1943feadc5498641c856bc81a97be6f01ae4c22"
+    "description": "0802097e2bbec002564026abfea939420b1c8fea6431cda14e6c50a28c51f57b"
   },
   "en/internal-archive.md": {
     "content": "745a79c82edf8130b086391a55eca2a80870325aff20905905fb2e049a2cb0c9",
-    "description": "95cb91ba53d634db650eba55aac1036312be246f65670a212ab9ecb4d8db5232",
-    "source_docstring": "343e1d99e7da6938e9a0dba5e9db8610b5fe5b1cb02979507754b65818cf0347"
+    "description": "95cb91ba53d634db650eba55aac1036312be246f65670a212ab9ecb4d8db5232"
   },
   "en/internal-db.md": {
     "content": "172edb2789993865b6f58414c490e1847923216df9324107df702ae6595c6ba6",
-    "description": "2e9f0245d7e86c35f86f8ee60d3e23af337442c0f63189f34dab858a82212369",
-    "source_docstring": "c053626bcd030a14146e658ba230242f01dbb0c616b59234d5a98aa7b4ccb05b"
+    "description": "2e9f0245d7e86c35f86f8ee60d3e23af337442c0f63189f34dab858a82212369"
   },
   "en/internal-git.md": {
     "content": "d4f0a447deb34c9b4ca8a8279099892c7aaad937fc457aecdbf89c172bd22e6a",
-    "description": "082aa35a5b966e5e308dee787df64518be7d384b097be56c711427373671d804",
-    "source_docstring": "674967596ba10ab6228e597ad867d586140ef59da773bc3b2ec281c709075425"
+    "description": "082aa35a5b966e5e308dee787df64518be7d384b097be56c711427373671d804"
   },
   "en/internal-meta.md": {
     "content": "d25d952f726380e8f36cf7d6477aa6c615bb5d22bba9b24288e94e5ec9eb4030",
-    "description": "aacf9c2e88775f46cecfbf41ccfb0495231947b4cebdc49bcfc26cead9486814",
-    "source_docstring": "0b739ec75a21438e50ad26936567d589ae80ed8ad1f1c1c82e653e569ceaeee2"
+    "description": "aacf9c2e88775f46cecfbf41ccfb0495231947b4cebdc49bcfc26cead9486814"
   }
 }
