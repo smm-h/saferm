@@ -2,6 +2,14 @@
 
 # Changelog
 
+## 0.6.1
+
+Fix CI workflow for PyPI wrapper package
+
+### Hotfix
+
+- Fix CI workflow for PyPI wrapper package
+
 ## 0.6.0
 
 Purge preserves metadata audit trail
