@@ -2,6 +2,18 @@
 
 # Changelog
 
+## 0.6.0
+
+Purge preserves metadata audit trail
+
+### Breaking
+
+- **Breaking.** Migrate to strictcli v0.17.0: rename flags and add explicit bool defaults.
+
+### Features
+
+- **New feature.** Purge now keeps the metadata record (audit trail) and only deletes archived content. Purged items appear in list --all with 'purged' status.
+
 ## 0.5.0
 
 Purge size filtering and dry-run preview
@@ -11,6 +23,15 @@ Purge size filtering and dry-run preview
 - **New feature.** `saferm purge --larger-than SIZE` filters by file size (e.g. `100MB`, `1GB`). `saferm purge --dry-run` previews what would be purged without deleting.
 
 ## 0.4.0
+
+Config migration to strictcli
+
+<details>
+<summary>Context</summary>
+
+Config is now managed by strictcli's built-in config system instead of a hand-rolled TOML loader. The config file stays at ~/.saferm/config.toml with the same keys, but you get config show/set/path/edit subcommands for free. The internal/config package is removed.
+
+</details>
 
 ### Breaking
 
@@ -23,6 +44,15 @@ Purge size filtering and dry-run preview
 
 ## 0.3.0
 
+Symlink support and selfdoc root file templates
+
+<details>
+<summary>Context</summary>
+
+Standalone symlinks are now archived correctly instead of following the link target. Previously, archiving a symlink would hash and store the target's content (or fail entirely for dangling symlinks). Now saferm preserves the symlink target path and recreates it on restore. Also adopted selfdoc templates for CLAUDE.md and README.md.
+
+</details>
+
 ### Features
 
 - **New feature.** Symlinks are now archived by preserving the link target path instead of following the symlink. Dangling symlinks, relative symlinks, and symlinks to directories are all handled correctly. Restore recreates the original symlink.
@@ -34,6 +64,8 @@ Purge size filtering and dry-run preview
 - **Fix.** `saferm purge` now correctly removes `.symlink` metadata files from the archive.
 
 ## 0.2.1
+
+Dependency upgrades and housekeeping
 
 ### Features
 

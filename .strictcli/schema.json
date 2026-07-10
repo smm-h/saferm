@@ -19,8 +19,8 @@
         },
         {
           "default": false,
-          "help": "Ignore nonexistent files, skip prompts",
-          "name": "force",
+          "help": "Ignore nonexistent files",
+          "name": "ignore-missing",
           "negatable": true,
           "short": "f",
           "type": "bool"
@@ -51,9 +51,9 @@
           "type": "str"
         },
         {
-          "default": false,
-          "help": "Do not update the git index after archiving",
-          "name": "no-git",
+          "default": true,
+          "help": "Update the git index after archiving",
+          "name": "update-git-index",
           "negatable": true,
           "type": "bool"
         }
@@ -107,9 +107,15 @@
           "type": "str"
         },
         {
+          "default": "",
+          "help": "Only purge items larger than this size (e.g. 100MB, 1GB)",
+          "name": "larger-than",
+          "type": "str"
+        },
+        {
           "default": false,
           "help": "Skip confirmation prompt",
-          "name": "force",
+          "name": "skip-confirmation",
           "negatable": true,
           "short": "f",
           "type": "bool"
@@ -118,6 +124,13 @@
           "default": false,
           "help": "Purge everything",
           "name": "all",
+          "negatable": true,
+          "type": "bool"
+        },
+        {
+          "default": false,
+          "help": "Show what would be purged without deleting",
+          "name": "dry-run",
           "negatable": true,
           "type": "bool"
         }
@@ -136,7 +149,7 @@
         {
           "default": false,
           "help": "Overwrite existing file at destination",
-          "name": "force",
+          "name": "force-overwrite",
           "negatable": true,
           "type": "bool"
         }
@@ -145,6 +158,7 @@
       "name": "undelete"
     }
   },
+  "config": true,
   "defaults": {
     "app": {
       "commands": {},
@@ -152,31 +166,44 @@
       "deprecated": {},
       "env_prefix": null,
       "global_flags": [],
-      "groups": {}
+      "groups": {},
+      "tag_contracts": {}
     },
     "arg": {
+      "choices": null,
+      "default": null,
       "required": true,
+      "type": "str",
       "variadic": false
     },
     "command": {
       "args": [],
+      "constraints": [],
       "flags": [],
-      "passthrough": false
+      "hidden": false,
+      "interactive": false,
+      "passthrough": false,
+      "tags": []
     },
     "flag": {
       "choices": null,
       "default": null,
       "env": null,
+      "env_separator": null,
       "hidden": false,
       "negatable": null,
       "repeatable": false,
-      "short": null
+      "short": null,
+      "unique": false
     },
     "group": {
       "commands": {},
       "deprecated": {},
-      "groups": {}
-    }
+      "groups": {},
+      "hidden": false,
+      "tags": []
+    },
+    "schema_version": 1
   },
   "env_prefix": "SAFERM",
   "global_flags": [
@@ -186,10 +213,118 @@
       "name": "verbose",
       "negatable": true,
       "type": "bool"
+    },
+    {
+      "default": "/home/m/.saferm/archive",
+      "help": "Path to the archive directory",
+      "name": "archive-dir",
+      "type": "str"
+    },
+    {
+      "default": "/home/m/.saferm/db/saferm.db",
+      "help": "Path to the SQLite database",
+      "name": "db-path",
+      "type": "str"
+    },
+    {
+      "default": [
+        "(?i)token",
+        "(?i)secret",
+        "(?i)password",
+        "(?i)key",
+        "(?i)credential"
+      ],
+      "help": "Regex patterns for env vars to exclude from metadata",
+      "name": "exclude-env-patterns",
+      "repeatable": true,
+      "type": "str",
+      "unique": true
     }
   ],
+  "groups": {
+    "config": {
+      "commands": {
+        "edit": {
+          "help": "Open the config file for manual editing in $EDITOR (creates if missing)",
+          "interactive": true,
+          "name": "edit"
+        },
+        "init": {
+          "help": "Generate a template config file with documented fields and defaults",
+          "name": "init"
+        },
+        "path": {
+          "help": "Print the absolute path to the config file for this application",
+          "name": "path"
+        },
+        "set": {
+          "args": [
+            {
+              "help": "The config key to set, matching a registered flag name",
+              "name": "key"
+            },
+            {
+              "help": "Value to set (comma-separated for repeatable flags, use backslash to escape commas)",
+              "name": "value",
+              "required": false
+            }
+          ],
+          "flags": [
+            {
+              "default": false,
+              "help": "Clear a repeatable flag by setting its value to an empty list",
+              "name": "clear",
+              "negatable": true,
+              "type": "bool"
+            },
+            {
+              "default": false,
+              "help": "Reset a key to its default value by removing it from the config file",
+              "name": "default",
+              "negatable": true,
+              "type": "bool"
+            }
+          ],
+          "help": "Set a persistent config value that overrides the default for a flag",
+          "name": "set"
+        },
+        "show": {
+          "constraints": [
+            {
+              "flags": [
+                "plain",
+                "json"
+              ],
+              "type": "mutex"
+            }
+          ],
+          "flags": [
+            {
+              "default": false,
+              "help": "Display config values in a human-readable table format",
+              "name": "plain",
+              "negatable": true,
+              "type": "bool"
+            },
+            {
+              "default": false,
+              "help": "Display config values as a JSON object with source metadata",
+              "name": "json",
+              "negatable": true,
+              "type": "bool"
+            }
+          ],
+          "help": "Show all config values with their sources (config file, env, or default)",
+          "name": "show"
+        }
+      },
+      "help": "Manage persistent configuration values stored in the config file",
+      "name": "config"
+    }
+  },
   "help": "AI-first safe rm replacement",
   "name": "saferm",
   "project_id": "github.com/smm-h/saferm",
-  "version": "(devel)"
+  "schema_version": 1,
+  "version": "0.6.0"
 }
