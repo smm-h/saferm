@@ -1,194 +1,66 @@
 {
-  "cli-delete.md": {
-    "content": "f59ac26d407e145e680dff9101548a32222c3769affc3cc039705592b1cfc330",
-    "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d"
-  },
-  "cli-index.md": {
-    "content": "2e016db1e0c4f37ade34727aae0a490378670c2115404ce76c2655c1ee519a78",
-    "description": "c29f159b2c8376a6e6fbfef8446ca34d26087187b10d269922892f3ae9f835fe"
-  },
-  "cli-info.md": {
-    "content": "b13019fc6f82316af4048ab102aca099d861f80ee7ab6bca5d3b10bc9153d83e",
-    "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed"
-  },
-  "cli-list.md": {
-    "content": "a869887e67a196cb5f64905fb823c318a12e3ee63a83052a0f01448ed3a8eeb1",
-    "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1"
-  },
-  "cli-purge.md": {
-    "content": "aafc500f0b48b5fe10c920b96a4633942912dc8ba5b88357107c86b17fc222f6",
-    "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451"
-  },
-  "cli-undelete.md": {
-    "content": "428a499c32ed1657313546b44a625787563d2e489285c2cc36a7ea849fb83d30",
-    "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c"
-  },
-  "delete.md": {
-    "content": "60f1e22db5174a77a087765d4f9e1a7885cec44edc408250705f76a7f815b604",
-    "description": "17cdb0e70d67010caa328d8c735917c7a22dccfa4869298454be1436593e3fc1"
+  "_hash_version": 2,
+  "en/cli-config.md": {
+    "content": "0298ae4d3e685efc79a698043c3dc402fbe00f599f0acaf974a12a6c1908fbea",
+    "description": "7ee798adb5cec834c9a968f4ab8fe755869ecd29a453c38de008c08ed32bba2d",
+    "schema_hash": "5b5c676bbbfde226d8731b4b9a47f7483fd130fd306eea684e41a3d955f06d7d"
   },
   "en/cli-delete.md": {
-    "content": "b889d5dda9ac849864b78144b5628e312912c580abb674daa277cd76f7f157f6",
-    "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d"
+    "content": "d4d513d4e407723076907ec66d4bc75bfbf6dde2d45e5dbac41cd457f67b0d29",
+    "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d",
+    "schema_hash": "873f66680e5b0722870f61379b627726ebf9dfaaabef98e548b2a3e6b22c6986"
   },
   "en/cli-index.md": {
-    "content": "2e016db1e0c4f37ade34727aae0a490378670c2115404ce76c2655c1ee519a78",
+    "content": "dbf2f27d72f8b082491b48cbe9eeb808babb2ba6e450fe736c8a7cf1d901feb8",
     "description": "c29f159b2c8376a6e6fbfef8446ca34d26087187b10d269922892f3ae9f835fe"
   },
   "en/cli-info.md": {
     "content": "4151159971bafd2b538e7b100240317008379c7c8262384df453414850283559",
-    "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed"
+    "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed",
+    "schema_hash": "4410f654b08da3e68384c498772f07538c64baa87165911678d6c9ebfab12ad7"
   },
   "en/cli-list.md": {
     "content": "d2339c0998b3158ba52e152942c262af32e51c9926a7ffa08c7a5d995a355d0f",
-    "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1"
+    "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1",
+    "schema_hash": "c3d0ac0d7ab34e9678e6f8e24e8d6600372ba3269bc98c55c6a858ff3d677368"
   },
   "en/cli-purge.md": {
-    "content": "ed69a9fa83f56c90039a0611158f5fcb8790a561ec1086a1eec0a3bc54da9699",
-    "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451"
+    "content": "05365750483b729b49985791e6af40d13806d27ea313d2a384c1cea42c08554a",
+    "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451",
+    "schema_hash": "38a991a4dc1d4dc07dfee0d2d05df041ba2ca0e38cb164000df7a8eda03585d9"
   },
   "en/cli-undelete.md": {
-    "content": "515d41cb4f801180bf1b79a57a5d743dddf7edd8dacc951eb4eac02faf491bb8",
-    "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c"
+    "content": "8873fa5952bc163cad5a8e4bcc66d267f38e8e99f8de2b758301d3bf031f52a5",
+    "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c",
+    "schema_hash": "0af31f36316e2a51f447c40c236fdf42c79de28f082be1e5172c626aaa0f8856"
   },
   "en/gen-index.md": {
     "content": "77b26abe69da3a05549e49ce64a424607918ca7cfb8913353870f1d7ae523870",
     "description": "bb3cd9d34f014c0674a9285c25ee14b5b4abc5cf941f0d83594c301405e8f3b6"
   },
   "en/index.md": {
-    "content": "461ee04a6c66e6cc3ea51443f9882cac945ba70ea768f08896f681e9fedcaace",
-    "description": "0802097e2bbec002564026abfea939420b1c8fea6431cda14e6c50a28c51f57b"
+    "content": "8b2d4500436368630e683e98f3716633f8977cdd21ef73d8d06c156ebe9c8979",
+    "description": "0802097e2bbec002564026abfea939420b1c8fea6431cda14e6c50a28c51f57b",
+    "source_docstring": "74047ed38fa7d454ebcc2227d1943feadc5498641c856bc81a97be6f01ae4c22"
   },
   "en/internal-archive.md": {
-    "content": "2bac950b89fd5a0390406f068e52c9d8befa1ec8052e941dd8afaa25274f690b",
-    "description": "95cb91ba53d634db650eba55aac1036312be246f65670a212ab9ecb4d8db5232"
-  },
-  "en/internal-config.md": {
-    "content": "534084ddf550be25b902d3bd66c45a41aea0702f716bfe6886a3a93fdb1989b0",
-    "description": "822a01945c472831efa6c4e3405c219d871501208cffa763c704e71d0168d1df"
+    "content": "745a79c82edf8130b086391a55eca2a80870325aff20905905fb2e049a2cb0c9",
+    "description": "95cb91ba53d634db650eba55aac1036312be246f65670a212ab9ecb4d8db5232",
+    "source_docstring": "343e1d99e7da6938e9a0dba5e9db8610b5fe5b1cb02979507754b65818cf0347"
   },
   "en/internal-db.md": {
-    "content": "94ace9967ecd6ad43c69e0060eb77b4abca570b12bd2ba05bb2a47185631540f",
-    "description": "2e9f0245d7e86c35f86f8ee60d3e23af337442c0f63189f34dab858a82212369"
+    "content": "172edb2789993865b6f58414c490e1847923216df9324107df702ae6595c6ba6",
+    "description": "2e9f0245d7e86c35f86f8ee60d3e23af337442c0f63189f34dab858a82212369",
+    "source_docstring": "c053626bcd030a14146e658ba230242f01dbb0c616b59234d5a98aa7b4ccb05b"
   },
   "en/internal-git.md": {
-    "content": "e01df6161998892a8cd178d27c366e7fca97faef8fe9cdd530f8992c7dabbed7",
-    "description": "082aa35a5b966e5e308dee787df64518be7d384b097be56c711427373671d804"
+    "content": "d4f0a447deb34c9b4ca8a8279099892c7aaad937fc457aecdbf89c172bd22e6a",
+    "description": "082aa35a5b966e5e308dee787df64518be7d384b097be56c711427373671d804",
+    "source_docstring": "674967596ba10ab6228e597ad867d586140ef59da773bc3b2ec281c709075425"
   },
   "en/internal-meta.md": {
-    "content": "1fa77993b9936ae5abc9e8140340119695aea42e7861426f6bf3897d067a608d",
-    "description": "aacf9c2e88775f46cecfbf41ccfb0495231947b4cebdc49bcfc26cead9486814"
-  },
-  "exitcodes.md": {
-    "content": "5e90f3617972e3413f4d727e451dd98b205dbf37ff4380c5c121f4297acadd84",
-    "description": "cf52e88f53f18695a2ad7da739d319ddd402a64a5da300a4470fc44398f447ec"
-  },
-  "gen-index.md": {
-    "content": "77b26abe69da3a05549e49ce64a424607918ca7cfb8913353870f1d7ae523870",
-    "description": "bb3cd9d34f014c0674a9285c25ee14b5b4abc5cf941f0d83594c301405e8f3b6"
-  },
-  "helpers.md": {
-    "content": "e2f5a60932535509b713dd16760b168652230cc2240afad3946e04d60afee8e1",
-    "description": "6a2b8b55c691830dfe593391040e523cbd9efa548700fbbcdf08f58d650dd84b"
-  },
-  "index.md": {
-    "content": "63f1f78fbc390a1955c5de3e8a1cdc50d4dcb68e0936cd1793572ae00251666d",
-    "description": "0802097e2bbec002564026abfea939420b1c8fea6431cda14e6c50a28c51f57b"
-  },
-  "info.md": {
-    "content": "89d61bfe7a7607506deeab00e9b6b18a88c62872a1b83a05f2dc3266e25a147a",
-    "description": "d01f646230df14d10e8f9b33611dd180e0fe848d0bd6d3409775fb5cb07e0829"
-  },
-  "internal-archive-archive.md": {
-    "content": "d928c4253e8ef8ddbbf648ab97bec832e0647342d76b6cf382ef1bc655137896",
-    "description": "a831cc01027b744c5da92247d4047ca80eb3af36875804bb7f3b543ff6b1a6d3"
-  },
-  "internal-archive-doc.md": {
-    "content": "ff6c080e3bc1e572311dc25654eec6f6211360f76d96876c64fdc3c91ac55b4d",
-    "description": "d1148768c80a4c2bb05d0c353652c3b973a0c491a82ea45b3b4e1ba42689cced"
-  },
-  "internal-archive.md": {
-    "content": "fd35384bb48233369eba24151e747eb5b8f94d95e2d658dba4514890608452c5",
-    "description": "95cb91ba53d634db650eba55aac1036312be246f65670a212ab9ecb4d8db5232"
-  },
-  "internal-config-config.md": {
-    "content": "69e87175d44c7f7927a970d0a4f0653011d3b381ec695bf2ef01787829c77d34",
-    "description": "ae07cba7cd3f3c36c74f2f53a1aef8f719b15af057717fab172b53642f5abdff"
-  },
-  "internal-config-doc.md": {
-    "content": "338bd1c9716a2dc31c8f6335a766718c8cc0faaeb630264c60e4861106624554",
-    "description": "012137a8cfc7d6d1dec9bb138463c2eded438d64facc681f1b2c6552476f3bee"
-  },
-  "internal-config.md": {
-    "content": "534084ddf550be25b902d3bd66c45a41aea0702f716bfe6886a3a93fdb1989b0",
-    "description": "822a01945c472831efa6c4e3405c219d871501208cffa763c704e71d0168d1df"
-  },
-  "internal-db-db.md": {
-    "content": "39668f58735d193137abc60fc679ab65471f82a1b9251e9af467384c76fd7bc4",
-    "description": "c26cb4f6c82e86908a1e6d9e13b9d2544f8df52108fccf6db77549282b27a984"
-  },
-  "internal-db-doc.md": {
-    "content": "2656d2e6ba9bb85a60d0fcf402aae39606627044dd411204b29ec457a52a5310",
-    "description": "e79b806c9497df25031ff4e143834623c97df14291509239825ed240611b79ef"
-  },
-  "internal-db-schema.md": {
-    "content": "6657421ac14d36bb6911ea0359ef1692efc62e32b72d33ddb740a1b1dc9fbb39",
-    "description": "2a7a261fa67ff9ba19a2f1237e8192757feb5e61a5d238c38aed1d4ccd311572"
-  },
-  "internal-db.md": {
-    "content": "94ace9967ecd6ad43c69e0060eb77b4abca570b12bd2ba05bb2a47185631540f",
-    "description": "2e9f0245d7e86c35f86f8ee60d3e23af337442c0f63189f34dab858a82212369"
-  },
-  "internal-git-git.md": {
-    "content": "95dbd23ecc15e9ec9109eb283cb61baf5db3c8bfc8c0f294cbd6b0aa566a2b13",
-    "description": "5f40cfed7a33186ec80eb8f38c5c1a0edd46aea95ff30319304628d4e150834b"
-  },
-  "internal-git.md": {
-    "content": "e01df6161998892a8cd178d27c366e7fca97faef8fe9cdd530f8992c7dabbed7",
-    "description": "082aa35a5b966e5e308dee787df64518be7d384b097be56c711427373671d804"
-  },
-  "internal-meta-doc.md": {
-    "content": "3c0fa99375123c3be4ba602294f1e50a68763e0f7a8b6750f0eb995de8a31f97",
-    "description": "700508094dda2d9d37ca62143755d5aeafaef7bd5b53c25951047a50e75c2cc6"
-  },
-  "internal-meta-meta.md": {
-    "content": "540e7ff49da34e65733386703cb7079877e807629dbf9311572aeb8a17d0039e",
-    "description": "e72fdf3a090d94abbd66bde4f48f1c6997afa07bbc424ec7d802b4ba20c29b1a"
-  },
-  "internal-meta-proc_darwin.md": {
-    "content": "49b7efb3adb1dd291c5f4a29e55fc7b1dfa7310b18bdf2ce938a0f23068aae04",
-    "description": "d904e8cd6822e6b98727660e5f2f08a52d4db582eb05d12ad0490881777f0d8d"
-  },
-  "internal-meta-proc_linux.md": {
-    "content": "c7f15e10f615ed17f2b223b455a4a627bd99a70a7a327616c243a1e71625d24a",
-    "description": "e95070bb71e9e59532c13ac6f5377aaca6113f1f9682d28c89880cc1362fb257"
-  },
-  "internal-meta.md": {
-    "content": "8bdc2561126e16f08c62f6c6b4a1f65aab1f71ec19dc50502e130a7c2ae7e292",
-    "description": "aacf9c2e88775f46cecfbf41ccfb0495231947b4cebdc49bcfc26cead9486814"
-  },
-  "internal-testutil-testutil.md": {
-    "content": "41087aea9554df97ab5ec0f718c4cfa49609ea631c4985da8831507c10338e35",
-    "description": "0adc2f43be4efe900f70468639b586ae01f92250d3534704818bb2b718021a82"
-  },
-  "list.md": {
-    "content": "1d189afc8b2f82ef8b80399ff7491962af8897eca5e3eeebc17c0ac998fa3d10",
-    "description": "a02ed01be99c1434d6ff02da76b77c5df868aabe7985e57b121e2a667f3bfa87"
-  },
-  "main.md": {
-    "content": "75fc035b4c92b8afb3056ed7f5a699c3b6096d87de17f880d917360432e032e8",
-    "description": "71c680cd4103417ad698a49afeee8cadc2b18ea5d877cab024d778eff13b5788"
-  },
-  "purge.md": {
-    "content": "c2c6e95065c2dd3edb6257d311f592cbb92c786148db262d5a458dd38db42536",
-    "description": "0c7a3da91e9ddd5eded028db8f2f4d3b7d74f2d39b9265b76ce78b64a42422ba"
-  },
-  "undelete.md": {
-    "content": "1bef775c91ad6c5356a0fd631048366debf8a1289d05b0c700b12b45d0ce892d",
-    "description": "4bb9638d1c3ccb3becec0443bb3bf935ea31376cfca8303b2d0a047e637b6ba5"
-  },
-  "version.md": {
-    "content": "3a5b914a947384dd032c10927466915ee353c2622400cfcd64f47b0ff3b5a145",
-    "description": "f4c381952a55f3df22dca1fd7b32babd603f056e20a3bf099eb1105392bb0a03"
+    "content": "d25d952f726380e8f36cf7d6477aa6c615bb5d22bba9b24288e94e5ec9eb4030",
+    "description": "aacf9c2e88775f46cecfbf41ccfb0495231947b4cebdc49bcfc26cead9486814",
+    "source_docstring": "0b739ec75a21438e50ad26936567d589ae80ed8ad1f1c1c82e653e569ceaeee2"
   }
 }

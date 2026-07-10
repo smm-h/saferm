@@ -2,6 +2,7 @@
 title: saferm CLI Reference
 description: "Complete CLI reference for saferm — all available commands, subcommands, flags, arguments, and usage examples with detailed descriptions."
 generated: true
+seeded: true
 nav_group: "CLI Reference"
 nav_order: 0
 order: 91
@@ -12,7 +13,7 @@ order: 91
 
 AI-first safe rm replacement
 
-Version: (devel)
+Version: 0.6.0
 
 ## Commands
 
@@ -21,3 +22,7 @@ Version: (devel)
 - [list](cli-list.html) -- List archived items
 - [purge](cli-purge.html) -- Permanently remove items from archive
 - [undelete](cli-undelete.html) -- Restore a file from archive
+
+## Command Groups
+
+- [config](cli-config.html) -- Manage persistent configuration values stored in the config file

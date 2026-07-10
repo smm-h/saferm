@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "name": "saferm",
+  "slug": "saferm",
+  "version": "0.5.0",
+  "description": "",
+  "language": "go",
+  "base_url": "https://saferm.smmh.dev",
+  "pages": [
+    {
+      "path": "cli-config.md",
+      "title": "saferm config",
+      "type": "doc"
+    },
+    {
+      "path": "cli-delete.md",
+      "title": "saferm delete",
+      "type": "doc"
+    },
+    {
+      "path": "cli-index.md",
+      "title": "saferm CLI Reference",
+      "type": "doc"
+    },
+    {
+      "path": "cli-info.md",
+      "title": "saferm info",
+      "type": "doc"
+    },
+    {
+      "path": "cli-list.md",
+      "title": "saferm list",
+      "type": "doc"
+    },
+    {
+      "path": "cli-purge.md",
+      "title": "saferm purge",
+      "type": "doc"
+    },
+    {
+      "path": "cli-undelete.md",
+      "title": "saferm undelete",
+      "type": "doc"
+    },
+    {
+      "path": "gen-index.md",
+      "title": "API Reference",
+      "type": "doc"
+    },
+    {
+      "path": "index.md",
+      "title": "saferm",
+      "type": "doc"
+    },
+    {
+      "path": "internal-archive.md",
+      "title": "internal/archive",
+      "type": "doc"
+    },
+    {
+      "path": "internal-db.md",
+      "title": "internal/db",
+      "type": "doc"
+    },
+    {
+      "path": "internal-git.md",
+      "title": "internal/git",
+      "type": "doc"
+    },
+    {
+      "path": "internal-meta.md",
+      "title": "internal/meta",
+      "type": "doc"
+    }
+  ],
+  "posts": [],
+  "last_gen": "2026-07-10T08:27:07.658575+00:00"
+}

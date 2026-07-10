@@ -54,6 +54,12 @@ saferm undelete old-config.yaml
 | `list` | List archived items |
 | `purge` | Permanently remove items from archive |
 | `undelete` | Restore a file from archive |
+| **config** | Manage persistent configuration values stored in the config file |
+| `config edit` | Open the config file for manual editing in $EDITOR (creates if missing) |
+| `config init` | Generate a template config file with documented fields and defaults |
+| `config path` | Print the absolute path to the config file for this application |
+| `config set` | Set a persistent config value that overrides the default for a flag |
+| `config show` | Show all config values with their sources (config file, env, or default) |
 
 ## Example workflow
 
