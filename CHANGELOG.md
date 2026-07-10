@@ -2,6 +2,14 @@
 
 # Changelog
 
+## 0.6.2
+
+CI fix: generate missing pypi/uv.lock
+
+### Hotfix
+
+- CI fix: generate missing pypi/uv.lock
+
 ## 0.6.1
 
 Fix CI workflow for PyPI wrapper package

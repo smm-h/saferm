@@ -1,6 +1,6 @@
 {
   "name": "saferemove",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "AI-first safe rm replacement",
   "license": "MIT",
   "repository": {
