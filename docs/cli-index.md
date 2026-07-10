@@ -13,7 +13,7 @@ order: 91
 
 AI-first safe rm replacement
 
-Version: 0.6.0
+Version: 0.6.1
 
 ## Commands
 
