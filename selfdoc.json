@@ -1,5 +1,5 @@
 {
-  "version": "0.7.0",
+  "version": "0.7.1",
   "source": [
     {
       "path": ".",
@@ -27,7 +27,7 @@
   "base_url": "https://saferm.smmh.dev",
   "versions": [
     {
-      "version": "0.7.0",
+      "version": "0.7.1",
       "indexed": true
     }
   ],
