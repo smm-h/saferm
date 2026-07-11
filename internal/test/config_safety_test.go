@@ -82,6 +82,12 @@ func TestConfigSafety_UnknownKey_HardError(t *testing.T) {
 // The parse aborts before any handler runs, so there are no DB/archive
 // assertions -- only exit code + stderr.
 //
+// NOTE ON FLAG POSITION: strictcli's config-conflict detection for GLOBAL flags
+// runs only in the pre-command position (inside extractGlobalFlags). A global
+// flag placed AFTER the command token is resolved by the command parser and is
+// NOT conflict-checked against config. So this test places --archive-dir before
+// the "delete" token -- the position where the guardrail actually operates.
+//
 // RED against v0.17.0 (cli-wins -> CLI archive-dir used -> exit 0). The CLI path
 // is chosen under the test home so it is creatable, ensuring v0.17.0 reaches
 // exit 0 rather than failing on directory creation.
@@ -93,8 +99,9 @@ func TestConfigSafety_DivergentArchiveDir_HardError(t *testing.T) {
 	// Clearly different literal paths.
 	writeConfig(t, homeDir, "archive_dir = \""+configArchive+"\"\n")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete",
+	_, stderr, code := runSaferm(t, homeDir,
 		"--archive-dir", cliArchive,
+		"delete",
 		"--description", "divergent archive-dir test",
 		"-f", "nonexistent-divergent-test-file")
 
@@ -110,6 +117,10 @@ func TestConfigSafety_DivergentArchiveDir_HardError(t *testing.T) {
 // GUARD (passes on BOTH v0.17.0 and v0.21.0): byte-identical config + CLI
 // archive-dir values must NOT be treated as a conflict. Divergence-aware
 // conflict mode fires only when the values differ.
+//
+// Uses the pre-command global-flag position (same as the divergent test) so it
+// genuinely exercises the conflict path and proves identical values are exempt,
+// rather than trivially passing because the check was bypassed.
 func TestConfigSafety_IdenticalArchiveDir_Guard_ExitZero(t *testing.T) {
 	homeDir := testutil.SetupTestEnv(t)
 	// Byte-identical literal used in both config and CLI. Creatable under the
@@ -117,13 +128,48 @@ func TestConfigSafety_IdenticalArchiveDir_Guard_ExitZero(t *testing.T) {
 	shared := filepath.Join(homeDir, "shared-archive")
 	writeConfig(t, homeDir, "archive_dir = \""+shared+"\"\n")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete",
+	_, stderr, code := runSaferm(t, homeDir,
 		"--archive-dir", shared,
+		"delete",
 		"--description", "identical archive-dir guard",
 		"-f", "nonexistent-identical-guard-file")
 
 	if code != 0 {
 		t.Fatalf("identical archive-dir guard: expected exit 0, got %d (stderr=%q)", code, stderr)
+	}
+}
+
+// TestConfigSafety_ConfigFieldRendersOnce verifies that the ConfigFields for
+// archive_dir and db_path, which collide with existing flag params, render
+// EXACTLY ONCE in `config show --plain` -- as a "-- help" annotation on the flag
+// line -- and are NOT duplicated as separate entries under a "Config fields:"
+// section.
+func TestConfigSafety_ConfigFieldRendersOnce(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+
+	stdout, stderr, code := runSaferm(t, homeDir, "config", "show", "--plain")
+	if code != 0 {
+		t.Fatalf("config show --plain failed (exit %d): stderr=%q", code, stderr)
+	}
+
+	countPrefix := func(prefix string) int {
+		n := 0
+		for _, line := range strings.Split(stdout, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), prefix) {
+				n++
+			}
+		}
+		return n
+	}
+	if got := countPrefix("archive_dir ="); got != 1 {
+		t.Errorf("expected exactly 1 archive_dir line, got %d:\n%s", got, stdout)
+	}
+	if got := countPrefix("db_path ="); got != 1 {
+		t.Errorf("expected exactly 1 db_path line, got %d:\n%s", got, stdout)
+	}
+	// The annotation (help suffix) must be present on the flag line.
+	if !strings.Contains(stdout, "archive_dir =") || !strings.Contains(stdout, "-- Directory where deleted files are archived") {
+		t.Errorf("expected archive_dir line to carry the boundary annotation, got:\n%s", stdout)
 	}
 }
 

@@ -159,6 +159,18 @@
     }
   },
   "config": true,
+  "config_fields": {
+    "archive_dir": {
+      "help": "Directory where deleted files are archived. Default derives from SAFERM_HOME (an infrastructure override: unlike config values, SAFERM_HOME is NOT suppressed by --hermetic).",
+      "required": true,
+      "type": "str"
+    },
+    "db_path": {
+      "help": "Path to the SQLite database. Default derives from SAFERM_HOME (an infrastructure override: unlike config values, SAFERM_HOME is NOT suppressed by --hermetic).",
+      "required": true,
+      "type": "str"
+    }
+  },
   "defaults": {
     "app": {
       "commands": {},
@@ -215,12 +227,14 @@
       "type": "bool"
     },
     {
+      "conflict_mode": "error",
       "default": "/home/m/.saferm/archive",
       "help": "Path to the archive directory",
       "name": "archive-dir",
       "type": "str"
     },
     {
+      "conflict_mode": "error",
       "default": "/home/m/.saferm/db/saferm.db",
       "help": "Path to the SQLite database",
       "name": "db-path",
