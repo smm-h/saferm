@@ -56,8 +56,11 @@ func runSaferm(t *testing.T, homeDir string, args ...string) (stdout, stderr str
 	cmd := exec.Command(safermBinary, args...)
 
 	// Set SAFERM_HOME so saferm's BaseDir() uses the test directory directly.
+	// Strip ALL SAFERM_-prefixed vars from the inherited env first: a developer's
+	// SAFERM_ARCHIVE_DIR (or any other SAFERM_* override) would otherwise leak in
+	// and trigger nondeterministic env+config conflicts under conflict-mode "error".
 	safermHome := filepath.Join(homeDir, ".saferm")
-	env := filterEnv(os.Environ(), "SAFERM_HOME")
+	env := filterEnv(os.Environ(), "SAFERM_")
 	env = append(env, "SAFERM_HOME="+safermHome)
 	cmd.Env = env
 
@@ -80,12 +83,17 @@ func runSaferm(t *testing.T, homeDir string, args ...string) (stdout, stderr str
 	return stdout, stderr, exitCode
 }
 
-// filterEnv returns env without any entries matching the given key prefix.
-func filterEnv(env []string, key string) []string {
-	prefix := key + "="
+// filterEnv returns env without any entries whose variable name starts with
+// keyPrefix. Matching is on the variable name (the part before '='), so passing
+// "SAFERM_" strips SAFERM_HOME, SAFERM_ARCHIVE_DIR, and every other SAFERM_* var.
+func filterEnv(env []string, keyPrefix string) []string {
 	var result []string
 	for _, e := range env {
-		if !strings.HasPrefix(e, prefix) {
+		name := e
+		if i := strings.IndexByte(e, '='); i >= 0 {
+			name = e[:i]
+		}
+		if !strings.HasPrefix(name, keyPrefix) {
 			result = append(result, e)
 		}
 	}
