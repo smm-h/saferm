@@ -3,3 +3,4 @@
 {"id":"18c14766c3c58e8ef40014fb507f4617a1ef3135d95558cd","commits":["d0e862e689e55a1373588b9d02c4653dd4762a0c"],"user_facing":true,"description":"**Conflicting CLI and config values for `--archive-dir`/`--db-path` now error.** When a CLI flag value diverges from the value set in `config.toml`, saferm reports a conflict (exit 1) instead of silently letting the CLI win. Identical values are accepted.","type":"feature"}
 {"id":"18c14768a339e9daa7f3fea30e9e4f548690c2c5c7313961","commits":["071f296fc5a327ef87730ef0974352d5c1fab7a1"],"user_facing":false}
 {"id":"18c14768b5af231bc63d94c24e854acba004655f1767f1c4","commits":["abfb93f9ac3f4dcd2fb6d39f8264ad2d9a9005f7","cff4d5c46d61c26bbde75368782711362de503d9"],"user_facing":false}
+{"id":"18c14768c4c53dad9b0ae75277a443adb887a154f3989fef","commits":["bc13601633644c3dbc4109bb233338792ad9b99f"],"user_facing":false}
