@@ -48,7 +48,7 @@ saferm undelete old-config.yaml
 
 ## Commands
 
-:-: table-commands path="."
+:-: table-commands
 
 ## Example workflow
 
