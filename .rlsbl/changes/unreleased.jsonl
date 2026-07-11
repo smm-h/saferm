@@ -1,0 +1,1 @@
+{"id":"18c14a131c1e0946860fd5a4776947baa0b5c67b7780620f","commits":["e13c2e3fe39fbd1ada03f2962b106d352ede82ec"],"user_facing":true,"description":"**Windows binaries build again.** Fixed a build break (undefined `readParentCmdline`) that prevented Windows binaries from compiling, so releases now publish for all platforms.","type":"fix"}
