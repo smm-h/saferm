@@ -20,10 +20,6 @@
     {
       "path": "internal/meta",
       "language": "go"
-    },
-    {
-      "path": "internal/config",
-      "language": "go"
     }
   ],
   "docs": "docs/",

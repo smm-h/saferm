@@ -96,13 +96,15 @@ Every deletion automatically captures:
   config.toml    optional configuration
 ```
 
-Override the base directory with the `SAFERM_HOME` environment variable.
+Override the base directory with the `SAFERM_HOME` environment variable. `SAFERM_HOME` is *location infrastructure* -- the same category as `HOME` -- not a config value: it selects where saferm lives. Unlike config-file and environment *values*, `SAFERM_HOME` is not suppressed by `--hermetic`.
 
 ## Configuration
 
 Optional file at `~/.saferm/config.toml`:
 
 ```toml
+archive_dir = "/custom/archive"
+db_path = "/custom/db.sqlite"
 exclude_env_patterns = [
   "(?i)token",
   "(?i)secret",
@@ -113,6 +115,8 @@ exclude_env_patterns = [
 ```
 
 The `exclude_env_patterns` list controls which environment variables are redacted from captured metadata.
+
+A malformed `config.toml` is a hard error (exit 1) reporting the parse position, never silently ignored. Unknown keys are rejected, and for `archive_dir`/`db_path`, passing a CLI value that diverges from the config value is a hard error rather than silently letting one win. `--hermetic` suppresses config-file and environment *values*, falling back to defaults -- but it does not touch `SAFERM_HOME`, which is infrastructure, not configuration.
 
 ## Concurrency
 
@@ -130,6 +134,8 @@ saferm is safe for concurrent use. SQLite WAL mode with `busy_timeout` and UUID-
 | 5 | Database error |
 | 6 | Archive error |
 | 7 | Conflict |
+
+Config-layer failures -- a malformed `config.toml`, an unknown key, or a CLI value that conflicts with `archive_dir`/`db_path` in the config -- exit **1** (they are reported by the CLI framework before saferm runs). saferm's own semantic conflicts exit **7**. The distinction: exit 1 means the configuration could not be loaded or reconciled; exit 7 means saferm ran and hit a semantic conflict.
 
 ## Platforms
 
