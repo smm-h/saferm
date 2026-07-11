@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "saferm",
   "slug": "saferm",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "",
   "language": "go",
   "base_url": "https://saferm.smmh.dev",
@@ -74,5 +74,5 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-07-11T15:58:11.763017+00:00"
+  "last_gen": "2026-07-11T16:45:21.168775+00:00"
 }
