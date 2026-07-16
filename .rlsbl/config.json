@@ -20,6 +20,7 @@
   "pipelines": {
     "go": {
       "type": "go",
+      "target": "go",
       "local": true,
       "install_paths": [
         "."
@@ -27,11 +28,13 @@
     },
     "npm": {
       "type": "npm",
+      "target": "npm",
       "local": false,
       "provenance": true
     },
     "pypi": {
       "type": "pypi",
+      "target": "pypi",
       "local": false
     }
   },
