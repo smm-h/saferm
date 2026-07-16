@@ -1,42 +1,24 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/smm-h/strictcli/go/strictcli"
 )
 
-// baseDir returns the saferm base directory. If SAFERM_HOME is set, its value
-// is used as-is (expected to be an absolute path). Otherwise falls back to
-// ~/.saferm/.
-func baseDir() string {
-	if override := os.Getenv("SAFERM_HOME"); override != "" {
-		return override
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = os.Getenv("HOME")
-	}
-	return filepath.Join(home, ".saferm")
-}
-
 func main() {
-	base := baseDir()
-
 	app := strictcli.NewApp("saferm", version, "AI-first safe rm replacement",
 		strictcli.WithEnvPrefix("SAFERM"),
+		strictcli.WithInfraRoot("SAFERM_HOME", "~/.saferm"),
 		strictcli.WithConfig(),
-		strictcli.WithConfigPath(filepath.Join(base, "config.toml")),
+		strictcli.WithConfigPathRelativeToRoot("SAFERM_HOME", "config.toml"),
 		strictcli.WithConfigFormat("toml"),
 	)
 
 	app.GlobalFlag(strictcli.BoolFlag("verbose", "Enable verbose output", strictcli.Default(false)))
 	app.GlobalFlag(strictcli.StringFlag("archive-dir", "Path to the archive directory",
-		strictcli.Default(filepath.Join(base, "archive")),
+		strictcli.Default(strictcli.RelativeToRoot("SAFERM_HOME", "archive")),
 		strictcli.ConflictMode("error")))
 	app.GlobalFlag(strictcli.StringFlag("db-path", "Path to the SQLite database",
-		strictcli.Default(filepath.Join(base, "db", "saferm.db")),
+		strictcli.Default(strictcli.RelativeToRoot("SAFERM_HOME", "db", "saferm.db")),
 		strictcli.ConflictMode("error")))
 	// exclude-env-patterns is intentionally left at cli-wins (no ConflictMode) and
 	// gets no ConfigField: it is a list, and ConfigField supports only scalars.

@@ -19,12 +19,14 @@ func TestConfig_DefaultValues(t *testing.T) {
 	}
 
 	// Verify default values and source attribution.
+	// InfraRoot-resolved defaults show as (source: infra) with the resolved path;
+	// config show uses a separate resolution path, so it displays the marker.
+	// Check that the infra root is shown and env-patterns remain as default.
 	checks := []struct {
 		label    string
 		contains string
 	}{
-		{"archive_dir default", "archive_dir = " + safermHome + "/archive  (source: default)"},
-		{"db_path default", "db_path = " + safermHome + "/db/saferm.db  (source: default)"},
+		{"SAFERM_HOME root displayed", "SAFERM_HOME (root) = " + safermHome},
 		{"exclude_env_patterns default", `exclude_env_patterns = ["(?i)token", "(?i)secret", "(?i)password", "(?i)key", "(?i)credential"]  (source: default)`},
 	}
 	for _, check := range checks {

@@ -32,7 +32,7 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	archiveDir := kwargs["archive_dir"].(string)
 	dbPath := kwargs["db_path"].(string)
 
-	if err := ensureDirectories(baseDir(), archiveDir, dbPath); err != nil {
+	if err := ensureDirectories(filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
 		return ExitGeneral
 	}
