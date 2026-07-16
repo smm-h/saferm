@@ -19,3 +19,6 @@ pypi/saferm/_bin/
 .wrangler/
 
 .rlsbl-monorepo/lock
+
+build/
+target/
