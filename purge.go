@@ -29,7 +29,7 @@ func registerPurgeCmd(app *strictcli.App) {
 	)
 }
 
-func handlePurge(kwargs map[string]interface{}) int {
+func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
 	olderThan := kwargs["older_than"].(string)
 	largerThan := kwargs["larger_than"].(string)
 	skipConfirmation := kwargs["skip_confirmation"].(bool)
@@ -46,7 +46,7 @@ func handlePurge(kwargs map[string]interface{}) int {
 	// --larger-than alone is valid (acts like --all --larger-than).
 	if !hasIDs && !hasOlderThan && !purgeAll && !hasLargerThan {
 		fmt.Fprintln(os.Stderr, "error: specify IDs, --older-than, --larger-than, or --all")
-		return ExitUsage
+		return strictcli.Exit(ExitUsage)
 	}
 
 	archiveDir := kwargs["archive_dir"].(string)
@@ -54,13 +54,13 @@ func handlePurge(kwargs map[string]interface{}) int {
 
 	if err := ensureDirectories(filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
-		return ExitGeneral
+		return strictcli.Exit(ExitGeneral)
 	}
 
 	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 	defer database.Close()
 
@@ -72,12 +72,12 @@ func handlePurge(kwargs map[string]interface{}) int {
 			id, err := strconv.ParseInt(idStr, 10, 64)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: %q is not a valid ID\n", idStr)
-				return ExitUsage
+				return strictcli.Exit(ExitUsage)
 			}
 			rec, err := database.QueryByID(id)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
-				return ExitFileNotFound
+				return strictcli.Exit(ExitFileNotFound)
 			}
 			records = append(records, rec)
 		}
@@ -85,20 +85,20 @@ func handlePurge(kwargs map[string]interface{}) int {
 		dur, err := parseDuration(olderThan)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s\n", err)
-			return ExitUsage
+			return strictcli.Exit(ExitUsage)
 		}
 		before := time.Now().Add(-dur)
 		records, err = database.QueryOlderThan(before)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return ExitDatabase
+			return strictcli.Exit(ExitDatabase)
 		}
 	} else {
 		// --all or --larger-than alone (which implies all records)
 		records, err = database.QueryAll(true)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return ExitDatabase
+			return strictcli.Exit(ExitDatabase)
 		}
 	}
 
@@ -107,7 +107,7 @@ func handlePurge(kwargs map[string]interface{}) int {
 		threshold, err := parseSize(largerThan)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s\n", err)
-			return ExitUsage
+			return strictcli.Exit(ExitUsage)
 		}
 		var filtered []*db.DeletionRecord
 		for _, rec := range records {
@@ -120,7 +120,7 @@ func handlePurge(kwargs map[string]interface{}) int {
 
 	if len(records) == 0 {
 		fmt.Println("Nothing to purge.")
-		return ExitSuccess
+		return strictcli.Exit(ExitSuccess)
 	}
 
 	if dryRun {
@@ -138,7 +138,7 @@ func handlePurge(kwargs map[string]interface{}) int {
 			totalSize += rec.Size
 		}
 		fmt.Printf("\nWould purge %d item(s), freeing ~%s\n", len(records), humanSize(totalSize))
-		return ExitSuccess
+		return strictcli.Exit(ExitSuccess)
 	}
 
 	if !skipConfirmation {
@@ -151,7 +151,7 @@ func handlePurge(kwargs map[string]interface{}) int {
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(scanner.Text())), "y") {
 			fmt.Println("Aborted.")
-			return ExitSuccess
+			return strictcli.Exit(ExitSuccess)
 		}
 	}
 
@@ -189,5 +189,5 @@ func handlePurge(kwargs map[string]interface{}) int {
 		fmt.Printf("%d item(s) purged\n", purged)
 	}
 
-	return ExitSuccess
+	return strictcli.Exit(ExitSuccess)
 }

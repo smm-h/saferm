@@ -33,7 +33,7 @@ func registerDeleteCmd(app *strictcli.App) {
 	)
 }
 
-func handleDelete(kwargs map[string]interface{}) int {
+func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
 	recursive := kwargs["recursive"].(bool)
 	ignoreMissing := kwargs["ignore_missing"].(bool)
 	interactive := kwargs["interactive"].(bool)
@@ -46,7 +46,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 
 	if len(filesRaw) == 0 {
 		fmt.Fprintln(os.Stderr, "error: no files specified")
-		return ExitUsage
+		return strictcli.Exit(ExitUsage)
 	}
 
 	// Parse --meta key=value pairs
@@ -56,7 +56,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 		key, value, ok := strings.Cut(s, "=")
 		if !ok {
 			fmt.Fprintf(os.Stderr, "error: --meta value %q must be in key=value format\n", s)
-			return ExitUsage
+			return strictcli.Exit(ExitUsage)
 		}
 		customMeta[key] = value
 	}
@@ -66,13 +66,13 @@ func handleDelete(kwargs map[string]interface{}) int {
 
 	if err := ensureDirectories(filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
-		return ExitGeneral
+		return strictcli.Exit(ExitGeneral)
 	}
 
 	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 	defer database.Close()
 
@@ -87,12 +87,12 @@ func handleDelete(kwargs map[string]interface{}) int {
 	metadata, err := meta.Collect(patterns, customMeta)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: collecting metadata: %s\n", err)
-		return ExitGeneral
+		return strictcli.Exit(ExitGeneral)
 	}
 	metaJSON, err := json.Marshal(metadata)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: serializing metadata: %s\n", err)
-		return ExitGeneral
+		return strictcli.Exit(ExitGeneral)
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -108,7 +108,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 				continue
 			}
 			fmt.Fprintf(os.Stderr, "error: resolving path %q: %s\n", file, err)
-			return ExitGeneral
+			return strictcli.Exit(ExitGeneral)
 		}
 
 		if interactive {
@@ -125,10 +125,10 @@ func handleDelete(kwargs map[string]interface{}) int {
 			}
 			if err == archive.ErrRecursiveRequired {
 				fmt.Fprintf(os.Stderr, "error: %s is a directory; use -r to delete recursively\n", file)
-				return ExitUsage
+				return strictcli.Exit(ExitUsage)
 			}
 			fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
-			return ExitArchive
+			return strictcli.Exit(ExitArchive)
 		}
 
 		// Stage removal in git index if the file was tracked.
@@ -158,7 +158,7 @@ func handleDelete(kwargs map[string]interface{}) int {
 
 		if _, err := database.Insert(rec); err != nil {
 			fmt.Fprintf(os.Stderr, "error: inserting database record: %s\n", err)
-			return ExitDatabase
+			return strictcli.Exit(ExitDatabase)
 		}
 
 		if verbose {
@@ -172,5 +172,5 @@ func handleDelete(kwargs map[string]interface{}) int {
 		fmt.Printf("%d file(s) archived\n", archived)
 	}
 
-	return ExitSuccess
+	return strictcli.Exit(ExitSuccess)
 }

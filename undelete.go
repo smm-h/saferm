@@ -25,7 +25,7 @@ func registerUndeleteCmd(app *strictcli.App) {
 	)
 }
 
-func handleUndelete(kwargs map[string]interface{}) int {
+func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
 	forceOverwrite := kwargs["force_overwrite"].(bool)
 	target := kwargs["target"].(string)
 
@@ -34,13 +34,13 @@ func handleUndelete(kwargs map[string]interface{}) int {
 
 	if err := ensureDirectories(filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
-		return ExitGeneral
+		return strictcli.Exit(ExitGeneral)
 	}
 
 	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 	defer database.Close()
 
@@ -52,21 +52,21 @@ func handleUndelete(kwargs map[string]interface{}) int {
 		if err != nil {
 			if errors.Is(err, db.ErrNotFound) {
 				fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
-				return ExitFileNotFound
+				return strictcli.Exit(ExitFileNotFound)
 			}
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return ExitDatabase
+			return strictcli.Exit(ExitDatabase)
 		}
 	} else {
 		// Treat as a file path
 		records, err := database.QueryByPath(target)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return ExitDatabase
+			return strictcli.Exit(ExitDatabase)
 		}
 		if len(records) == 0 {
 			fmt.Fprintf(os.Stderr, "error: no archived record found for path %q\n", target)
-			return ExitFileNotFound
+			return strictcli.Exit(ExitFileNotFound)
 		}
 		if len(records) > 1 {
 			fmt.Fprintf(os.Stderr, "Multiple matches found:\n")
@@ -76,7 +76,7 @@ func handleUndelete(kwargs map[string]interface{}) int {
 					r.ID, r.OriginalPath, humanSize(r.Size), humanAge(r.DeletedAt))
 			}
 			fmt.Fprintf(os.Stderr, "\nUse saferm undelete <id> to specify.\n")
-			return ExitUsage
+			return strictcli.Exit(ExitUsage)
 		}
 		rec = records[0]
 	}
@@ -85,7 +85,7 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	if rec.PurgedAt != nil {
 		fmt.Fprintf(os.Stderr, "error: content for %d was purged on %s; metadata is preserved but the file cannot be restored\n",
 			rec.ID, rec.PurgedAt.Format(time.RFC3339))
-		return ExitArchive
+		return strictcli.Exit(ExitArchive)
 	}
 
 	dest := rec.OriginalPath
@@ -98,15 +98,15 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	if err != nil {
 		if errors.Is(err, archive.ErrConflict) {
 			fmt.Fprintf(os.Stderr, "error: %s already exists (use --force-overwrite to overwrite)\n", dest)
-			return ExitConflict
+			return strictcli.Exit(ExitConflict)
 		}
 		fmt.Fprintf(os.Stderr, "error: restoring: %s\n", err)
-		return ExitArchive
+		return strictcli.Exit(ExitArchive)
 	}
 
 	if err := database.MarkRestored(rec.ID, dest); err != nil {
 		fmt.Fprintf(os.Stderr, "error: updating database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 
 	// Stage the restored file in git if inside a git repo.
@@ -118,5 +118,5 @@ func handleUndelete(kwargs map[string]interface{}) int {
 	}
 
 	fmt.Printf("Restored %s\n", dest)
-	return ExitSuccess
+	return strictcli.Exit(ExitSuccess)
 }

@@ -21,12 +21,12 @@ func registerInfoCmd(app *strictcli.App) {
 	)
 }
 
-func handleInfo(kwargs map[string]interface{}) int {
+func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
 	idStr := kwargs["id"].(string)
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %q is not a valid ID\n", idStr)
-		return ExitUsage
+		return strictcli.Exit(ExitUsage)
 	}
 
 	dbPath := kwargs["db_path"].(string)
@@ -34,7 +34,7 @@ func handleInfo(kwargs map[string]interface{}) int {
 	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 	defer database.Close()
 
@@ -42,10 +42,10 @@ func handleInfo(kwargs map[string]interface{}) int {
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
-			return ExitFileNotFound
+			return strictcli.Exit(ExitFileNotFound)
 		}
 		fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 
 	fileType := "file"
@@ -113,5 +113,5 @@ func handleInfo(kwargs map[string]interface{}) int {
 		}
 	}
 
-	return ExitSuccess
+	return strictcli.Exit(ExitSuccess)
 }

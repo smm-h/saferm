@@ -18,7 +18,7 @@ func registerListCmd(app *strictcli.App) {
 	)
 }
 
-func handleList(kwargs map[string]interface{}) int {
+func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
 	pathGlob := kwargs["path"].(string)
 	includeAll := kwargs["all"].(bool)
 
@@ -27,14 +27,14 @@ func handleList(kwargs map[string]interface{}) int {
 	database, err := db.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 	defer database.Close()
 
 	records, err := database.QueryAll(includeAll)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-		return ExitDatabase
+		return strictcli.Exit(ExitDatabase)
 	}
 
 	// Filter by glob if specified
@@ -44,7 +44,7 @@ func handleList(kwargs map[string]interface{}) int {
 			matched, err := filepath.Match(pathGlob, rec.OriginalPath)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: invalid glob pattern %q: %s\n", pathGlob, err)
-				return ExitUsage
+				return strictcli.Exit(ExitUsage)
 			}
 			if matched {
 				filtered = append(filtered, rec)
@@ -55,7 +55,7 @@ func handleList(kwargs map[string]interface{}) int {
 
 	if len(records) == 0 {
 		fmt.Println("No archived items found.")
-		return ExitSuccess
+		return strictcli.Exit(ExitSuccess)
 	}
 
 	fmt.Printf("%-6s %-40s %-10s %-16s %s\n", "ID", "Path", "Size", "Age", "Status")
@@ -94,5 +94,5 @@ func handleList(kwargs map[string]interface{}) int {
 		)
 	}
 
-	return ExitSuccess
+	return strictcli.Exit(ExitSuccess)
 }
