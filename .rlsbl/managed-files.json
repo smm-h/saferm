@@ -7,7 +7,7 @@
     ".goreleaser.yml": "0ad4edf267f369cb45c1d823f132c3e9a9132f726b8a7a87713b512d5fe74f7b",
     ".npmignore": "7c0eea9785c0318aeb39bf8b670ce8384f4a5b812fde69ce23d7d018057325a3",
     ".github/workflows/publish.yml": "1a3c0661450251958b34960561620b0365067ac1e05c311deba95c0ee1b814df",
-    "CHANGELOG.md": "dfe9a6aed79408cdaedb2bf41504d97d8f39af6247a9d0417cfe1d6f6ac0d45a",
+    "CHANGELOG.md": "0da0c961389bde28257ae53c3ead60dc6ec01c89b35ab8d0eddf89b744af6b7b",
     ".gitignore": "5dff43abd7c6d9de57765b8d1e5958ddef590f0884170fdefe7eef6645803962",
     ".rlsbl/changes/unreleased.jsonl": "5b8be3f949f95f7404129b3ef526256ff1beaf0aa277747baf4c18c3a020d631",
     ".rlsbl/lint/python.toml": "9cfbcef2e010d5fad243437bf2fd8df54a1fae70ee0762f9d11da70fe207501c",

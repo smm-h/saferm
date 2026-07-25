@@ -2,6 +2,10 @@
 
 # Changelog
 
+## Unreleased
+
+- No user-facing changes.
+
 ## 0.7.1
 
 Fix Windows build break so releases publish for all platforms; correct config-conflict docs.
@@ -66,7 +70,7 @@ by --hermetic.
 
 CI fix: generate missing pypi/uv.lock
 
-### Hotfix
+### Infrastructure
 
 - CI fix: generate missing pypi/uv.lock
 
@@ -74,7 +78,7 @@ CI fix: generate missing pypi/uv.lock
 
 Fix CI workflow for PyPI wrapper package
 
-### Hotfix
+### Infrastructure
 
 - Fix CI workflow for PyPI wrapper package
 
