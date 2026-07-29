@@ -135,16 +135,16 @@ saferm is safe for concurrent use. SQLite WAL mode with `busy_timeout` and UUID-
 
 ## Exit codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Usage error |
-| 3 | File not found |
-| 4 | Permission denied |
-| 5 | Database error |
-| 6 | Archive error |
-| 7 | Conflict |
+| Code | Name | Value |
+| --- | --- | --- |
+| 0 | `ExitSuccess` | 0 |
+| 1 | `ExitGeneral` | 1 |
+| 2 | `ExitUsage` | 2 |
+| 3 | `ExitFileNotFound` | 3 |
+| 4 | `ExitPermission` | 4 |
+| 5 | `ExitDatabase` | 5 |
+| 6 | `ExitArchive` | 6 |
+| 7 | `ExitConflict` | 7 |
 
 Config-layer failures -- a malformed `config.toml`, an unknown key, or a CLI value that conflicts with `archive_dir`/`db_path` in the config -- exit **1** (they are reported by the CLI framework before saferm runs). saferm's own semantic conflicts exit **7**. The distinction: exit 1 means the configuration could not be loaded or reconciled; exit 7 means saferm ran and hit a semantic conflict.
 
