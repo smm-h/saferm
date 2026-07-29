@@ -1,5 +1,10 @@
 {
   "_hash_version": 3,
+  "en/architecture.md": {
+    "content": "e1c5142ce254dcab5b6613d0ae3304e59d8a45f4044d9a607280037d4ebac1a1",
+    "description": "97d8e5fbc1e33014d89165c9b17c246023a8026b859996f57ae1231b64f68263",
+    "source_docstring": "eb63c0c1777f613136bc087e0e6388d705e049ef891f68d3897f505f8f98879a"
+  },
   "en/cli-config.md": {
     "content": "0298ae4d3e685efc79a698043c3dc402fbe00f599f0acaf974a12a6c1908fbea",
     "description": "7ee798adb5cec834c9a968f4ab8fe755869ecd29a453c38de008c08ed32bba2d",
@@ -35,6 +40,10 @@
     "content": "8873fa5952bc163cad5a8e4bcc66d267f38e8e99f8de2b758301d3bf031f52a5",
     "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c",
     "schema_hash": "0af31f36316e2a51f447c40c236fdf42c79de28f082be1e5172c626aaa0f8856"
+  },
+  "en/configuration.md": {
+    "content": "39235eafca8405f1d75c717e113482a489001d85efcbaf22b28dfc54b500f3e5",
+    "description": "2d9bec67cb08dec57c0b34bfab47aa5ef4d696e807d5870476099653b6b6c24c"
   },
   "en/gen-index.md": {
     "content": "77b26abe69da3a05549e49ce64a424607918ca7cfb8913353870f1d7ae523870",
