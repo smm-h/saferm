@@ -38,6 +38,9 @@
       "default": true
     }
   ],
+  "directives": {
+    "table-exit-codes": "docs/_directives/exit_codes.py"
+  },
   "root_files": [
     "docs/_CLAUDE.md",
     "docs/_README.md"
