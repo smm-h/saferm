@@ -8,6 +8,11 @@
   "base_url": "https://saferm.smmh.dev",
   "pages": [
     {
+      "path": "architecture.md",
+      "title": "Architecture",
+      "type": "doc"
+    },
+    {
       "path": "cli-config.md",
       "title": "saferm config",
       "type": "doc"
@@ -43,6 +48,11 @@
       "type": "doc"
     },
     {
+      "path": "configuration.md",
+      "title": "Configuration",
+      "type": "doc"
+    },
+    {
       "path": "gen-index.md",
       "title": "API Reference",
       "type": "doc"
@@ -74,5 +84,5 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-07-29T14:23:16.541293+00:00"
+  "last_gen": "2026-07-29T17:14:37.936433+00:00"
 }
