@@ -13,7 +13,7 @@ order: 91
 
 AI-first safe rm replacement
 
-Version: 0.7.2-0.20260729142331-f110a7149e19+dirty
+Version: 0.7.2-0.20260729142813-e428695fbb14+dirty
 
 ## Commands
 

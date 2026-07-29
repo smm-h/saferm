@@ -15,7 +15,7 @@ Move files to the saferm archive with metadata tracking
 
 | Name | Short | Type | Default | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--recursive` | `-r` | bool |  |  | Allow deletion of directories and their contents |
+| `--recursive` | `-r` | bool |  |  | Allow recursive deletion of directories and all their contents |
 | `--ignore-missing` | `-f` | bool |  |  | Silently skip files that do not exist instead of erroring |
 | `--interactive` | `-i` | bool |  |  | Prompt for confirmation before archiving each file |
 | `--description` |  | str |  |  | Mandatory explanation of why this deletion is happening |
