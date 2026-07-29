@@ -3,7 +3,7 @@
     "delete": {
       "args": [
         {
-          "help": "Files or directories to archive",
+          "help": "One or more files or directories to move into the archive",
           "name": "files",
           "variadic": true
         }
@@ -11,7 +11,7 @@
       "flags": [
         {
           "default": false,
-          "help": "Allow deletion of directories",
+          "help": "Allow recursive deletion of directories and all their contents",
           "name": "recursive",
           "negatable": true,
           "short": "r",
@@ -19,7 +19,7 @@
         },
         {
           "default": false,
-          "help": "Ignore nonexistent files",
+          "help": "Silently skip files that do not exist instead of erroring",
           "name": "ignore-missing",
           "negatable": true,
           "short": "f",
@@ -27,73 +27,73 @@
         },
         {
           "default": false,
-          "help": "Prompt before each deletion",
+          "help": "Prompt for confirmation before archiving each file",
           "name": "interactive",
           "negatable": true,
           "short": "i",
           "type": "bool"
         },
         {
-          "help": "Why this deletion is happening",
+          "help": "Mandatory explanation of why this deletion is happening",
           "name": "description",
           "type": "str"
         },
         {
           "default": "",
-          "help": "The original bash command that triggered this",
+          "help": "Record the original rm command being replaced by saferm",
           "name": "command",
           "type": "str"
         },
         {
-          "help": "Additional metadata as key=value",
+          "help": "Attach additional metadata as key=value pairs (repeatable)",
           "name": "meta",
           "repeatable": true,
           "type": "str"
         },
         {
           "default": true,
-          "help": "Update the git index after archiving",
+          "help": "Run git rm --cached to stage removal in the git index",
           "name": "update-git-index",
           "negatable": true,
           "type": "bool"
         }
       ],
-      "help": "Archive files safely (instead of rm)",
+      "help": "Move files to the saferm archive with metadata tracking",
       "name": "delete"
     },
     "info": {
       "args": [
         {
-          "help": "ID of the archived item",
+          "help": "Numeric database ID of the archived item to inspect",
           "name": "id"
         }
       ],
-      "help": "Show full metadata for a deletion",
+      "help": "Display full metadata and context for an archived deletion",
       "name": "info"
     },
     "list": {
       "flags": [
         {
           "default": "",
-          "help": "Filter by path glob pattern",
+          "help": "Filter results to paths matching the given glob pattern",
           "name": "path",
           "type": "str"
         },
         {
           "default": false,
-          "help": "Include already-restored items",
+          "help": "Include items that have already been restored or purged",
           "name": "all",
           "negatable": true,
           "type": "bool"
         }
       ],
-      "help": "List archived items",
+      "help": "Show all items currently held in the saferm archive",
       "name": "list"
     },
     "purge": {
       "args": [
         {
-          "help": "Specific IDs to purge",
+          "help": "Numeric database IDs of specific items to permanently destroy",
           "name": "ids",
           "required": false,
           "variadic": true
@@ -114,7 +114,7 @@
         },
         {
           "default": false,
-          "help": "Skip confirmation prompt",
+          "help": "Skip the interactive confirmation prompt before purging",
           "name": "skip-confirmation",
           "negatable": true,
           "short": "f",
@@ -122,39 +122,39 @@
         },
         {
           "default": false,
-          "help": "Purge everything",
+          "help": "Select all archived items for permanent destruction",
           "name": "all",
           "negatable": true,
           "type": "bool"
         },
         {
           "default": false,
-          "help": "Show what would be purged without deleting",
+          "help": "Preview which items would be purged without actually deleting",
           "name": "dry-run",
           "negatable": true,
           "type": "bool"
         }
       ],
-      "help": "Permanently remove items from archive",
+      "help": "Permanently destroy archived items and free disk space",
       "name": "purge"
     },
     "undelete": {
       "args": [
         {
-          "help": "Numeric ID or original file path to restore",
+          "help": "Numeric database ID or original file path of the item to restore",
           "name": "target"
         }
       ],
       "flags": [
         {
           "default": false,
-          "help": "Overwrite existing file at destination",
+          "help": "Overwrite any existing file at the restoration destination",
           "name": "force-overwrite",
           "negatable": true,
           "type": "bool"
         }
       ],
-      "help": "Restore a file from archive",
+      "help": "Restore a previously archived file back to its original path",
       "name": "undelete"
     }
   },
@@ -228,14 +228,29 @@
     },
     {
       "conflict_mode": "error",
-      "default": "/home/m/.saferm/archive",
+      "default": {
+        "relative_to_root": {
+          "env_var": "SAFERM_HOME",
+          "parts": [
+            "archive"
+          ]
+        }
+      },
       "help": "Path to the archive directory",
       "name": "archive-dir",
       "type": "str"
     },
     {
       "conflict_mode": "error",
-      "default": "/home/m/.saferm/db/saferm.db",
+      "default": {
+        "relative_to_root": {
+          "env_var": "SAFERM_HOME",
+          "parts": [
+            "db",
+            "saferm.db"
+          ]
+        }
+      },
       "help": "Path to the SQLite database",
       "name": "db-path",
       "type": "str"
@@ -337,8 +352,16 @@
     }
   },
   "help": "AI-first safe rm replacement",
+  "infra": {
+    "roots": [
+      {
+        "default": "~/.saferm",
+        "env_var": "SAFERM_HOME"
+      }
+    ]
+  },
   "name": "saferm",
   "project_id": "github.com/smm-h/saferm",
   "schema_version": 1,
-  "version": "0.7.1"
+  "version": "0.7.2-0.20260729142813-e428695fbb14+dirty"
 }

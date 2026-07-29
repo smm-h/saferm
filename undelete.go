@@ -15,12 +15,12 @@ import (
 )
 
 func registerUndeleteCmd(app *strictcli.App) {
-	app.Command("undelete", "Restore a file from archive", handleUndelete,
+	app.Command("undelete", "Restore a previously archived file back to its original path", handleUndelete,
 		strictcli.WithFlags(
-			strictcli.BoolFlag("force-overwrite", "Overwrite existing file at destination", strictcli.Default(false)),
+			strictcli.BoolFlag("force-overwrite", "Overwrite any existing file at the restoration destination", strictcli.Default(false)),
 		),
 		strictcli.WithArgs(
-			strictcli.NewArg("target", "Numeric ID or original file path to restore"),
+			strictcli.NewArg("target", "Numeric database ID or original file path of the item to restore"),
 		),
 	)
 }

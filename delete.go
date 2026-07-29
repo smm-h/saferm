@@ -17,18 +17,18 @@ import (
 )
 
 func registerDeleteCmd(app *strictcli.App) {
-	app.Command("delete", "Archive files safely (instead of rm)", handleDelete,
+	app.Command("delete", "Move files to the saferm archive with metadata tracking", handleDelete,
 		strictcli.WithFlags(
-			strictcli.BoolFlag("recursive", "Allow deletion of directories", strictcli.Short("r"), strictcli.Default(false)),
-			strictcli.BoolFlag("ignore-missing", "Ignore nonexistent files", strictcli.Short("f"), strictcli.Default(false)),
-			strictcli.BoolFlag("interactive", "Prompt before each deletion", strictcli.Short("i"), strictcli.Default(false)),
-			strictcli.StringFlag("description", "Why this deletion is happening"),
-			strictcli.StringFlag("command", "The original bash command that triggered this", strictcli.Default("")),
-			strictcli.StringFlag("meta", "Additional metadata as key=value", strictcli.Repeatable(), strictcli.Unique(false), strictcli.Default(nil)),
-			strictcli.BoolFlag("update-git-index", "Update the git index after archiving", strictcli.Default(true)),
+			strictcli.BoolFlag("recursive", "Allow recursive deletion of directories and all their contents", strictcli.Short("r"), strictcli.Default(false)),
+			strictcli.BoolFlag("ignore-missing", "Silently skip files that do not exist instead of erroring", strictcli.Short("f"), strictcli.Default(false)),
+			strictcli.BoolFlag("interactive", "Prompt for confirmation before archiving each file", strictcli.Short("i"), strictcli.Default(false)),
+			strictcli.StringFlag("description", "Mandatory explanation of why this deletion is happening"),
+			strictcli.StringFlag("command", "Record the original rm command being replaced by saferm", strictcli.Default("")),
+			strictcli.StringFlag("meta", "Attach additional metadata as key=value pairs (repeatable)", strictcli.Repeatable(), strictcli.Unique(false), strictcli.Default(nil)),
+			strictcli.BoolFlag("update-git-index", "Run git rm --cached to stage removal in the git index", strictcli.Default(true)),
 		),
 		strictcli.WithArgs(
-			strictcli.NewArg("files", "Files or directories to archive", strictcli.Variadic()),
+			strictcli.NewArg("files", "One or more files or directories to move into the archive", strictcli.Variadic()),
 		),
 	)
 }

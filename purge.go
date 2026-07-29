@@ -14,16 +14,16 @@ import (
 )
 
 func registerPurgeCmd(app *strictcli.App) {
-	app.Command("purge", "Permanently remove items from archive", handlePurge,
+	app.Command("purge", "Permanently destroy archived items and free disk space", handlePurge,
 		strictcli.WithFlags(
 			strictcli.StringFlag("older-than", "Purge items older than duration (e.g., 30d, 24h, 1w)", strictcli.Default("")),
 			strictcli.StringFlag("larger-than", "Only purge items larger than this size (e.g. 100MB, 1GB)", strictcli.Default("")),
-			strictcli.BoolFlag("skip-confirmation", "Skip confirmation prompt", strictcli.Short("f"), strictcli.Default(false)),
-			strictcli.BoolFlag("all", "Purge everything", strictcli.Default(false)),
-			strictcli.BoolFlag("dry-run", "Show what would be purged without deleting", strictcli.Default(false)),
+			strictcli.BoolFlag("skip-confirmation", "Skip the interactive confirmation prompt before purging", strictcli.Short("f"), strictcli.Default(false)),
+			strictcli.BoolFlag("all", "Select all archived items for permanent destruction", strictcli.Default(false)),
+			strictcli.BoolFlag("dry-run", "Preview which items would be purged without actually deleting", strictcli.Default(false)),
 		),
 		strictcli.WithArgs(
-			strictcli.NewArg("ids", "Specific IDs to purge",
+			strictcli.NewArg("ids", "Numeric database IDs of specific items to permanently destroy",
 				strictcli.Variadic(), strictcli.ArgRequired(false)),
 		),
 	)

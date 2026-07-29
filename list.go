@@ -10,10 +10,10 @@ import (
 )
 
 func registerListCmd(app *strictcli.App) {
-	app.Command("list", "List archived items", handleList,
+	app.Command("list", "Show all items currently held in the saferm archive", handleList,
 		strictcli.WithFlags(
-			strictcli.StringFlag("path", "Filter by path glob pattern", strictcli.Default("")),
-			strictcli.BoolFlag("all", "Include already-restored items", strictcli.Default(false)),
+			strictcli.StringFlag("path", "Filter results to paths matching the given glob pattern", strictcli.Default("")),
+			strictcli.BoolFlag("all", "Include items that have already been restored or purged", strictcli.Default(false)),
 		),
 	)
 }
