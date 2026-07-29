@@ -9,8 +9,7 @@
   "en/cli-delete.md": {
     "content": "d4d513d4e407723076907ec66d4bc75bfbf6dde2d45e5dbac41cd457f67b0d29",
     "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d",
-    "schema_hash": "873f66680e5b0722870f61379b627726ebf9dfaaabef98e548b2a3e6b22c6986",
-    "seed_hash": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d"
+    "schema_hash": "873f66680e5b0722870f61379b627726ebf9dfaaabef98e548b2a3e6b22c6986"
   },
   "en/cli-index.md": {
     "content": "95abac2a6b924b3e5f689fd7f522a315180893b04ec9a6ca3168f3bb4a6c9795",
@@ -20,26 +19,22 @@
   "en/cli-info.md": {
     "content": "4151159971bafd2b538e7b100240317008379c7c8262384df453414850283559",
     "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed",
-    "schema_hash": "4410f654b08da3e68384c498772f07538c64baa87165911678d6c9ebfab12ad7",
-    "seed_hash": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed"
+    "schema_hash": "4410f654b08da3e68384c498772f07538c64baa87165911678d6c9ebfab12ad7"
   },
   "en/cli-list.md": {
     "content": "d2339c0998b3158ba52e152942c262af32e51c9926a7ffa08c7a5d995a355d0f",
     "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1",
-    "schema_hash": "c3d0ac0d7ab34e9678e6f8e24e8d6600372ba3269bc98c55c6a858ff3d677368",
-    "seed_hash": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1"
+    "schema_hash": "c3d0ac0d7ab34e9678e6f8e24e8d6600372ba3269bc98c55c6a858ff3d677368"
   },
   "en/cli-purge.md": {
     "content": "05365750483b729b49985791e6af40d13806d27ea313d2a384c1cea42c08554a",
     "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451",
-    "schema_hash": "38a991a4dc1d4dc07dfee0d2d05df041ba2ca0e38cb164000df7a8eda03585d9",
-    "seed_hash": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451"
+    "schema_hash": "38a991a4dc1d4dc07dfee0d2d05df041ba2ca0e38cb164000df7a8eda03585d9"
   },
   "en/cli-undelete.md": {
     "content": "8873fa5952bc163cad5a8e4bcc66d267f38e8e99f8de2b758301d3bf031f52a5",
     "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c",
-    "schema_hash": "0af31f36316e2a51f447c40c236fdf42c79de28f082be1e5172c626aaa0f8856",
-    "seed_hash": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c"
+    "schema_hash": "0af31f36316e2a51f447c40c236fdf42c79de28f082be1e5172c626aaa0f8856"
   },
   "en/gen-index.md": {
     "content": "77b26abe69da3a05549e49ce64a424607918ca7cfb8913353870f1d7ae523870",

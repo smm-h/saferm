@@ -13,15 +13,15 @@ order: 91
 
 AI-first safe rm replacement
 
-Version: 0.7.1
+Version: 0.7.2-0.20260729142331-f110a7149e19+dirty
 
 ## Commands
 
-- [delete](cli-delete.html) -- Archive files safely (instead of rm)
-- [info](cli-info.html) -- Show full metadata for a deletion
-- [list](cli-list.html) -- List archived items
-- [purge](cli-purge.html) -- Permanently remove items from archive
-- [undelete](cli-undelete.html) -- Restore a file from archive
+- [delete](cli-delete.html) -- Move files to the saferm archive with metadata tracking
+- [info](cli-info.html) -- Display full metadata and context for an archived deletion
+- [list](cli-list.html) -- Show all items currently held in the saferm archive
+- [purge](cli-purge.html) -- Permanently destroy archived items and free disk space
+- [undelete](cli-undelete.html) -- Restore a previously archived file back to its original path
 
 ## Command Groups
 

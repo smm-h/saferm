@@ -49,11 +49,11 @@ saferm undelete old-config.yaml
 
 | Command | Description |
 | --- | --- |
-| `delete` | Archive files safely (instead of rm) |
-| `info` | Show full metadata for a deletion |
-| `list` | List archived items |
-| `purge` | Permanently remove items from archive |
-| `undelete` | Restore a file from archive |
+| `delete` | Move files to the saferm archive with metadata tracking |
+| `info` | Display full metadata and context for an archived deletion |
+| `list` | Show all items currently held in the saferm archive |
+| `purge` | Permanently destroy archived items and free disk space |
+| `undelete` | Restore a previously archived file back to its original path |
 | **config** | Manage persistent configuration values stored in the config file |
 | `config edit` | Open the config file for manual editing in $EDITOR (creates if missing) |
 | `config init` | Generate a template config file with documented fields and defaults |

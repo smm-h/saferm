@@ -2,7 +2,6 @@
 title: saferm purge
 description: "Reference for the saferm purge command — usage, flags, arguments, and examples for the purge subcommand of the saferm CLI."
 generated: true
-seeded: true
 nav_group: "CLI Reference"
 nav_order: 5
 ---
@@ -10,7 +9,7 @@ nav_order: 5
 
 # saferm purge
 
-Permanently remove items from archive
+Permanently destroy archived items and free disk space
 
 ## Flags
 
@@ -18,12 +17,12 @@ Permanently remove items from archive
 | --- | --- | --- | --- | --- | --- |
 | `--older-than` |  | str |  |  | Purge items older than duration (e.g., 30d, 24h, 1w) |
 | `--larger-than` |  | str |  |  | Only purge items larger than this size (e.g. 100MB, 1GB) |
-| `--skip-confirmation` | `-f` | bool |  |  | Skip confirmation prompt |
-| `--all` |  | bool |  |  | Purge everything |
-| `--dry-run` |  | bool |  |  | Show what would be purged without deleting |
+| `--skip-confirmation` | `-f` | bool |  |  | Skip the interactive confirmation prompt before purging |
+| `--all` |  | bool |  |  | Select all archived items for permanent destruction |
+| `--dry-run` |  | bool |  |  | Preview which items would be purged without actually deleting |
 
 ## Arguments
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `ids` | no | Specific IDs to purge |
+| `ids` | no | Numeric database IDs of specific items to permanently destroy |

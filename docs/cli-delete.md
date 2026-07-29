@@ -2,7 +2,6 @@
 title: saferm delete
 description: "Reference for the saferm delete command — usage, flags, arguments, and examples for the delete subcommand of the saferm CLI."
 generated: true
-seeded: true
 nav_group: "CLI Reference"
 nav_order: 2
 ---
@@ -10,22 +9,22 @@ nav_order: 2
 
 # saferm delete
 
-Archive files safely (instead of rm)
+Move files to the saferm archive with metadata tracking
 
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--recursive` | `-r` | bool |  |  | Allow deletion of directories |
-| `--ignore-missing` | `-f` | bool |  |  | Ignore nonexistent files |
-| `--interactive` | `-i` | bool |  |  | Prompt before each deletion |
-| `--description` |  | str |  |  | Why this deletion is happening |
-| `--command` |  | str |  |  | The original bash command that triggered this |
-| `--meta` |  | str |  |  | Additional metadata as key=value |
-| `--update-git-index` |  | bool | True |  | Update the git index after archiving |
+| `--recursive` | `-r` | bool |  |  | Allow deletion of directories and their contents |
+| `--ignore-missing` | `-f` | bool |  |  | Silently skip files that do not exist instead of erroring |
+| `--interactive` | `-i` | bool |  |  | Prompt for confirmation before archiving each file |
+| `--description` |  | str |  |  | Mandatory explanation of why this deletion is happening |
+| `--command` |  | str |  |  | Record the original rm command being replaced by saferm |
+| `--meta` |  | str |  |  | Attach additional metadata as key=value pairs (repeatable) |
+| `--update-git-index` |  | bool | True |  | Run git rm --cached to stage removal in the git index |
 
 ## Arguments
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `files` | yes | Files or directories to archive |
+| `files` | yes | One or more files or directories to move into the archive |

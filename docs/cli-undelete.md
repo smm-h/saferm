@@ -2,7 +2,6 @@
 title: saferm undelete
 description: "Reference for the saferm undelete command — usage, flags, arguments, and examples for the undelete subcommand of the saferm CLI."
 generated: true
-seeded: true
 nav_group: "CLI Reference"
 nav_order: 6
 ---
@@ -10,16 +9,16 @@ nav_order: 6
 
 # saferm undelete
 
-Restore a file from archive
+Restore a previously archived file back to its original path
 
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--force-overwrite` |  | bool |  |  | Overwrite existing file at destination |
+| `--force-overwrite` |  | bool |  |  | Overwrite any existing file at the restoration destination |
 
 ## Arguments
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `target` | yes | Numeric ID or original file path to restore |
+| `target` | yes | Numeric database ID or original file path of the item to restore |

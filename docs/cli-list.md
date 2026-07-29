@@ -2,7 +2,6 @@
 title: saferm list
 description: "Reference for the saferm list command — usage, flags, arguments, and examples for the list subcommand of the saferm CLI."
 generated: true
-seeded: true
 nav_group: "CLI Reference"
 nav_order: 4
 ---
@@ -10,11 +9,11 @@ nav_order: 4
 
 # saferm list
 
-List archived items
+Show all items currently held in the saferm archive
 
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--path` |  | str |  |  | Filter by path glob pattern |
-| `--all` |  | bool |  |  | Include already-restored items |
+| `--path` |  | str |  |  | Filter results to paths matching the given glob pattern |
+| `--all` |  | bool |  |  | Include items that have already been restored or purged |

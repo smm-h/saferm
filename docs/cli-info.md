@@ -2,7 +2,6 @@
 title: saferm info
 description: "Reference for the saferm info command — usage, flags, arguments, and examples for the info subcommand of the saferm CLI."
 generated: true
-seeded: true
 nav_group: "CLI Reference"
 nav_order: 3
 ---
@@ -10,10 +9,10 @@ nav_order: 3
 
 # saferm info
 
-Show full metadata for a deletion
+Display full metadata and context for an archived deletion
 
 ## Arguments
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `id` | yes | ID of the archived item |
+| `id` | yes | Numeric database ID of the archived item to inspect |
