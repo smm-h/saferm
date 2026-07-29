@@ -1,0 +1,161 @@
+---
+title: Configuration
+description: "How saferm discovers archive and database paths, the SAFERM_HOME environment variable, config file, hermetic mode, and SQLite schema."
+---
+
+# Configuration
+
+saferm's configuration controls where deleted files are stored and how the tool behaves. There are three layers: the `SAFERM_HOME` environment variable (infrastructure), the config file (persistent settings), and CLI flags (per-invocation overrides).
+
+## SAFERM_HOME and the default archive location
+
+The `SAFERM_HOME` environment variable sets the root directory for all saferm data. When unset, it defaults to `~/.saferm/`.
+
+The root directory contains:
+
+- `archive/` -- archived files and directories
+- `db/saferm.db` -- SQLite database tracking all deletions
+- `config.toml` -- persistent configuration file
+
+All three paths derive from `SAFERM_HOME` by default, but `archive_dir` and `db_path` can be individually overridden via config or CLI flags.
+
+```bash
+# Use a custom location for all saferm data
+export SAFERM_HOME=/data/saferm
+
+# Resulting default paths:
+#   /data/saferm/archive/     (archive directory)
+#   /data/saferm/db/saferm.db (database)
+#   /data/saferm/config.toml  (config file)
+```
+
+saferm creates all necessary directories automatically with `0700` permissions on first use.
+
+## Config file
+
+The config file lives at `$SAFERM_HOME/config.toml` (default: `~/.saferm/config.toml`). It uses TOML format and is managed through strictcli's built-in config system.
+
+### Configurable fields
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `archive_dir` | string | `$SAFERM_HOME/archive` | Directory where deleted files are archived |
+| `db_path` | string | `$SAFERM_HOME/db/saferm.db` | Path to the SQLite database |
+
+Use `saferm config` subcommands to manage the file:
+
+```bash
+# Show all config values and their sources
+saferm config show
+
+# Set archive directory
+saferm config set archive_dir /mnt/backup/saferm/archive
+
+# Reset a key to its default
+saferm config set --default archive_dir
+
+# Open config file in $EDITOR
+saferm config edit
+
+# Print config file path
+saferm config path
+```
+
+### Conflict mode
+
+Both `archive_dir` and `db_path` use `error` conflict mode. If the config file sets a value and a different value is passed via CLI flag in the pre-command position (`saferm --archive-dir /x delete ...`), saferm exits with an error rather than silently picking one. This prevents accidental operations against the wrong archive.
+
+A malformed `config.toml` is always a hard error (exit 1) with a parse position. It is never silently ignored. Unknown keys in the config file are also hard errors.
+
+## Infrastructure vs. config boundary
+
+saferm distinguishes between **infrastructure** settings and **config** settings. This distinction matters for hermetic mode.
+
+**Infrastructure** (`SAFERM_HOME`): selects _where_ saferm lives. It is in the same category as `HOME` -- a location override that tells saferm which directory tree to use. Infrastructure settings are never suppressed.
+
+**Config** (`archive_dir`, `db_path` in `config.toml`): selects _how_ saferm behaves within that location. Config values can be suppressed by hermetic mode.
+
+## Hermetic mode
+
+The `--hermetic` flag suppresses all config-file and environment values for config-managed settings. When active, `archive_dir` and `db_path` fall back to their defaults (derived from `SAFERM_HOME`).
+
+`SAFERM_HOME` itself is **not** suppressed by `--hermetic` because it is infrastructure, not config. A hermetic invocation still respects the `SAFERM_HOME` location -- it only strips the behavioral overrides from the config file.
+
+```bash
+# Uses SAFERM_HOME (or ~/.saferm/) with default subdirectory layout,
+# ignoring any archive_dir or db_path set in config.toml
+saferm --hermetic delete --description "reason" file.txt
+```
+
+## Archive directory discovery
+
+saferm resolves the archive directory in this order (first non-empty wins):
+
+1. CLI flag `--archive-dir` (pre-command position)
+2. Config file key `archive_dir` (suppressed by `--hermetic`)
+3. Default: `$SAFERM_HOME/archive` (where `SAFERM_HOME` defaults to `~/.saferm/`)
+
+The archive directory is created automatically with `0700` permissions if it does not exist.
+
+### Archive storage format
+
+- **Files** are stored as bare files named by UUID (e.g., `archive/a1b2c3d4-...`)
+- **Directories** are compressed into `.tar.zst` archives (e.g., `archive/a1b2c3d4-....tar.zst`)
+- **Symlinks** store their target path in a `.symlink` metadata file (e.g., `archive/a1b2c3d4-....symlink`)
+
+Cross-device moves (when the archive is on a different filesystem) are handled via copy-and-verify with SHA-256 integrity checks.
+
+## SQLite database
+
+### Path resolution
+
+The database path follows the same resolution order as the archive directory:
+
+1. CLI flag `--db-path` (pre-command position)
+2. Config file key `db_path` (suppressed by `--hermetic`)
+3. Default: `$SAFERM_HOME/db/saferm.db`
+
+### Database configuration
+
+The database opens with these SQLite pragmas:
+
+- `journal_mode=WAL` -- write-ahead logging for concurrent read/write access
+- `busy_timeout=5000` -- wait up to 5 seconds for locks, supporting multiple simultaneous saferm sessions
+
+### Schema
+
+The database has a single `deletions` table:
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `id` | INTEGER | Auto-incrementing primary key |
+| `uuid` | TEXT | Unique identifier linking to the archive file |
+| `original_path` | TEXT | Absolute path of the deleted file |
+| `original_name` | TEXT | Base name of the deleted file |
+| `size` | INTEGER | File size in bytes (total for directories) |
+| `hash` | TEXT | SHA-256 hex digest |
+| `is_directory` | INTEGER | 1 if the entry was a directory |
+| `deleted_at` | TEXT | RFC 3339 timestamp of deletion |
+| `command` | TEXT | Original rm command being replaced (optional) |
+| `description` | TEXT | Mandatory explanation of why the deletion happened |
+| `metadata` | TEXT | JSON blob with environment, git context, and process metadata |
+| `restored_at` | TEXT | RFC 3339 timestamp of restoration (null if not restored) |
+| `restored_to` | TEXT | Path where the file was restored (null if not restored) |
+| `symlink_target` | TEXT | Original symlink target (null if not a symlink) |
+| `purged_at` | TEXT | RFC 3339 timestamp of permanent removal (null if not purged) |
+
+Indexes exist on `original_path` and `deleted_at` for query performance.
+
+Schema migrations are tracked via SQLite's `PRAGMA user_version` and run automatically on database open.
+
+## Environment variable filtering
+
+saferm captures environment variables as part of deletion metadata. Sensitive variables are excluded by regex patterns. The default exclusion patterns are:
+
+- `(?i)token`
+- `(?i)secret`
+- `(?i)password`
+- `(?i)key`
+- `(?i)credential`
+
+Custom patterns can be set via the `--exclude-env-patterns` flag (repeatable). This flag is CLI-only and not configurable via `config.toml`.
