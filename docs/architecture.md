@@ -9,7 +9,7 @@ saferm replaces `rm` with a multi-stage deletion pipeline: archive the content, 
 
 ## Component overview
 
-saferm is organized into four internal packages, each with a single responsibility:
+saferm is organized into four internal packages, each with a single responsibility. These packages are fully independent of one another, communicating only through the top-level command handlers that orchestrate them. This separation keeps the codebase modular and testable, with clear boundaries between physical storage, metadata persistence, context capture, and git integration:
 
 | Package | Responsibility |
 |---------|---------------|
@@ -18,11 +18,9 @@ saferm is organized into four internal packages, each with a single responsibili
 | `internal/meta` | Context capture: environment variables, git state, parent process info, custom key-value pairs |
 | `internal/git` | Git index management: detecting tracked files, staging removals on delete, staging additions on restore |
 
-The top-level command handlers (`delete.go`, `undelete.go`, `purge.go`) orchestrate these packages. No package depends on another -- all coordination flows through the command handlers.
-
 ## Storage layout
 
-All saferm data lives under a single root directory (default `~/.saferm/`, overridable via the `SAFERM_HOME` environment variable):
+All saferm data lives under a single root directory (default `~/.saferm/`, overridable via the `SAFERM_HOME` environment variable). This directory contains three categories of content: archived file data stored by UUID, an SQLite database tracking deletion metadata, and a TOML configuration file for persistent settings. The layout is self-contained, so relocating the entire directory moves all saferm state at once:
 
 ```
 ~/.saferm/
@@ -39,7 +37,7 @@ All saferm data lives under a single root directory (default `~/.saferm/`, overr
 
 ## Deletion lifecycle
 
-A deletion passes through four stages: validation, archival, metadata recording, and git index update.
+A deletion passes through four stages: validation, archival, metadata recording, and git index update. Each stage must succeed before the next begins, and failures at any point leave the system in a consistent state. Validation catches invalid inputs early, archival ensures the content is safely stored before the original is removed, metadata recording captures the full context of the deletion, and the git index update keeps the working tree in sync.
 
 ### 1. Validation
 
@@ -47,30 +45,30 @@ The `archive.Archive` function stats the target path and determines its type. Di
 
 ### 2. Archival
 
-The archival strategy depends on the target type:
+The archival strategy depends on the target type. Regular files are moved atomically when possible and copied with integrity verification when the archive sits on a different filesystem. Directories are compressed into tar archives with zstandard compression. Symlinks store only their target path, since they carry no content of their own:
 
 **Regular files.** The file is hashed (SHA-256, streaming) before being moved. The move uses `os.Rename` for an atomic same-filesystem operation. If `Rename` returns `EXDEV` (cross-device link error), the fallback path copies the file, verifies the copy's hash matches the pre-computed hash, and only then removes the original. The archived file is stored as `<uuid>` (no extension) in the archive directory.
 
-:-: ref path="internal/archive" symbol="archiveFile"
+:-: ref path="internal/archive" target="archiveFile"
 
 **Directories.** The directory tree is walked to compute total size, then compressed into a `.tar.zst` archive (tar format with zstandard compression via `github.com/klauspost/compress/zstd`). The tar preserves relative paths, permissions, and symlinks within the tree. After successful compression and hashing of the archive file, the original directory is removed with `os.RemoveAll`. Partial archives are cleaned up on failure.
 
-:-: ref path="internal/archive" symbol="archiveDirectory"
+:-: ref path="internal/archive" target="archiveDirectory"
 
 **Symlinks.** The symlink's target path is read via `os.Readlink` and written to a `.symlink` metadata file in the archive directory. The symlink itself is then removed. No content is archived because symlinks have no content -- the target path is sufficient for reconstruction.
 
-:-: ref path="internal/archive" symbol="archiveSymlink"
+:-: ref path="internal/archive" target="archiveSymlink"
 
 ### 3. Metadata recording
 
-After successful archival, the command handler collects contextual metadata via the `meta` package and inserts a `DeletionRecord` into the SQLite database. The record captures:
+After successful archival, the command handler collects contextual metadata via the `meta` package and inserts a `DeletionRecord` into the SQLite database. This metadata is what makes saferm's deletions auditable and reversible: every record links the archived content to its original location, captures who deleted it and why, and stores enough context to understand the circumstances of the deletion months later. The record captures:
 
 - **Identity**: auto-increment ID, UUID (matches archive filename), original absolute path, original filename
 - **Content**: file size (bytes), SHA-256 hash, directory flag, symlink target
 - **Context**: deletion timestamp, user-provided description, optional original rm command, JSON metadata blob
 - **Lifecycle**: `restored_at`/`restored_to` (set on undelete), `purged_at` (set on purge)
 
-:-: ref path="internal/db" symbol="DeletionRecord"
+:-: ref path="internal/db" target="DeletionRecord"
 
 The metadata JSON blob, produced by `meta.Collect`, includes:
 
@@ -79,17 +77,17 @@ The metadata JSON blob, produced by `meta.Collect`, includes:
 - **Parent process**: PPID and parent command line (read from `/proc/<pid>/cmdline` on Linux, `ps` on macOS)
 - **Custom pairs**: arbitrary key-value strings passed via `--meta key=value`
 
-:-: ref path="internal/meta" symbol="Collect"
+:-: ref path="internal/meta" target="Collect"
 
 ### 4. Git index update
 
 When `--update-git-index` is true (the default) and the file resides in a git repository, saferm runs `git rm --cached` to stage the removal in the git index. This keeps the git working tree consistent with the filesystem without requiring a separate `git rm` step. The check uses `git ls-files --error-unmatch` to determine whether the file is tracked; untracked files are silently skipped.
 
-:-: ref path="internal/git" symbol="GitRmCached"
+:-: ref path="internal/git" target="GitRmCached"
 
 ## Restoration (undelete)
 
-Restoration reverses the archival process:
+Restoration reverses the archival process, moving content from the archive back to its original location on disk. The approach mirrors archival: files use atomic renames with cross-device copy fallback, directories are extracted from their compressed archive, and symlinks are recreated from stored metadata. Conflict detection prevents accidental overwrites at the destination path:
 
 - **Regular files**: `os.Rename` from archive to original path, with cross-device copy fallback
 - **Directories**: extract the `.tar.zst` archive into the original path, stripping the top-level directory entry so contents land directly at the destination
@@ -99,7 +97,7 @@ The `Restore` function checks for conflicts at the destination. Without `--force
 
 If the destination is inside a git repository, `git add` is run to stage the restored file.
 
-:-: ref path="internal/archive" symbol="Restore"
+:-: ref path="internal/archive" target="Restore"
 
 ## Purge (permanent destruction)
 
@@ -111,11 +109,11 @@ Records can be selected for purging by ID, by age (`--older-than`), by size (`--
 
 When the source file and the archive directory reside on different filesystems (different mount points, network shares, container bind mounts), `os.Rename` fails with `EXDEV`. saferm detects this specific error by unwrapping the `*os.LinkError` and checking for `syscall.EXDEV`:
 
-:-: ref path="internal/archive" symbol="isCrossDevice"
+:-: ref path="internal/archive" target="isCrossDevice"
 
 The fallback path for files is copy-and-verify: copy the content, compute the SHA-256 hash of the copy, compare it against the hash of the original. If the hashes match, the original is removed. If they do not match, the copy is deleted and the operation fails with `ErrHashMismatch`. This ensures no data loss even when atomic renames are unavailable.
 
-:-: ref path="internal/archive" symbol="copyAndVerify"
+:-: ref path="internal/archive" target="copyAndVerify"
 
 Directories always use tar+zstd compression, which inherently handles cross-device scenarios because `createTarZst` reads the source tree and writes to the archive directory independently.
 
@@ -123,7 +121,7 @@ Restoration also handles cross-device: `restoreFile` attempts `os.Rename` first 
 
 ## Integrity verification
 
-saferm uses SHA-256 hashing to verify file integrity at two points:
+saferm uses SHA-256 hashing to verify file integrity at two points in the deletion lifecycle. This ensures that archived content is identical to the original, catching corruption from disk errors, interrupted copies, or filesystem bugs before the original file is removed. The hashing is streaming-based, processing data through an `io.Copy` pipeline into `crypto/sha256`, so memory usage remains constant regardless of file size:
 
 1. **At archival time**: every regular file is hashed before being moved or copied. The hash is stored in the database record. For directories, the hash covers the `.tar.zst` archive file itself.
 
@@ -131,26 +129,26 @@ saferm uses SHA-256 hashing to verify file integrity at two points:
 
 Hashing is streaming (`io.Copy` into `crypto/sha256`), so memory usage is constant regardless of file size.
 
-:-: ref path="internal/archive" symbol="hashFile"
+:-: ref path="internal/archive" target="hashFile"
 
 ## Concurrency model
 
-saferm is designed for concurrent use by multiple processes (e.g., parallel AI agent sessions). Two mechanisms prevent conflicts:
+saferm is designed for concurrent use by multiple processes, such as parallel AI agent sessions running simultaneously in the same directory. Two mechanisms prevent conflicts: UUID-based archive naming guarantees unique filenames without inter-process coordination, and WAL-mode SQLite allows concurrent reads alongside writes with automatic retry on lock contention. Together, these ensure that simultaneous deletions never corrupt each other's data:
 
 ### UUID-based archive naming
 
 Every archived item receives a UUID v4 generated from `crypto/rand`. This guarantees unique filenames in the archive directory even when multiple saferm processes archive files simultaneously. There is no coordination between processes -- each generates its own UUID independently.
 
-:-: ref path="internal/archive" symbol="generateUUID"
+:-: ref path="internal/archive" target="generateUUID"
 
 ### WAL-mode SQLite
 
-The database connection is opened with two pragmas passed via DSN:
+The database connection is opened with two pragmas passed via the SQLite DSN connection string. These pragmas configure write-ahead logging for concurrent access and a busy timeout to handle lock contention when multiple saferm processes operate simultaneously on the same archive:
 
 - `journal_mode=WAL`: Write-Ahead Logging allows concurrent readers and a single writer without blocking. Multiple saferm processes can query the database while another is inserting a new deletion record.
 - `busy_timeout=5000`: if a write lock is held by another process, SQLite retries for up to 5 seconds before returning `SQLITE_BUSY`. This handles the brief window where two processes try to insert simultaneously.
 
-:-: ref path="internal/db" symbol="Open"
+:-: ref path="internal/db" target="Open"
 
 ### Schema migrations
 
@@ -160,7 +158,7 @@ The database uses `PRAGMA user_version` to track schema version. Migrations are 
 
 ### Tar extraction safety
 
-The `extractTarZst` function includes path traversal protections. Every tar entry's path is validated:
+The `extractTarZst` function includes path traversal protections to prevent malicious or corrupted tar archives from writing outside the intended destination directory. Every tar entry's path is validated against three rules before extraction proceeds, ensuring that archived directories cannot escape their restoration target:
 
 - Absolute paths (starting with `/`) are rejected
 - Parent directory references (`..`) are rejected
@@ -172,4 +170,4 @@ Environment variable capture excludes values matching configurable regex pattern
 
 ### Archive permissions
 
-The archive directory is created with mode `0700` (owner-only access), preventing other users on the system from reading archived content.
+The archive directory is created with mode `0700` (owner-only access), preventing other users on the system from reading archived content. This is particularly important because saferm captures environment variables and git context as part of the deletion metadata, which may contain paths, branch names, or other contextual information that should remain private to the user who performed the deletion.

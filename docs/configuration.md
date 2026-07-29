@@ -9,7 +9,7 @@ saferm's configuration controls where deleted files are stored and how the tool 
 
 ## SAFERM_HOME and the default archive location
 
-The `SAFERM_HOME` environment variable sets the root directory for all saferm data. When unset, it defaults to `~/.saferm/`.
+The `SAFERM_HOME` environment variable sets the root directory for all saferm data, including the archive directory, the SQLite database, and the config file. When unset, it defaults to `~/.saferm/`. This variable is classified as infrastructure, not configuration, which means it is never suppressed by hermetic mode and behaves like `HOME` -- it tells saferm where to find its data.
 
 The root directory contains:
 
@@ -33,7 +33,7 @@ saferm creates all necessary directories automatically with `0700` permissions o
 
 ## Config file
 
-The config file lives at `$SAFERM_HOME/config.toml` (default: `~/.saferm/config.toml`). It uses TOML format and is managed through strictcli's built-in config system.
+The config file lives at `$SAFERM_HOME/config.toml` (default: `~/.saferm/config.toml`). It uses TOML format and is managed through strictcli's built-in config system. The file stores persistent settings like custom archive directory and database path, and supports view, edit, and reset operations through the `saferm config` subcommand family. A malformed config file is always a hard error with a parse position, never silently ignored.
 
 ### Configurable fields
 
@@ -69,7 +69,7 @@ A malformed `config.toml` is always a hard error (exit 1) with a parse position.
 
 ## Infrastructure vs. config boundary
 
-saferm distinguishes between **infrastructure** settings and **config** settings. This distinction matters for hermetic mode.
+saferm distinguishes between **infrastructure** settings and **config** settings. This distinction matters for hermetic mode, which suppresses config values but never infrastructure values. Understanding the boundary prevents confusion when using `--hermetic`: infrastructure controls where saferm lives on disk, while config controls how saferm behaves within that location.
 
 **Infrastructure** (`SAFERM_HOME`): selects _where_ saferm lives. It is in the same category as `HOME` -- a location override that tells saferm which directory tree to use. Infrastructure settings are never suppressed.
 
@@ -77,7 +77,7 @@ saferm distinguishes between **infrastructure** settings and **config** settings
 
 ## Hermetic mode
 
-The `--hermetic` flag suppresses all config-file and environment values for config-managed settings. When active, `archive_dir` and `db_path` fall back to their defaults (derived from `SAFERM_HOME`).
+The `--hermetic` flag suppresses all config-file and environment values for config-managed settings, forcing saferm to use default paths derived from the `SAFERM_HOME` root directory. When active, `archive_dir` and `db_path` fall back to their defaults regardless of what the config file specifies. This is useful for testing and automation, where you need predictable behavior that is not influenced by a user's custom configuration.
 
 `SAFERM_HOME` itself is **not** suppressed by `--hermetic` because it is infrastructure, not config. A hermetic invocation still respects the `SAFERM_HOME` location -- it only strips the behavioral overrides from the config file.
 
@@ -89,7 +89,7 @@ saferm --hermetic delete --description "reason" file.txt
 
 ## Archive directory discovery
 
-saferm resolves the archive directory in this order (first non-empty wins):
+saferm resolves the archive directory through a three-level priority chain, where the first non-empty value wins. CLI flags take highest priority, followed by config file values, and finally the default path derived from the saferm home directory. The hermetic flag short-circuits this chain by suppressing the config layer entirely:
 
 1. CLI flag `--archive-dir` (pre-command position)
 2. Config file key `archive_dir` (suppressed by `--hermetic`)
@@ -109,7 +109,7 @@ Cross-device moves (when the archive is on a different filesystem) are handled v
 
 ### Path resolution
 
-The database path follows the same resolution order as the archive directory:
+The database path follows the same three-level resolution order as the archive directory, with CLI flags taking highest priority, then config file values, and finally the default derived from the saferm home directory. Hermetic mode suppresses the config layer here as well, forcing the database path back to its default location:
 
 1. CLI flag `--db-path` (pre-command position)
 2. Config file key `db_path` (suppressed by `--hermetic`)
@@ -117,14 +117,14 @@ The database path follows the same resolution order as the archive directory:
 
 ### Database configuration
 
-The database opens with these SQLite pragmas:
+The database opens with two SQLite pragmas that configure it for concurrent access by multiple saferm processes. These settings are applied at connection time through the DSN string and cannot be overridden by the user, ensuring that the database always operates in a mode safe for parallel AI agent sessions:
 
 - `journal_mode=WAL` -- write-ahead logging for concurrent read/write access
 - `busy_timeout=5000` -- wait up to 5 seconds for locks, supporting multiple simultaneous saferm sessions
 
 ### Schema
 
-The database has a single `deletions` table:
+The database has a single `deletions` table that stores the complete lifecycle of every archived item. Each row tracks the original file identity, content hash, deletion context, and restoration or purge status. Schema migrations are tracked via SQLite's `PRAGMA user_version` and run automatically on database open, so the table evolves safely across saferm upgrades:
 
 | Column | Type | Description |
 | --- | --- | --- |
@@ -150,7 +150,7 @@ Schema migrations are tracked via SQLite's `PRAGMA user_version` and run automat
 
 ## Environment variable filtering
 
-saferm captures environment variables as part of deletion metadata. Sensitive variables are excluded by regex patterns. The default exclusion patterns are:
+saferm captures environment variables as part of deletion metadata to provide full context about the circumstances of each deletion. Sensitive variables are excluded by regex patterns that match against variable names, filtering out tokens, secrets, passwords, keys, and credentials by default. Additional patterns can be added via the `--exclude-env-patterns` flag to extend the denylist for project-specific secrets. The default exclusion patterns are:
 
 - `(?i)token`
 - `(?i)secret`
