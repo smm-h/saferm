@@ -16,6 +16,12 @@ import (
 func registerPurgeCmd(app *strictcli.App) {
 	app.Command("purge", "Permanently destroy archived items and free disk space", handlePurge,
 		strictcli.WithEffect(strictcli.EffectMutating),
+		// The one saferm command with no way back. `delete` moves a file into
+		// the archive and `undelete` brings it back; `purge` destroys the
+		// archived content, and after it nothing in the tool can recover the
+		// file. That is the whole reason saferm exists, inverted -- so it is
+		// worth interrupting someone for.
+		strictcli.WithConsequential(),
 		strictcli.WithGrants(strictcli.Grant{
 			Name:   "purge",
 			Reason: "purging destroys the archived content permanently; undelete cannot bring it back",
@@ -158,8 +164,12 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 		fmt.Fprintf(os.Stderr, "Permanently delete %d items? [y/N] ", len(records))
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(scanner.Text())), "y") {
+			// A declined purge is a refusal, not a success. Exiting 0 here told
+			// a script or an agent that the items were destroyed when nothing
+			// happened -- and a non-interactive run reaches this branch by
+			// reading EOF, which is the common case.
 			fmt.Println("Aborted.")
-			return strictcli.Exit(ExitSuccess)
+			return strictcli.Exit(ExitGeneral)
 		}
 	}
 

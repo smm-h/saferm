@@ -334,7 +334,7 @@ func TestPurge_VerifyArchiveDeleted(t *testing.T) {
 	}
 
 	// Purge.
-	_, stderr, code = runSaferm(t, homeDir, "purge", "-f", id)
+	_, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", id)
 	if code != 0 {
 		t.Fatalf("purge failed (exit %d): stderr=%q", code, stderr)
 	}

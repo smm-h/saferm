@@ -13,9 +13,9 @@ func main() {
 		strictcli.WithConfigFormat("toml"),
 	)
 
-	// --verbose, --quiet, --dry-run and --yes are owned by the CLI framework:
-	// they are pre-scanned out of argv wherever they appear and delivered on
-	// the Context, so registering them here is a hard error.
+	// --verbose, --quiet, --dry-run and --approve-consequential are owned by
+	// the CLI framework: they are pre-scanned out of argv wherever they appear
+	// and delivered on the Context, so registering them here is a hard error.
 	app.GlobalFlag(strictcli.StringFlag("archive-dir", "Path to the archive directory",
 		strictcli.Default(strictcli.RelativeToRoot("SAFERM_HOME", "archive")),
 		strictcli.ConflictMode("error")))

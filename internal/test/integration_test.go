@@ -50,24 +50,14 @@ func TestMain(m *testing.M) {
 // environment. SAFERM_HOME is set to homeDir/.saferm/ so that all saferm
 // data (archive, db) lives under the test-local directory without
 // interfering with the real HOME.
+// It adds nothing to argv. strictcli's confirm protocol prompts only for
+// commands that declare themselves `consequential`, and in saferm that is
+// `purge` alone -- `delete` and `undelete` are recoverable and run bare. A test
+// that exercises `purge` passes --approve-consequential itself, which keeps the
+// approval visible at the call site instead of hidden in a helper.
 func runSaferm(t *testing.T, homeDir string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
-	return runSafermNoConsent(t, homeDir, withConsent(args)...)
-}
-
-// withConsent returns args with a leading --yes when the caller has not already
-// expressed an intent about consent. strictcli's confirm protocol stops every
-// `mutating` command that nobody approved, and a spawned test process has no
-// terminal to approve one at, so a test that means to exercise the command
-// rather than the prompt has to say so. --dry-run already means "change
-// nothing", which the protocol accepts on its own.
-func withConsent(args []string) []string {
-	for _, a := range args {
-		if a == "--yes" || a == "--dry-run" || a == "--help" || a == "-h" {
-			return args
-		}
-	}
-	return append([]string{"--yes"}, args...)
+	return runSafermNoConsent(t, homeDir, args...)
 }
 
 // runSafermNoConsent executes the saferm binary with exactly the given args and
@@ -365,7 +355,7 @@ func TestPurge_ById(t *testing.T) {
 	id := parseFirstID(t, stdout)
 
 	// Purge by ID (with -f to skip confirmation).
-	stdout, stderr, code := runSaferm(t, homeDir, "purge", "-f", id)
+	stdout, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", id)
 	if code != 0 {
 		t.Fatalf("purge failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
