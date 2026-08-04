@@ -42,6 +42,9 @@ go install .                # install locally (picks up changes)
 ## Key conventions
 
 - **CLI framework:** strictcli (`github.com/smm-h/strictcli/go/strictcli`). Commands use functional options. Handlers receive `map[string]interface{}`.
+- **`--yes` is required for every mutating command from a script or an agent.** `delete`, `undelete` and `purge` are classified `mutating`, so strictcli's confirm protocol prompts on a terminal and refuses outright (`error: stdin is not interactive; pass --yes to confirm`) where there is none. Write `saferm --yes delete --description "why" <files>`. `list` and `info` are `read_only` and never ask; `--dry-run` satisfies the gate on its own.
+- **`--quiet`, `--verbose`, `--dry-run` and `--yes` belong to the framework**, are recognized anywhere on the command line, and have no short forms. saferm's own `--verbose` global and `purge --dry-run` flag are gone -- both spellings still work, they are just delivered by the framework now, and `--dry-run` applies to every command rather than only to `purge`.
+- **`--dry-run` records instead of acting.** Every mutation `delete`, `undelete` and `purge` perform is minted on `ctx.Effects()`, so a dry run prints a would-do log naming each path it would move, write or destroy, and touches nothing. The database row is the one exception: no member of the effects handle's closed method set can describe a SQLite row change, so those writes sit outside the handle and are skipped in dry mode.
 - **`--description` is mandatory** on delete (no default value in strictcli). Never add a default.
 - **`-r` required for directories** (like rm).
 - **`-f` skips errors** on nonexistent files and prompts.
@@ -74,7 +77,7 @@ go install .                # install locally (picks up changes)
 ## Tooling
 
 - **rlsbl** for releases (`rlsbl release patch|minor|major --yes`)
-- **safegit** for commits (`safegit commit -m "message" -- file1 file2`)
+- **safegit** for commits (`safegit --yes commit -m "message" -- file1 file2`)
 - **selfdoc** for docs site (saferm.smmh.dev)
 - **strictcli** for CLI framework
 
@@ -86,19 +89,19 @@ saferm is designed for AI agents to use instead of `rm`. Always provide a meanin
 
 ```bash
 # Delete a file
-saferm delete --description "Removing stale config after migration" old-config.yaml
+saferm --yes delete --description "Removing stale config after migration" old-config.yaml
 
 # Delete a directory (requires -r)
-saferm delete -r --description "Removing build artifacts after successful CI" ./build/
+saferm --yes delete -r --description "Removing build artifacts after successful CI" ./build/
 
 # Delete with force (ignore nonexistent files)
-saferm delete -f --description "Pruning stale cache files" cache/*.json
+saferm --yes delete -f --description "Pruning stale cache files" cache/*.json
 
 # Record the original rm command that was replaced
-saferm delete --description "Cleaning temp test output" --command "rm -rf test-output/" -r test-output/
+saferm --yes delete --description "Cleaning temp test output" --command "rm -rf test-output/" -r test-output/
 
 # Add custom metadata
-saferm delete --description "Removing deprecated module" --meta reason=deprecated --meta ticket=PROJ-123 old-module.go
+saferm --yes delete --description "Removing deprecated module" --meta reason=deprecated --meta ticket=PROJ-123 old-module.go
 ```
 
 ### Other commands
@@ -113,14 +116,14 @@ saferm list --path "/home/*"   # filter by glob
 saferm info 42
 
 # Restore a file (by ID or path)
-saferm undelete 42
-saferm undelete /path/to/file
-saferm undelete --force 42     # overwrite existing file
+saferm --yes undelete 42
+saferm --yes undelete /path/to/file
+saferm --yes undelete --force-overwrite 42  # overwrite existing file
 
 # Permanently remove from archive
-saferm purge 42 43 44          # by IDs
-saferm purge --older-than 30d  # by age (h/d/w/m)
-saferm purge --all -f          # everything, no prompt
+saferm --yes purge 42 43 44          # by IDs
+saferm --yes purge --older-than 30d  # by age (h/d/w/m)
+saferm --yes purge --all -f          # everything, no prompt
 ```
 
 ### Guidelines for --description
