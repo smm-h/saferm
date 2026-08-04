@@ -52,6 +52,28 @@ func TestMain(m *testing.M) {
 // interfering with the real HOME.
 func runSaferm(t *testing.T, homeDir string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
+	return runSafermNoConsent(t, homeDir, withConsent(args)...)
+}
+
+// withConsent returns args with a leading --yes when the caller has not already
+// expressed an intent about consent. strictcli's confirm protocol stops every
+// `mutating` command that nobody approved, and a spawned test process has no
+// terminal to approve one at, so a test that means to exercise the command
+// rather than the prompt has to say so. --dry-run already means "change
+// nothing", which the protocol accepts on its own.
+func withConsent(args []string) []string {
+	for _, a := range args {
+		if a == "--yes" || a == "--dry-run" || a == "--help" || a == "-h" {
+			return args
+		}
+	}
+	return append([]string{"--yes"}, args...)
+}
+
+// runSafermNoConsent executes the saferm binary with exactly the given args and
+// nothing added. Use it when the test is ABOUT consent.
+func runSafermNoConsent(t *testing.T, homeDir string, args ...string) (stdout, stderr string, exitCode int) {
+	t.Helper()
 
 	cmd := exec.Command(safermBinary, args...)
 

@@ -3,9 +3,21 @@ package meta
 import (
 	"os"
 	"testing"
+
+	"github.com/smm-h/stricttest/go/hygiene"
 )
 
+// isolate binds stricttest's environment floor. It matters more here than
+// anywhere else in saferm: this package's whole job is to capture the process
+// environment into deletion metadata, so a test running with the developer's
+// real credentials exported is a test that could put them somewhere.
+func isolate(t *testing.T) {
+	t.Helper()
+	hygiene.Isolate(t)
+}
+
 func TestCollectEnv_FiltersPatterns(t *testing.T) {
+	isolate(t)
 	// Set known env vars that should be filtered.
 	t.Setenv("SAFERM_TEST_SECRET_KEY", "should-be-filtered")
 	t.Setenv("SAFERM_TEST_API_TOKEN", "should-be-filtered")
@@ -35,6 +47,7 @@ func TestCollectEnv_FiltersPatterns(t *testing.T) {
 }
 
 func TestCollectEnv_NoPatterns(t *testing.T) {
+	isolate(t)
 	t.Setenv("SAFERM_TEST_ANYTHING", "captured")
 
 	result := collectEnv(nil)
@@ -50,6 +63,7 @@ func TestCollectEnv_NoPatterns(t *testing.T) {
 }
 
 func TestCollectGitContext(t *testing.T) {
+	isolate(t)
 	// saferm is itself a git repo, so this should return non-empty values
 	// when run from the project directory.
 	branch, head, root := collectGitContext()
@@ -69,6 +83,7 @@ func TestCollectGitContext(t *testing.T) {
 }
 
 func TestCollectGitContext_NotARepo(t *testing.T) {
+	isolate(t)
 	// Run git commands from a directory that is not a git repo.
 	dir := t.TempDir()
 	origDir, err := os.Getwd()
@@ -94,6 +109,7 @@ func TestCollectGitContext_NotARepo(t *testing.T) {
 }
 
 func TestCollectParentProcess(t *testing.T) {
+	isolate(t)
 	ppid, cmdline := collectParentProcess()
 
 	if ppid <= 0 {
@@ -105,6 +121,7 @@ func TestCollectParentProcess(t *testing.T) {
 }
 
 func TestCollect_Integration(t *testing.T) {
+	isolate(t)
 	defaultPatterns := []string{
 		"(?i)token",
 		"(?i)secret",
@@ -149,6 +166,7 @@ func TestCollect_Integration(t *testing.T) {
 }
 
 func TestCollect_CustomMeta(t *testing.T) {
+	isolate(t)
 	custom := map[string]string{
 		"reason": "cleanup",
 		"ticket": "PROJ-123",

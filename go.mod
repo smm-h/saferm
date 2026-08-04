@@ -2,10 +2,11 @@ module github.com/smm-h/saferm
 
 go 1.25.7
 
-require github.com/smm-h/strictcli/go v0.23.0
+require github.com/smm-h/strictcli/go v0.28.2
 
 require (
 	github.com/klauspost/compress v1.18.6
+	github.com/smm-h/stricttest/go v0.1.1
 	modernc.org/sqlite v1.50.1
 )
 

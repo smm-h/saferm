@@ -15,6 +15,7 @@ import (
 
 func registerInfoCmd(app *strictcli.App) {
 	app.Command("info", "Display full metadata and context for an archived deletion", handleInfo,
+		strictcli.WithEffect(strictcli.EffectReadOnly),
 		strictcli.WithArgs(
 			strictcli.NewArg("id", "Numeric database ID of the archived item to inspect"),
 		),

@@ -19,10 +19,10 @@ import (
 
 // Sentinel errors.
 var (
-	ErrFileNotFound     = errors.New("file not found")
+	ErrFileNotFound      = errors.New("file not found")
 	ErrRecursiveRequired = errors.New("target is a directory; recursive flag required")
-	ErrConflict         = errors.New("destination already exists")
-	ErrHashMismatch     = errors.New("hash mismatch after copy")
+	ErrConflict          = errors.New("destination already exists")
+	ErrHashMismatch      = errors.New("hash mismatch after copy")
 )
 
 // ArchiveResult holds the outcome of archiving a file or directory.
@@ -35,10 +35,32 @@ type ArchiveResult struct {
 	IsDirectory   bool
 }
 
-// Archive moves a file or directory into archiveDir, returning the result.
-// For files: moved directly (or copied cross-device) with SHA-256 hash.
-// For directories: compressed into a .tar.zst archive.
-func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, error) {
+// Kind names what an archival is about to move.
+type Kind int
+
+// The three shapes an archived entry takes on disk.
+const (
+	KindFile Kind = iota
+	KindDirectory
+	KindSymlink
+)
+
+// Plan is everything an archival can determine by reading: what the entry is,
+// where it will land, and (for a symlink) what it points at. Building one
+// mutates nothing, so a caller can render a plan as a preview and stop, or hand
+// it to [Execute] and go through with it.
+type Plan struct {
+	Source        string
+	ArchiveDir    string
+	UUID          string
+	Kind          Kind
+	Dest          string
+	SymlinkTarget string
+}
+
+// NewPlan inspects path and resolves where archiving it would put it. It
+// performs no mutation.
+func NewPlan(path string, archiveDir string, isRecursive bool) (*Plan, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -51,19 +73,50 @@ func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, 
 		return nil, ErrRecursiveRequired
 	}
 
-	uuid := generateUUID()
+	p := &Plan{Source: path, ArchiveDir: archiveDir, UUID: generateUUID()}
+	switch {
+	case info.IsDir():
+		p.Kind = KindDirectory
+		p.Dest = filepath.Join(archiveDir, p.UUID+".tar.zst")
+	case info.Mode()&os.ModeSymlink != 0:
+		p.Kind = KindSymlink
+		p.Dest = filepath.Join(archiveDir, p.UUID+".symlink")
+		target, err := os.Readlink(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading symlink target: %w", err)
+		}
+		p.SymlinkTarget = target
+	default:
+		p.Kind = KindFile
+		p.Dest = filepath.Join(archiveDir, p.UUID)
+	}
+	return p, nil
+}
 
-	if err := os.MkdirAll(archiveDir, 0700); err != nil {
+// Execute carries out the archival a [Plan] describes.
+func Execute(p *Plan) (*ArchiveResult, error) {
+	if err := os.MkdirAll(p.ArchiveDir, 0700); err != nil {
 		return nil, fmt.Errorf("creating archive dir: %w", err)
 	}
+	switch p.Kind {
+	case KindDirectory:
+		return archiveDirectory(p.Source, p.ArchiveDir, p.UUID)
+	case KindSymlink:
+		return archiveSymlink(p.Source, p.ArchiveDir, p.UUID)
+	default:
+		return archiveFile(p.Source, p.ArchiveDir, p.UUID)
+	}
+}
 
-	if info.IsDir() {
-		return archiveDirectory(path, archiveDir, uuid)
+// Archive moves a file or directory into archiveDir, returning the result.
+// For files: moved directly (or copied cross-device) with SHA-256 hash.
+// For directories: compressed into a .tar.zst archive.
+func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, error) {
+	p, err := NewPlan(path, archiveDir, isRecursive)
+	if err != nil {
+		return nil, err
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return archiveSymlink(path, archiveDir, uuid)
-	}
-	return archiveFile(path, archiveDir, uuid)
+	return Execute(p)
 }
 
 func archiveSymlink(path string, archiveDir string, uuid string) (*ArchiveResult, error) {
@@ -337,7 +390,7 @@ func createTarZst(srcDir string, dstPath string) error {
 		}
 		// Prefix with the base directory name.
 		archivePath := filepath.Join(baseDir, relPath)
-		if archivePath == baseDir+"/" + "." {
+		if archivePath == baseDir+"/"+"." {
 			archivePath = baseDir
 		}
 

@@ -4,13 +4,34 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/smm-h/stricttest/go/hygiene"
 )
+
+// Isolate binds stricttest's environment floor for the duration of t: a
+// throwaway HOME and XDG tree, an empty git global/system config with a
+// throwaway identity, transports locked to file://, and every ambient
+// credential variable stripped.
+//
+// saferm's tests need it for two reasons beyond the fleet-wide floor. Deletion
+// metadata captures the whole environment, so a developer's real credentials
+// would otherwise be read into a test's captured metadata; and saferm resolves
+// its archive and database from SAFERM_HOME, which derives from HOME, so a test
+// whose HOME leaks is a test that can reach the developer's real archive.
+//
+// It goes through TB.Setenv, which panics under T.Parallel. No test in this
+// repo runs in parallel, and none may start.
+func Isolate(t *testing.T) {
+	t.Helper()
+	hygiene.Isolate(t)
+}
 
 // SetupTestEnv creates a temporary directory structure mimicking ~/.saferm/
 // with archive/ and db/ subdirectories. Returns the home directory (parent of
 // .saferm/) suitable for passing to runSaferm which appends .saferm itself.
 func SetupTestEnv(t *testing.T) string {
 	t.Helper()
+	Isolate(t)
 
 	homeDir := t.TempDir()
 	safermDir := filepath.Join(homeDir, ".saferm")

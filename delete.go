@@ -18,6 +18,12 @@ import (
 
 func registerDeleteCmd(app *strictcli.App) {
 	app.Command("delete", "Move files to the saferm archive with metadata tracking", handleDelete,
+		strictcli.WithEffect(strictcli.EffectMutating),
+		strictcli.WithGrants(strictcli.Grant{
+			Name:   "git-index",
+			Reason: "a tracked file that moved into the archive must leave the git index too, or the next commit resurrects it",
+			Kind:   strictcli.ProcMutate,
+		}),
 		strictcli.WithFlags(
 			strictcli.BoolFlag("recursive", "Allow recursive deletion of directories and all their contents", strictcli.Short("r"), strictcli.Default(false)),
 			strictcli.BoolFlag("ignore-missing", "Silently skip files that do not exist instead of erroring", strictcli.Short("f"), strictcli.Default(false)),
@@ -42,7 +48,9 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 	updateGitIndex := kwargs["update_git_index"].(bool)
 	metaValues := kwargs["meta"].([]interface{})
 	filesRaw := kwargs["files"].([]interface{})
-	verbose, _ := kwargs["verbose"].(bool)
+	verbose := ctx.Verbose()
+	dryRun := ctx.DryRun()
+	fx := ctx.Effects()
 
 	if len(filesRaw) == 0 {
 		fmt.Fprintln(os.Stderr, "error: no files specified")
@@ -118,7 +126,10 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 			}
 		}
 
-		result, err := archive.Archive(absPath, archiveDir, recursive)
+		// Plan first: everything up to the point of no return is reads, so it
+		// runs identically in both modes and the preview is built from the
+		// same facts the real archival uses.
+		plan, err := archive.NewPlan(absPath, archiveDir, recursive)
 		if err != nil {
 			if ignoreMissing && (err == archive.ErrFileNotFound) {
 				continue
@@ -127,6 +138,24 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 				fmt.Fprintf(os.Stderr, "error: %s is a directory; use -r to delete recursively\n", file)
 				return strictcli.Exit(ExitUsage)
 			}
+			fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
+			return strictcli.Exit(ExitArchive)
+		}
+
+		if dryRun {
+			if err := recordArchival(fx, plan); err != nil {
+				fmt.Fprintf(os.Stderr, "error: recording archival of %s: %s\n", file, err)
+				return strictcli.Exit(ExitArchive)
+			}
+			archived++
+			if verbose {
+				fmt.Printf("would archive: %s\n", absPath)
+			}
+			continue
+		}
+
+		result, err := archive.Execute(plan)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
 			return strictcli.Exit(ExitArchive)
 		}
@@ -169,8 +198,50 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 	}
 
 	if archived > 0 && !verbose {
-		fmt.Printf("%d file(s) archived\n", archived)
+		if dryRun {
+			fmt.Printf("%d file(s) would be archived\n", archived)
+		} else {
+			fmt.Printf("%d file(s) archived\n", archived)
+		}
 	}
 
 	return strictcli.Exit(ExitSuccess)
+}
+
+// recordArchival mints the mutations an archival performs onto the effects
+// handle, so that a dry run's would-do log names every path that would move or
+// disappear.
+//
+// It runs in dry mode only. It is the ONE place in saferm where the record and
+// the execution are separate calls, and it is deliberate: archiving is a
+// compound operation --
+// hash, then rename with a copy-and-verify fallback across devices, or tar +
+// zstd of a whole tree followed by a recursive removal -- and the effects
+// handle's closed method set has no primitive for a streaming archive or a
+// verified copy. Minting `rename` for the file case would silently drop the
+// cross-device fallback. So the handle carries the description and
+// archive.Execute carries the act; the dry-mode branch in the caller is what
+// keeps the two from ever both happening.
+func recordArchival(fx *strictcli.Effects, plan *archive.Plan) error {
+	if _, err := fx.Mkdir(plan.ArchiveDir, strictcli.Resource("saferm-archive:"+plan.ArchiveDir)); err != nil {
+		return err
+	}
+	switch plan.Kind {
+	case archive.KindDirectory:
+		// tar + zstd of the tree, then the tree itself goes.
+		if _, err := fx.Write(plan.Dest, []byte{}, strictcli.Resource("saferm-entry:"+plan.UUID)); err != nil {
+			return err
+		}
+		_, err := fx.Remove(plan.Source, strictcli.Resource("path:"+plan.Source))
+		return err
+	case archive.KindSymlink:
+		if _, err := fx.Write(plan.Dest, []byte(plan.SymlinkTarget), strictcli.Resource("saferm-entry:"+plan.UUID)); err != nil {
+			return err
+		}
+		_, err := fx.Remove(plan.Source, strictcli.Resource("path:"+plan.Source))
+		return err
+	default:
+		_, err := fx.Rename(plan.Source, plan.Dest, strictcli.Resource("saferm-entry:"+plan.UUID))
+		return err
+	}
 }

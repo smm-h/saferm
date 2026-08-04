@@ -16,6 +16,12 @@ import (
 
 func registerUndeleteCmd(app *strictcli.App) {
 	app.Command("undelete", "Restore a previously archived file back to its original path", handleUndelete,
+		strictcli.WithEffect(strictcli.EffectMutating),
+		strictcli.WithGrants(strictcli.Grant{
+			Name:   "git-index",
+			Reason: "a restored file is staged so the working tree and the index agree again",
+			Kind:   strictcli.ProcMutate,
+		}),
 		strictcli.WithFlags(
 			strictcli.BoolFlag("force-overwrite", "Overwrite any existing file at the restoration destination", strictcli.Default(false)),
 		),
@@ -94,6 +100,26 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	if rec.SymlinkTarget != nil {
 		symlinkTarget = *rec.SymlinkTarget
 	}
+	// A restore is the mirror of an archival and just as compound (extract a
+	// tar+zstd tree, or move the entry back with a cross-device fallback), so
+	// the same split applies: under --dry-run the move is recorded on the
+	// handle and nothing is touched. See recordArchival in delete.go.
+	if ctx.DryRun() {
+		src := filepath.Join(archiveDir, rec.UUID)
+		switch {
+		case symlinkTarget != "":
+			src += ".symlink"
+		case rec.IsDirectory:
+			src += ".tar.zst"
+		}
+		if _, err := ctx.Effects().Rename(src, dest, strictcli.Resource("path:"+dest)); err != nil {
+			fmt.Fprintf(os.Stderr, "error: recording restore: %s\n", err)
+			return strictcli.Exit(ExitArchive)
+		}
+		fmt.Printf("Would restore %s\n", dest)
+		return strictcli.Exit(ExitSuccess)
+	}
+
 	err = archive.Restore(rec.UUID, archiveDir, dest, rec.IsDirectory, forceOverwrite, symlinkTarget)
 	if err != nil {
 		if errors.Is(err, archive.ErrConflict) {
