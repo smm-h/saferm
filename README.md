@@ -21,7 +21,7 @@ brew install smm-h/tap/saferm
 Delete a file (the `--description` flag is mandatory):
 
 ```
-saferm delete --description "removing stale config" old-config.yaml
+saferm --yes delete --description "removing stale config" old-config.yaml
 ```
 
 See what you've archived:
@@ -33,7 +33,7 @@ saferm list
 Bring it back:
 
 ```
-saferm undelete old-config.yaml
+saferm --yes undelete old-config.yaml
 ```
 
 ## Install
@@ -64,7 +64,7 @@ saferm undelete old-config.yaml
 ## Example workflow
 
 ```
-$ saferm delete --description "broken migration, rewriting from scratch" -r db/migrations/
+$ saferm --yes delete --description "broken migration, rewriting from scratch" -r db/migrations/
 Archived db/migrations/ (id: 3)
 
 $ saferm list
@@ -83,7 +83,7 @@ Git HEAD:    a1b2c3d
 Parent PID:  12345
 Parent cmd:  claude
 
-$ saferm undelete 3
+$ saferm --yes undelete 3
 Restored db/migrations/
 ```
 
