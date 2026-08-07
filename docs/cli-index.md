@@ -26,3 +26,30 @@ Version: :-: var key="project.version"
 ## Command Groups
 
 - [config](cli-config.html) -- Manage persistent configuration values stored in the config file
+
+## Global flags
+
+| Name | Short | Type | Default | Env | Description |
+| --- | --- | --- | --- | --- | --- |
+| `--archive-dir` |  | str | `{"relative_to_root": {"env_var": "SAFERM_HOME", "parts": ["archive"]}}` |  | Path to the archive directory |
+| `--db-path` |  | str | `{"relative_to_root": {"env_var": "SAFERM_HOME", "parts": ["db", "saferm.db"]}}` |  | Path to the SQLite database |
+| `--exclude-env-patterns` |  | str | `["(?i)token", "(?i)secret", "(?i)password", "(?i)key", "(?i)credential"]` |  | Regex patterns for env vars to exclude from metadata |
+
+## Framework flags
+
+These flags are owned by the strictcli framework, not by the app. No command may declare a flag with one of these names, and each is recognized anywhere on the command line.
+
+| Flag | Effect |
+| --- | --- |
+| `--dry-run` | Preview mode: no mutation runs. The framework prints a log of every effect the command would have performed. |
+| `--approve-consequential` | Skips the confirmation prompt a consequential command shows before it runs. |
+| `--quiet` | Hides informational output. Warnings, errors, structured data and the dry-run log are never suppressed. |
+| `--verbose` | Shows debug output. `--quiet` wins when both are passed. |
+
+## Infrastructure
+
+### Roots
+
+| Env var | Default |
+| --- | --- |
+| `SAFERM_HOME` | ~/.saferm |

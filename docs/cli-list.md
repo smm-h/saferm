@@ -11,6 +11,8 @@ nav_order: 4
 
 Show all items currently held in the saferm archive
 
+**Effect:** read_only
+
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |

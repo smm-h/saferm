@@ -11,6 +11,8 @@ nav_order: 2
 
 Move files to the saferm archive with metadata tracking
 
+**Effect:** mutating
+
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
@@ -28,3 +30,9 @@ Move files to the saferm archive with metadata tracking
 | Name | Required | Description |
 | --- | --- | --- |
 | `files` | yes | One or more files or directories to move into the archive |
+
+## Grants
+
+| Kind | Name | Reason |
+| --- | --- | --- |
+| proc_mutate | `git-index` | a tracked file that moved into the archive must leave the git index too, or the next commit resurrects it |

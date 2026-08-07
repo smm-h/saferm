@@ -11,6 +11,8 @@ nav_order: 6
 
 Restore a previously archived file back to its original path
 
+**Effect:** mutating
+
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
@@ -22,3 +24,9 @@ Restore a previously archived file back to its original path
 | Name | Required | Description |
 | --- | --- | --- |
 | `target` | yes | Numeric database ID or original file path of the item to restore |
+
+## Grants
+
+| Kind | Name | Reason |
+| --- | --- | --- |
+| proc_mutate | `git-index` | a restored file is staged so the working tree and the index agree again |

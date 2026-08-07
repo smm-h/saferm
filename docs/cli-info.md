@@ -11,6 +11,8 @@ nav_order: 3
 
 Display full metadata and context for an archived deletion
 
+**Effect:** read_only
+
 ## Arguments
 
 | Name | Required | Description |

@@ -11,18 +11,24 @@ nav_order: 5
 
 Permanently destroy archived items and free disk space
 
+**Effect:** mutating · **consequential** (prompts before running; `--approve-consequential` skips)
+
 ## Flags
 
 | Name | Short | Type | Default | Env | Description |
 | --- | --- | --- | --- | --- | --- |
 | `--older-than` |  | str |  |  | Purge items older than duration (e.g., 30d, 24h, 1w) |
 | `--larger-than` |  | str |  |  | Only purge items larger than this size (e.g. 100MB, 1GB) |
-| `--skip-confirmation` | `-f` | bool |  |  | Skip the interactive confirmation prompt before purging |
 | `--all` |  | bool |  |  | Select all archived items for permanent destruction |
-| `--dry-run` |  | bool |  |  | Preview which items would be purged without actually deleting |
 
 ## Arguments
 
 | Name | Required | Description |
 | --- | --- | --- |
 | `ids` | no | Numeric database IDs of specific items to permanently destroy |
+
+## Grants
+
+| Kind | Name | Reason |
+| --- | --- | --- |
+| file_write | `purge` | purging destroys the archived content permanently; undelete cannot bring it back |
