@@ -8,6 +8,7 @@
           "variadic": true
         }
       ],
+      "effect": "mutating",
       "flags": [
         {
           "default": false,
@@ -58,6 +59,13 @@
           "type": "bool"
         }
       ],
+      "grants": [
+        {
+          "kind": "proc_mutate",
+          "name": "git-index",
+          "reason": "a tracked file that moved into the archive must leave the git index too, or the next commit resurrects it"
+        }
+      ],
       "help": "Move files to the saferm archive with metadata tracking",
       "name": "delete"
     },
@@ -68,10 +76,12 @@
           "name": "id"
         }
       ],
+      "effect": "read_only",
       "help": "Display full metadata and context for an archived deletion",
       "name": "info"
     },
     "list": {
+      "effect": "read_only",
       "flags": [
         {
           "default": "",
@@ -99,6 +109,8 @@
           "variadic": true
         }
       ],
+      "consequential": true,
+      "effect": "mutating",
       "flags": [
         {
           "default": "",
@@ -114,25 +126,17 @@
         },
         {
           "default": false,
-          "help": "Skip the interactive confirmation prompt before purging",
-          "name": "skip-confirmation",
-          "negatable": true,
-          "short": "f",
-          "type": "bool"
-        },
-        {
-          "default": false,
           "help": "Select all archived items for permanent destruction",
           "name": "all",
           "negatable": true,
           "type": "bool"
-        },
+        }
+      ],
+      "grants": [
         {
-          "default": false,
-          "help": "Preview which items would be purged without actually deleting",
-          "name": "dry-run",
-          "negatable": true,
-          "type": "bool"
+          "kind": "file_write",
+          "name": "purge",
+          "reason": "purging destroys the archived content permanently; undelete cannot bring it back"
         }
       ],
       "help": "Permanently destroy archived items and free disk space",
@@ -145,6 +149,7 @@
           "name": "target"
         }
       ],
+      "effect": "mutating",
       "flags": [
         {
           "default": false,
@@ -152,6 +157,13 @@
           "name": "force-overwrite",
           "negatable": true,
           "type": "bool"
+        }
+      ],
+      "grants": [
+        {
+          "kind": "proc_mutate",
+          "name": "git-index",
+          "reason": "a restored file is staged so the working tree and the index agree again"
         }
       ],
       "help": "Restore a previously archived file back to its original path",
@@ -220,13 +232,6 @@
   "env_prefix": "SAFERM",
   "global_flags": [
     {
-      "default": false,
-      "help": "Enable verbose output",
-      "name": "verbose",
-      "negatable": true,
-      "type": "bool"
-    },
-    {
       "conflict_mode": "error",
       "default": {
         "relative_to_root": {
@@ -274,15 +279,27 @@
     "config": {
       "commands": {
         "edit": {
+          "effect": "mutating",
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
+          },
           "help": "Open the config file for manual editing in $EDITOR (creates if missing)",
           "interactive": true,
           "name": "edit"
         },
         "init": {
+          "effect": "mutating",
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
+          },
           "help": "Generate a template config file with documented fields and defaults",
           "name": "init"
         },
         "path": {
+          "effect": "read_only",
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
+          },
           "help": "Print the absolute path to the config file for this application",
           "name": "path"
         },
@@ -298,6 +315,7 @@
               "required": false
             }
           ],
+          "effect": "mutating",
           "flags": [
             {
               "default": false,
@@ -314,6 +332,9 @@
               "type": "bool"
             }
           ],
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
+          },
           "help": "Set a persistent config value that overrides the default for a flag",
           "name": "set"
         },
@@ -327,6 +348,7 @@
               "type": "mutex"
             }
           ],
+          "effect": "read_only",
           "flags": [
             {
               "default": false,
@@ -343,6 +365,9 @@
               "type": "bool"
             }
           ],
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
+          },
           "help": "Show all config values with their sources (config file, env, or default)",
           "name": "show"
         }
@@ -363,5 +388,5 @@
   "name": "saferm",
   "project_id": "github.com/smm-h/saferm",
   "schema_version": 1,
-  "version": "0.7.2-0.20260729142813-e428695fbb14+dirty"
+  "version": "0.7.2-0.20260807132148-b35c79cda23b+dirty"
 }

@@ -42,12 +42,13 @@ go install .                # install locally (picks up changes)
 ## Key conventions
 
 - **CLI framework:** strictcli (`github.com/smm-h/strictcli/go/strictcli`). Commands use functional options. Handlers receive `map[string]interface{}`.
-- **Only `purge` asks for confirmation.** strictcli's confirm protocol keys on the `consequential` declaration, not on the `mutating` classification, and `purge` is the one saferm command that declares it: it destroys archived content permanently and nothing in the tool can bring it back. `delete` and `undelete` are recoverable by construction and run bare -- `saferm delete --description "why" <files>` is the correct, complete invocation from a script or an agent, with no approval flag. `purge` prompts on a terminal and refuses outright (`error: stdin is not interactive; pass --approve-consequential to confirm`) where there is none, so a non-interactive purge is `saferm --approve-consequential purge --all --skip-confirmation`. `list` and `info` are `read_only` and cannot be consequential at all.
+- **Only `purge` asks for confirmation.** strictcli's confirm protocol keys on the `consequential` declaration, not on the `mutating` classification, and `purge` is the one saferm command that declares it: it destroys archived content permanently and nothing in the tool can bring it back. `delete` and `undelete` are recoverable by construction and run bare -- `saferm delete --description "why" <files>` is the correct, complete invocation from a script or an agent, with no approval flag. `purge` prompts on a terminal and refuses outright (`error: stdin is not interactive; pass --approve-consequential to confirm`) where there is none, so a non-interactive purge is `saferm --approve-consequential purge --all`. That framework gate is the **only** consent purge asks for: saferm's own `--skip-confirmation`/`-f` prompt is gone, because one operation asking twice meant the second ask was unanswerable exactly where the first had already been given. What the prompt was for survives it -- the per-record listing of everything about to be destroyed prints unconditionally after consent and before the first removal, and `--quiet` does not suppress it. `list` and `info` are `read_only` and cannot be consequential at all.
 - **`--quiet`, `--verbose`, `--dry-run` and `--approve-consequential` belong to the framework**, are recognized anywhere on the command line, and have no short forms. The approval flag is deliberately unwieldy so it cannot decay into muscle memory. saferm's own `--verbose` global and `purge --dry-run` flag are gone -- both spellings still work, they are just delivered by the framework now, and `--dry-run` applies to every command rather than only to `purge`.
+- **`--quiet` silences chatter, never answers.** It suppresses the counted summaries (`3 file(s) archived`, `2 item(s) purged`), the `--verbose` per-item progress, `Nothing to purge.` and the `Restored <path>` confirmation, and it dominates `--verbose` when both are passed. It never suppresses the outputs that ARE the command: `list`'s and `info`'s tables, the `--dry-run` previews and the framework's would-do log, `purge`'s listing of what it is destroying, or anything on stderr.
 - **`--dry-run` records instead of acting.** Every mutation `delete`, `undelete` and `purge` perform is minted on `ctx.Effects()`, so a dry run prints a would-do log naming each path it would move, write or destroy, and touches nothing. The database row is the one exception: no member of the effects handle's closed method set can describe a SQLite row change, so those writes sit outside the handle and are skipped in dry mode.
 - **`--description` is mandatory** on delete (no default value in strictcli). Never add a default.
 - **`-r` required for directories** (like rm).
-- **`-f` skips errors** on nonexistent files and prompts.
+- **`-f` skips errors** on nonexistent files (`delete --ignore-missing`). It is `delete`'s flag only; `purge` no longer has one.
 - **Files** archived via `os.Rename` (or copy+verify for cross-device moves).
 - **Directories** archived as `.tar.zst` (tar + zstandard compression).
 - **SHA-256 hash** computed for integrity verification.
@@ -76,7 +77,7 @@ go install .                # install locally (picks up changes)
 
 ## Tooling
 
-- **rlsbl** for releases (`rlsbl release run --no-allow-dirty --watch --yes`)
+- **rlsbl** for releases (`rlsbl release run --no-allow-dirty --watch --approve-consequential`)
 - **safegit** for commits (`safegit commit -m "message" -- file1 file2`)
 - **selfdoc** for docs site (saferm.smmh.dev)
 - **strictcli** for CLI framework
@@ -121,9 +122,9 @@ saferm undelete /path/to/file
 saferm undelete --force-overwrite 42  # overwrite existing file
 
 # Permanently remove from archive
-saferm --approve-consequential purge -f 42 43 44             # by IDs
-saferm --approve-consequential purge -f --older-than 30d     # by age (h/d/w/m)
-saferm --approve-consequential purge -f --all                # everything
+saferm --approve-consequential purge 42 43 44             # by IDs
+saferm --approve-consequential purge --older-than 30d     # by age (h/d/w/m)
+saferm --approve-consequential purge --all                # everything
 ```
 
 ### Guidelines for --description
