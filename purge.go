@@ -127,7 +127,7 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 	}
 
 	if len(records) == 0 {
-		fmt.Println("Nothing to purge.")
+		say(ctx, "Nothing to purge.\n")
 		return strictcli.Exit(ExitSuccess)
 	}
 
@@ -207,13 +207,13 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 		}
 
 		if verbose && !dryRun {
-			fmt.Printf("purged: [%d] %s\n", rec.ID, rec.OriginalPath)
+			say(ctx, "purged: [%d] %s\n", rec.ID, rec.OriginalPath)
 		}
 		purged++
 	}
 
 	if !verbose && !dryRun {
-		fmt.Printf("%d item(s) purged\n", purged)
+		say(ctx, "%d item(s) purged\n", purged)
 	}
 
 	return strictcli.Exit(ExitSuccess)

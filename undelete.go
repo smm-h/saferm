@@ -116,7 +116,7 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 			fmt.Fprintf(os.Stderr, "error: recording restore: %s\n", err)
 			return strictcli.Exit(ExitArchive)
 		}
-		fmt.Printf("Would restore %s\n", dest)
+		say(ctx, "Would restore %s\n", dest)
 		return strictcli.Exit(ExitSuccess)
 	}
 
@@ -143,6 +143,6 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 		}
 	}
 
-	fmt.Printf("Restored %s\n", dest)
+	say(ctx, "Restored %s\n", dest)
 	return strictcli.Exit(ExitSuccess)
 }

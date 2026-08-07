@@ -7,7 +7,27 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/smm-h/strictcli/go/strictcli"
 )
+
+// say prints progress or summary chatter to stdout unless --quiet is in force.
+//
+// It draws the line the framework's --quiet flag means in saferm: it is for
+// what a caller can lose without losing information -- the counted summaries,
+// the per-item --verbose progress, "Nothing to purge.", the restore
+// confirmation. It is NOT for the outputs that ARE the command (`list` and
+// `info`, and the dry-run previews), and it is not for stderr, which --quiet
+// never touches. Routing every chatter line through one helper is what keeps
+// that boundary from drifting one print at a time.
+//
+// --quiet dominates --verbose, matching the framework's own Context.Debug.
+func say(ctx *strictcli.Context, format string, a ...interface{}) {
+	if ctx.Quiet() {
+		return
+	}
+	fmt.Printf(format, a...)
+}
 
 // ensureDirectories creates the base dir, archive dir, and db dir (parent of
 // dbPath) if they don't exist. Uses 0700 permissions.

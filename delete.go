@@ -149,7 +149,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 			}
 			archived++
 			if verbose {
-				fmt.Printf("would archive: %s\n", absPath)
+				say(ctx, "would archive: %s\n", absPath)
 			}
 			continue
 		}
@@ -165,7 +165,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 			if err := gitutil.GitRmCached(absPath, result.IsDirectory); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
 			} else if verbose {
-				fmt.Printf("Staged removal in git: %s\n", file)
+				say(ctx, "Staged removal in git: %s\n", file)
 			}
 		}
 
@@ -191,7 +191,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 		}
 
 		if verbose {
-			fmt.Printf("archived: %s (%s)\n", absPath, humanSize(result.Size))
+			say(ctx, "archived: %s (%s)\n", absPath, humanSize(result.Size))
 		}
 
 		archived++
@@ -199,9 +199,9 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 
 	if archived > 0 && !verbose {
 		if dryRun {
-			fmt.Printf("%d file(s) would be archived\n", archived)
+			say(ctx, "%d file(s) would be archived\n", archived)
 		} else {
-			fmt.Printf("%d file(s) archived\n", archived)
+			say(ctx, "%d file(s) archived\n", archived)
 		}
 	}
 
