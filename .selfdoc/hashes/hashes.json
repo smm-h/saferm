@@ -12,9 +12,9 @@
     "seed_hash": "7ee798adb5cec834c9a968f4ab8fe755869ecd29a453c38de008c08ed32bba2d"
   },
   "en/cli-delete.md": {
-    "content": "4ce79d08536baad5b64e27305bc1bed3af8df8c9cd8bc61b8b28f8af648fbb8d",
+    "content": "f027364835b762b8a6c3df184d04adc5d12c25c988c3de693a865f5ec159a625",
     "description": "3dd9afe219912e68339c5acc79c8541ee1c36ca20b635e46bc4583b561ee8b9d",
-    "schema_hash": "00b1b9f2f3621d99c3f26a7ea0cf2b85d11ba63430ea2b0468de02bb8c23ec4c"
+    "schema_hash": "1f77371959656574d1e7f58afd432150f16cc4373fd6ec35dcd9042d5f4863cf"
   },
   "en/cli-index.md": {
     "content": "828d229543ee3ddd582ca0e717792f3a6edabafd0cd30fa62ff19129608771f6",
@@ -22,24 +22,24 @@
     "seed_hash": "c29f159b2c8376a6e6fbfef8446ca34d26087187b10d269922892f3ae9f835fe"
   },
   "en/cli-info.md": {
-    "content": "803db2a044ad5710f0de84f6bf2914a736c983bbb5f7d1b235d3ad96d9c73268",
+    "content": "7bf1d6347d8545b86461d133de3ee75598190c10f7341d018f31aae0b878f15c",
     "description": "81bbe89837d3dbfe7b5ef6a90c1ee4714fbabb534205d16fe2445b16ee0e6aed",
-    "schema_hash": "36961a2781931e4c6bc22e4078e4e8355bae132c9262bfb2591ed680e1485c60"
+    "schema_hash": "d12ab5c8bbedcfd9e9fefdb970aacb67050d86c45b804e3589493691398ad3da"
   },
   "en/cli-list.md": {
-    "content": "f9df7f2a01481c3e99c4735fec85a26bf245c80bc4c05ed887c0d03fc1ae1ee1",
+    "content": "1bbec12b60e0f9528e6766a44969167a6e90635e293141e9211cdfef026b50ff",
     "description": "cb4307a16f49e8e3a05a2a8e95bb886cc25c784ec3660e300c0c25185e549fe1",
-    "schema_hash": "e886457fe851f3a18d600e5f818a20cd4288cf8cfa800acfdbdae6a6e84c53b5"
+    "schema_hash": "6c88c222d70e5962027289653b8cf39f51d827ea8854664255b1f0bdf534b712"
   },
   "en/cli-purge.md": {
-    "content": "2e1ad436f04185e12e2aaf1ba2766b867e39af01779ba2ec8f4a7b87be5eff85",
+    "content": "f4b212482b5148f87ef19a93a7632514e081ae2e4b665ba7c91b88410c74115e",
     "description": "9761fcc07ecef4fdfadfb351b4c6f7c164d1943256b2d03782846ef2ec21b451",
-    "schema_hash": "92813b93fe19dc984954b0ed5ff197f760d97e5e0f14dd0d64e2fe882607f691"
+    "schema_hash": "39034ac229f2215f323358a03c1f2dcb8b7f4485d8d223aa39891586e500fb76"
   },
   "en/cli-undelete.md": {
-    "content": "7c024c3416b4b71e60c5dd593a514bd9a2097fdb9e274a38d172e02e1ee595d1",
+    "content": "bb7b972372b572c264359f32d26a89145f1da1eaa5dc077960178cff08a45904",
     "description": "caf5639645940b65ce667657397d30bdb424ad020a8a3203749d9cfb5fe5372c",
-    "schema_hash": "42d6f816d15f1204d408c0984c33eab3b9753fe08b88da869d88aef2d327a2a3"
+    "schema_hash": "ec13c50e62d705b97b1f5964099f2a21e092d792a5ff36c416d026f9eb53ddc7"
   },
   "en/configuration.md": {
     "content": "5008bcfda2df2363367e8d2f7b7fe276d81f511a790a7c1de3d1816617a656cb",
