@@ -32,10 +32,16 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 
 	dbPath := kwargs["db_path"].(string)
 
-	database, err := db.Open(dbPath)
+	database, err := openArchiveDBIfPresent(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
 		return strictcli.Exit(ExitDatabase)
+	}
+	// No database file means nothing has ever been deleted on this machine, so
+	// no ID resolves -- the same answer as an ID that was never issued.
+	if database == nil {
+		fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
+		return strictcli.Exit(ExitFileNotFound)
 	}
 	defer database.Close()
 

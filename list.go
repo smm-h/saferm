@@ -25,10 +25,16 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 
 	dbPath := kwargs["db_path"].(string)
 
-	database, err := db.Open(dbPath)
+	database, err := openArchiveDBIfPresent(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
 		return strictcli.Exit(ExitDatabase)
+	}
+	// No database file means nothing has ever been deleted on this machine,
+	// which is a list of length zero, not a failure.
+	if database == nil {
+		fmt.Println("No archived items found.")
+		return strictcli.Exit(ExitSuccess)
 	}
 	defer database.Close()
 

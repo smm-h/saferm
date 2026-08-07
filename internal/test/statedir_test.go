@@ -73,6 +73,41 @@ func TestDryRunUndeleteCreatesNoStateDirectory(t *testing.T) {
 	}
 }
 
+// The read-only commands never create the tree at all -- they cannot, the
+// effects handle refuses a mutation from a read_only command -- so on a fresh
+// machine they meet a database file that is not there. SQLite's "unable to open
+// database file" is the wrong answer to "what have I deleted?"; the right one
+// is "nothing".
+func TestListOnAFreshMachineReportsAnEmptyArchive(t *testing.T) {
+	home := freshHome(t)
+
+	stdout, stderr, code := runSaferm(t, home, "list")
+	if code != 0 {
+		t.Fatalf("list on a fresh machine must succeed, got %d: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "No archived items found.") {
+		t.Errorf("list must report an empty archive, got: %q / %q", stdout, stderr)
+	}
+	if _, err := os.Stat(stateDir(home)); !os.IsNotExist(err) {
+		t.Errorf("a read-only list created %s (err=%v)", stateDir(home), err)
+	}
+}
+
+func TestInfoOnAFreshMachineReportsNoSuchRecord(t *testing.T) {
+	home := freshHome(t)
+
+	_, stderr, code := runSaferm(t, home, "info", "1")
+	if code != 3 { // ExitFileNotFound
+		t.Fatalf("info on a fresh machine must exit 3, got %d: %s", code, stderr)
+	}
+	if !strings.Contains(stderr, "no record with ID 1") {
+		t.Errorf("info must say the record does not exist, got: %q", stderr)
+	}
+	if _, err := os.Stat(stateDir(home)); !os.IsNotExist(err) {
+		t.Errorf("a read-only info created %s (err=%v)", stateDir(home), err)
+	}
+}
+
 // The real run still creates the tree -- the point is that it is declared, not
 // that it stopped happening.
 func TestRealDeleteCreatesTheStateDirectory(t *testing.T) {

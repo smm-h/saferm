@@ -67,9 +67,23 @@ func ensureDirectories(fx *strictcli.Effects, baseDir, archiveDir, dbPath string
 // result is never nil.
 func openArchiveDB(dryRun bool, dbPath string) (*db.DB, error) {
 	if dryRun {
-		if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
+		return openArchiveDBIfPresent(dbPath)
+	}
+	return db.Open(dbPath)
+}
+
+// openArchiveDBIfPresent opens the archive database, or returns nil when there
+// is no database file.
+//
+// It is what the read_only commands use. `list` and `info` never create
+// saferm's state directory -- they cannot, the effects handle refuses a
+// mutation from a read_only command -- so on a machine that has never deleted
+// anything they meet a file that is not there. SQLite's "unable to open
+// database file" is the wrong answer to "what have I deleted?"; the caller
+// turns the nil into "nothing", which is the true one.
+func openArchiveDBIfPresent(dbPath string) (*db.DB, error) {
+	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
+		return nil, nil
 	}
 	return db.Open(dbPath)
 }
