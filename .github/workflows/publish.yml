@@ -275,7 +275,15 @@ jobs:
         # Full install (devDependencies included): `npm publish` runs the
         # package's prepack script, which for a TypeScript package compiles
         # with the dev toolchain. A bare checkout has none of it.
-        run: npm ci
+        #
+        # --ignore-scripts because saferemove is a binary wrapper: its
+        # postinstall downloads saferm_<version>_<os>_<arch> from the GitHub
+        # Release for the version in package.json. At publish time that asset
+        # does not exist yet -- the goreleaser job is uploading it in parallel
+        # -- so a plain `npm ci` 404s and fails the publish for a package that
+        # has no dependencies to install in the first place. Running a
+        # package's install hooks is not part of preparing it for publication.
+        run: npm ci --ignore-scripts
       - name: Check if already published
         id: check-npm
         run: |
