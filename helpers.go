@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smm-h/saferm/internal/db"
 	"github.com/smm-h/strictcli/go/strictcli"
 )
 
@@ -30,19 +32,46 @@ func say(ctx *strictcli.Context, format string, a ...interface{}) {
 }
 
 // ensureDirectories creates the base dir, archive dir, and db dir (parent of
-// dbPath) if they don't exist. Uses 0700 permissions.
-func ensureDirectories(baseDir, archiveDir, dbPath string) error {
+// dbPath) if they don't exist.
+//
+// The creation is minted on the effects handle rather than performed directly,
+// so a dry run declares it in the would-do log and makes nothing. It used to be
+// a raw MkdirAll: the first-ever `saferm --dry-run delete` created saferm's
+// whole state directory on its way to promising it would touch nothing.
+//
+// Only the three mutating commands call this. `list` and `info` are read_only,
+// and the effects handle refuses a mutation from a read_only command outright
+// -- they open the database where it already is and error where it is not.
+func ensureDirectories(fx *strictcli.Effects, baseDir, archiveDir, dbPath string) error {
 	dirs := []string{
 		baseDir,
 		archiveDir,
 		filepath.Dir(dbPath),
 	}
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0700); err != nil {
+		if _, err := fx.Mkdir(dir, strictcli.Resource("saferm-state:"+dir)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// openArchiveDB opens the archive database, or reports that no archive exists.
+//
+// Under --dry-run ensureDirectories only records the directories it would
+// create, so on a machine with no archive yet there is nothing for SQLite to
+// open -- and creating the file to answer a preview would be exactly the write
+// the preview promises not to make. The caller gets a nil *db.DB meaning "no
+// archive yet" and must say so in its own vocabulary. Outside dry mode the
+// directories have just been created, so the open always proceeds and the
+// result is never nil.
+func openArchiveDB(dryRun bool, dbPath string) (*db.DB, error) {
+	if dryRun {
+		if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+	}
+	return db.Open(dbPath)
 }
 
 // humanSize formats a byte count as a human-readable string.

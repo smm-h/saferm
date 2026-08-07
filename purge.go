@@ -60,15 +60,21 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 	archiveDir := kwargs["archive_dir"].(string)
 	dbPath := kwargs["db_path"].(string)
 
-	if err := ensureDirectories(filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
+	if err := ensureDirectories(fx, filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
 		return strictcli.Exit(ExitGeneral)
 	}
 
-	database, err := db.Open(dbPath)
+	database, err := openArchiveDB(dryRun, dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
 		return strictcli.Exit(ExitDatabase)
+	}
+	// nil means the dry run found no archive at all, which is the emptiest
+	// possible selection.
+	if database == nil {
+		say(ctx, "Nothing to purge.\n")
+		return strictcli.Exit(ExitSuccess)
 	}
 	defer database.Close()
 

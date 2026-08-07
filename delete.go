@@ -72,17 +72,21 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 	archiveDir := kwargs["archive_dir"].(string)
 	dbPath := kwargs["db_path"].(string)
 
-	if err := ensureDirectories(filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
+	if err := ensureDirectories(fx, filepath.Dir(archiveDir), archiveDir, dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "error: creating directories: %s\n", err)
 		return strictcli.Exit(ExitGeneral)
 	}
 
-	database, err := db.Open(dbPath)
+	// nil means "no archive yet", which only a dry run can see. Nothing below
+	// touches the database in dry mode, so there is nothing to say about it.
+	database, err := openArchiveDB(dryRun, dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
 		return strictcli.Exit(ExitDatabase)
 	}
-	defer database.Close()
+	if database != nil {
+		defer database.Close()
+	}
 
 	// Extract exclude patterns from args
 	rawPatterns := kwargs["exclude_env_patterns"].([]interface{})
@@ -222,10 +226,10 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 // cross-device fallback. So the handle carries the description and
 // archive.Execute carries the act; the dry-mode branch in the caller is what
 // keeps the two from ever both happening.
+// The archive directory itself is not minted here: ensureDirectories already
+// declared it once, before the first plan was built, and repeating it per file
+// would pad the would-do log with a line that says nothing new.
 func recordArchival(fx *strictcli.Effects, plan *archive.Plan) error {
-	if _, err := fx.Mkdir(plan.ArchiveDir, strictcli.Resource("saferm-archive:"+plan.ArchiveDir)); err != nil {
-		return err
-	}
 	switch plan.Kind {
 	case archive.KindDirectory:
 		// tar + zstd of the tree, then the tree itself goes.
