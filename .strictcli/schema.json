@@ -388,5 +388,5 @@
   "name": "saferm",
   "project_id": "github.com/smm-h/saferm",
   "schema_version": 1,
-  "version": "0.7.2-0.20260807132148-b35c79cda23b+dirty"
+  "version": "0.8.0"
 }

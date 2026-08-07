@@ -49,15 +49,9 @@ The archival strategy depends on the target type. Regular files are moved atomic
 
 **Regular files.** The file is hashed (SHA-256, streaming) before being moved. The move uses `os.Rename` for an atomic same-filesystem operation. If `Rename` returns `EXDEV` (cross-device link error), the fallback path copies the file, verifies the copy's hash matches the pre-computed hash, and only then removes the original. The archived file is stored as `<uuid>` (no extension) in the archive directory.
 
-:-: ref path="internal/archive" target="archiveFile"
-
 **Directories.** The directory tree is walked to compute total size, then compressed into a `.tar.zst` archive (tar format with zstandard compression via `github.com/klauspost/compress/zstd`). The tar preserves relative paths, permissions, and symlinks within the tree. After successful compression and hashing of the archive file, the original directory is removed with `os.RemoveAll`. Partial archives are cleaned up on failure.
 
-:-: ref path="internal/archive" target="archiveDirectory"
-
 **Symlinks.** The symlink's target path is read via `os.Readlink` and written to a `.symlink` metadata file in the archive directory. The symlink itself is then removed. No content is archived because symlinks have no content -- the target path is sufficient for reconstruction.
-
-:-: ref path="internal/archive" target="archiveSymlink"
 
 ### 3. Metadata recording
 
@@ -107,13 +101,9 @@ Records can be selected for purging by ID, by age (`--older-than`), by size (`--
 
 ## Cross-device handling
 
-When the source file and the archive directory reside on different filesystems (different mount points, network shares, container bind mounts), `os.Rename` fails with `EXDEV`. saferm detects this specific error by unwrapping the `*os.LinkError` and checking for `syscall.EXDEV`:
-
-:-: ref path="internal/archive" target="isCrossDevice"
+When the source file and the archive directory reside on different filesystems (different mount points, network shares, container bind mounts), `os.Rename` fails with `EXDEV`. saferm detects this specific error by unwrapping the `*os.LinkError` and checking for `syscall.EXDEV`.
 
 The fallback path for files is copy-and-verify: copy the content, compute the SHA-256 hash of the copy, compare it against the hash of the original. If the hashes match, the original is removed. If they do not match, the copy is deleted and the operation fails with `ErrHashMismatch`. This ensures no data loss even when atomic renames are unavailable.
-
-:-: ref path="internal/archive" target="copyAndVerify"
 
 Directories always use tar+zstd compression, which inherently handles cross-device scenarios because `createTarZst` reads the source tree and writes to the archive directory independently.
 
@@ -129,8 +119,6 @@ saferm uses SHA-256 hashing to verify file integrity at two points in the deleti
 
 Hashing is streaming (`io.Copy` into `crypto/sha256`), so memory usage is constant regardless of file size.
 
-:-: ref path="internal/archive" target="hashFile"
-
 ## Concurrency model
 
 saferm is designed for concurrent use by multiple processes, such as parallel AI agent sessions running simultaneously in the same directory. Two mechanisms prevent conflicts: UUID-based archive naming guarantees unique filenames without inter-process coordination, and WAL-mode SQLite allows concurrent reads alongside writes with automatic retry on lock contention. Together, these ensure that simultaneous deletions never corrupt each other's data:
@@ -138,8 +126,6 @@ saferm is designed for concurrent use by multiple processes, such as parallel AI
 ### UUID-based archive naming
 
 Every archived item receives a UUID v4 generated from `crypto/rand`. This guarantees unique filenames in the archive directory even when multiple saferm processes archive files simultaneously. There is no coordination between processes -- each generates its own UUID independently.
-
-:-: ref path="internal/archive" target="generateUUID"
 
 ### WAL-mode SQLite
 
