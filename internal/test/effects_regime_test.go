@@ -85,7 +85,7 @@ func TestPurgeRefusesWithoutConsent(t *testing.T) {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 
-	_, stderr, code := runSafermNoConsent(t, home, "purge", "--all", "--skip-confirmation")
+	_, stderr, code := runSafermNoConsent(t, home, "purge", "--all")
 	if code == 0 {
 		t.Fatalf("an unapproved purge must not succeed; stderr=%s", stderr)
 	}
@@ -102,8 +102,11 @@ func TestPurgeRefusesWithoutConsent(t *testing.T) {
 }
 
 // TestPurgeWithApprovalProceeds: --approve-consequential is the deliberate
-// approval, and (paired with --skip-confirmation for saferm's own listing
-// prompt) the purge runs.
+// approval, and it is the ONLY thing purge asks for. saferm used to raise a
+// second prompt of its own behind the framework gate, so an approved
+// non-interactive purge read EOF from that prompt and aborted -- one operation
+// asking for consent twice, with the second ask unanswerable. There is now a
+// single gate: pass the flag and the purge runs.
 func TestPurgeWithApprovalProceeds(t *testing.T) {
 	home := testutil.SetupTestEnv(t)
 	work := t.TempDir()
@@ -113,10 +116,9 @@ func TestPurgeWithApprovalProceeds(t *testing.T) {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 
-	_, stderr, code := runSafermNoConsent(t, home,
-		"--approve-consequential", "purge", "--all", "--skip-confirmation")
+	_, stderr, code := runSafermNoConsent(t, home, "--approve-consequential", "purge", "--all")
 	if code != 0 {
-		t.Fatalf("an approved purge must run, got %d: %s", code, stderr)
+		t.Fatalf("an approved purge must run with no second consent, got %d: %s", code, stderr)
 	}
 	stdout, _, _ := runSafermNoConsent(t, home, "list")
 	if strings.Contains(stdout, "archived.txt") {
@@ -124,28 +126,54 @@ func TestPurgeWithApprovalProceeds(t *testing.T) {
 	}
 }
 
-// TestDeclinedPurgePromptExitsNonzero pins the exit code of saferm's OWN
-// listing prompt, which sits behind the framework gate. A declined purge is a
-// refusal, not a success: exiting 0 told a script that the items were destroyed
-// when nothing happened, and a non-interactive run reaches this branch by
-// reading EOF.
-func TestDeclinedPurgePromptExitsNonzero(t *testing.T) {
+// TestPurgeHasNoSkipConfirmationFlag: the flag that skipped saferm's own prompt
+// went with the prompt. Keeping it would leave two flags meaning one thing, and
+// an agent that learned the pair would keep passing a flag that no longer
+// exists; a parse error says so at once.
+func TestPurgeHasNoSkipConfirmationFlag(t *testing.T) {
+	home := testutil.SetupTestEnv(t)
+
+	_, stderr, code := runSafermNoConsent(t, home,
+		"--approve-consequential", "purge", "--all", "--skip-confirmation")
+	if code == 0 {
+		t.Fatalf("--skip-confirmation must be a parse error, got exit 0")
+	}
+	if !strings.Contains(stderr, "skip-confirmation") {
+		t.Errorf("the parse error must name the retired flag, got: %s", stderr)
+	}
+
+	_, stderr, code = runSafermNoConsent(t, home, "--approve-consequential", "purge", "--all", "-f")
+	if code == 0 {
+		t.Fatalf("the -f short form must be a parse error too, got exit 0")
+	}
+	if !strings.Contains(stderr, "-f") {
+		t.Errorf("the parse error must name the retired short form, got: %s", stderr)
+	}
+}
+
+// TestApprovedPurgeListsWhatItDestroys: the listing survived the prompt that
+// used to carry it. It is what the prompt was actually for -- naming every
+// record about to be destroyed -- and it now prints unconditionally after
+// consent and before the first removal, so the record exists whether or not
+// anyone was there to read a prompt.
+func TestApprovedPurgeListsWhatItDestroys(t *testing.T) {
 	home := testutil.SetupTestEnv(t)
 	work := t.TempDir()
-	target := testutil.CreateTempFile(t, work, "archived.txt", "content\n")
+	target := testutil.CreateTempFile(t, work, "listed.txt", "content\n")
 
 	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 
-	// Approved at the framework gate, but saferm's own prompt reads EOF.
 	stdout, stderr, code := runSafermNoConsent(t, home, "--approve-consequential", "purge", "--all")
-	if code == 0 {
-		t.Errorf("a declined purge must exit nonzero, got 0; stdout=%s stderr=%s", stdout, stderr)
+	if code != 0 {
+		t.Fatalf("approved purge failed (%d): %s", code, stderr)
 	}
-	list, _, _ := runSafermNoConsent(t, home, "list")
-	if !strings.Contains(list, "archived.txt") {
-		t.Errorf("the declined purge destroyed the archived item anyway; list: %s", list)
+	if !strings.Contains(stdout, "Permanently deleting 1 item(s):") {
+		t.Errorf("the purge must announce what it destroys, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, target) {
+		t.Errorf("the listing must name every record's original path, got: %s", stdout)
 	}
 }
 
@@ -231,7 +259,7 @@ func TestPurgeDryRunRecordsAndDestroysNothing(t *testing.T) {
 		t.Fatalf("seeding the archive failed: %s", stderr)
 	}
 
-	stdout, stderr, code := runSaferm(t, home, "--dry-run", "purge", "--all", "--skip-confirmation")
+	stdout, stderr, code := runSaferm(t, home, "--dry-run", "purge", "--all")
 	if code != 0 {
 		t.Fatalf("purge --dry-run failed (%d): %s", code, stderr)
 	}

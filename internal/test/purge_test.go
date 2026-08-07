@@ -60,7 +60,7 @@ func TestPurge_LargerThan(t *testing.T) {
 	}
 
 	// Actual purge with --larger-than 1KB -f — should only purge medium and large.
-	stdout, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", "--larger-than", "1KB", "-f")
+	stdout, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", "--larger-than", "1KB")
 	if code != 0 {
 		t.Fatalf("purge --larger-than -f failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
@@ -99,7 +99,7 @@ func TestPurge_PreservesMetadata(t *testing.T) {
 	id := parseFirstID(t, stdout)
 
 	// Purge the item.
-	_, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", id)
+	_, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", id)
 	if code != 0 {
 		t.Fatalf("purge failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -175,13 +175,13 @@ func TestPurge_AlreadyPurgedIsNoop(t *testing.T) {
 	id := parseFirstID(t, stdout)
 
 	// First purge.
-	_, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", id)
+	_, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", id)
 	if code != 0 {
 		t.Fatalf("first purge failed (exit %d): stderr=%q", code, stderr)
 	}
 
 	// Second purge of same ID should be a no-op (no error).
-	stdout, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", id)
+	stdout, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", id)
 	if code != 0 {
 		t.Fatalf("second purge of already-purged item should not error (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}

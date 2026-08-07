@@ -355,7 +355,7 @@ func TestPurge_ById(t *testing.T) {
 	id := parseFirstID(t, stdout)
 
 	// Purge by ID (with -f to skip confirmation).
-	stdout, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", id)
+	stdout, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", id)
 	if code != 0 {
 		t.Fatalf("purge failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}

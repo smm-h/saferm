@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/smm-h/saferm/internal/db"
@@ -30,7 +28,6 @@ func registerPurgeCmd(app *strictcli.App) {
 		strictcli.WithFlags(
 			strictcli.StringFlag("older-than", "Purge items older than duration (e.g., 30d, 24h, 1w)", strictcli.Default("")),
 			strictcli.StringFlag("larger-than", "Only purge items larger than this size (e.g. 100MB, 1GB)", strictcli.Default("")),
-			strictcli.BoolFlag("skip-confirmation", "Skip the interactive confirmation prompt before purging", strictcli.Short("f"), strictcli.Default(false)),
 			strictcli.BoolFlag("all", "Select all archived items for permanent destruction", strictcli.Default(false)),
 		),
 		strictcli.WithArgs(
@@ -43,7 +40,6 @@ func registerPurgeCmd(app *strictcli.App) {
 func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
 	olderThan := kwargs["older_than"].(string)
 	largerThan := kwargs["larger_than"].(string)
-	skipConfirmation := kwargs["skip_confirmation"].(bool)
 	purgeAll := kwargs["all"].(bool)
 	dryRun := ctx.DryRun()
 	idsRaw := kwargs["ids"].([]interface{})
@@ -155,21 +151,24 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 		// so the would-do log names every file that would be destroyed.
 	}
 
-	if !dryRun && !skipConfirmation {
-		fmt.Fprintf(os.Stderr, "Will permanently delete %d item(s):\n", len(records))
+	// Consent is the framework's, once, at the `consequential` gate in front of
+	// dispatch: reaching this line means it was given. saferm used to raise a
+	// second prompt of its own here, which meant one operation asked twice and
+	// the second ask was unanswerable in the non-interactive case that matters
+	// most -- an approved `saferm --approve-consequential purge --all` read EOF
+	// and aborted.
+	//
+	// What the prompt was actually for -- naming every record about to be
+	// destroyed -- outlives it, and prints unconditionally: after consent,
+	// before the first removal, whether or not anyone is watching. It is the
+	// record of an irreversible act, not prompt chrome, so --quiet does not
+	// suppress it. Under --dry-run the table above has already listed the same
+	// records, so this does not repeat it.
+	if !dryRun {
+		fmt.Printf("Permanently deleting %d item(s):\n", len(records))
 		for _, rec := range records {
-			fmt.Fprintf(os.Stderr, "  [%d] %s (%s, %s)\n",
+			fmt.Printf("  [%d] %s (%s, %s)\n",
 				rec.ID, rec.OriginalPath, humanSize(rec.Size), humanAge(rec.DeletedAt))
-		}
-		fmt.Fprintf(os.Stderr, "Permanently delete %d items? [y/N] ", len(records))
-		scanner := bufio.NewScanner(os.Stdin)
-		if !scanner.Scan() || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(scanner.Text())), "y") {
-			// A declined purge is a refusal, not a success. Exiting 0 here told
-			// a script or an agent that the items were destroyed when nothing
-			// happened -- and a non-interactive run reaches this branch by
-			// reading EOF, which is the common case.
-			fmt.Println("Aborted.")
-			return strictcli.Exit(ExitGeneral)
 		}
 	}
 

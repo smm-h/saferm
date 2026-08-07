@@ -357,7 +357,7 @@ func TestPurge_Symlink(t *testing.T) {
 	}
 
 	// Purge by ID with -f to skip confirmation.
-	_, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", id)
+	_, stderr, code = runSaferm(t, homeDir, "--approve-consequential", "purge", id)
 	if code != 0 {
 		t.Fatalf("purge symlink failed (exit %d): stderr=%q", code, stderr)
 	}

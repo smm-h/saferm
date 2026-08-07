@@ -219,7 +219,7 @@ func TestPurgeOlderThan(t *testing.T) {
 	// Actually, let's test --older-than with a very recent threshold.
 	// The records are created "just now", so --older-than 1h won't match.
 	// Let's just verify --older-than 1h does NOT purge them (they're too new).
-	stdout, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", "-f", "--older-than", "1h")
+	stdout, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", "--older-than", "1h")
 	if code != 0 {
 		t.Fatalf("purge --older-than failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -250,7 +250,7 @@ func TestPurgeAll(t *testing.T) {
 	}
 
 	// Purge --all -f.
-	stdout, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", "--all", "-f")
+	stdout, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", "--all")
 	if code != 0 {
 		t.Fatalf("purge --all failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
