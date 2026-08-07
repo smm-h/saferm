@@ -4,7 +4,10 @@ import (
 	"github.com/smm-h/strictcli/go/strictcli"
 )
 
-func main() {
+// newApp builds the fully-registered saferm app. It is separate from main so
+// tests can construct the same app and assert over its registration (see
+// classification_test.go); main does nothing but run it.
+func newApp() *strictcli.App {
 	app := strictcli.NewApp("saferm", version, "AI-first safe rm replacement",
 		strictcli.WithEnvPrefix("SAFERM"),
 		strictcli.WithInfraRoot("SAFERM_HOME", "~/.saferm"),
@@ -47,5 +50,9 @@ func main() {
 	registerPurgeCmd(app)
 	registerInfoCmd(app)
 
-	app.Run()
+	return app
+}
+
+func main() {
+	newApp().Run()
 }
