@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -19,11 +20,20 @@ type Metadata struct {
 }
 
 // Collect gathers metadata from the current environment.
-// Never fails fatally -- if a collector errors, it populates what it can.
+//
+// Best-effort per collector -- git context and parent-process details degrade
+// to empty values rather than failing. The one thing it refuses to work around
+// is an exclude pattern that does not compile: that is the caller asking for a
+// redaction, and continuing without it would write the very variables the
+// caller meant to keep out. See collectEnv.
 func Collect(excludePatterns []string, customMeta map[string]string) (*Metadata, error) {
 	m := &Metadata{}
 
-	m.Env = collectEnv(excludePatterns)
+	var err error
+	m.Env, err = collectEnv(excludePatterns)
+	if err != nil {
+		return nil, err
+	}
 	m.GitBranch, m.GitHEAD, m.GitRoot = collectGitContext()
 	m.PPID, m.ParentCmd = collectParentProcess()
 
@@ -39,12 +49,19 @@ func Collect(excludePatterns []string, customMeta map[string]string) (*Metadata,
 
 // collectEnv reads all environment variables and filters out those whose
 // names match any of the exclude patterns.
-func collectEnv(excludePatterns []string) map[string]string {
+//
+// A pattern that does not compile is a hard error, reported before a single
+// variable is read. These patterns are the redaction control: skipping a broken
+// one leaves the caller believing a class of variables is being kept out of the
+// archive while it is being written into it. Go's regexp is RE2, so the common
+// way to reach this is a pattern borrowed from a lookahead-capable flavour.
+func collectEnv(excludePatterns []string) (map[string]string, error) {
 	compiled := make([]*regexp.Regexp, 0, len(excludePatterns))
 	for _, pat := range excludePatterns {
 		re, err := regexp.Compile(pat)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("exclude-env-patterns entry %q does not compile: %w "+
+				"(Go uses RE2, which has no lookahead or backreferences)", pat, err)
 		}
 		compiled = append(compiled, re)
 	}
@@ -67,7 +84,7 @@ func collectEnv(excludePatterns []string) map[string]string {
 			result[name] = value
 		}
 	}
-	return result
+	return result, nil
 }
 
 // collectGitContext retrieves git branch, HEAD SHA, and repo root.

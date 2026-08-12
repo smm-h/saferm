@@ -2,6 +2,7 @@ package meta
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/smm-h/stricttest/go/hygiene"
@@ -30,7 +31,10 @@ func TestCollectEnv_FiltersPatterns(t *testing.T) {
 		"(?i)password",
 	}
 
-	result := collectEnv(patterns)
+	result, err := collectEnv(patterns)
+	if err != nil {
+		t.Fatalf("collectEnv errored on valid patterns: %v", err)
+	}
 
 	if _, ok := result["SAFERM_TEST_SECRET_KEY"]; ok {
 		t.Error("SECRET_KEY should be filtered out")
@@ -50,7 +54,10 @@ func TestCollectEnv_NoPatterns(t *testing.T) {
 	isolate(t)
 	t.Setenv("SAFERM_TEST_ANYTHING", "captured")
 
-	result := collectEnv(nil)
+	result, err := collectEnv(nil)
+	if err != nil {
+		t.Fatalf("collectEnv errored with no patterns: %v", err)
+	}
 
 	if v, ok := result["SAFERM_TEST_ANYTHING"]; !ok || v != "captured" {
 		t.Errorf("with no patterns, all vars should be captured; SAFERM_TEST_ANYTHING = %q", v)
@@ -59,6 +66,51 @@ func TestCollectEnv_NoPatterns(t *testing.T) {
 	// Also check that PATH is present (always set in any environment).
 	if _, ok := result["PATH"]; !ok {
 		t.Error("PATH should be present when no patterns are used")
+	}
+}
+
+// A pattern that does not compile is the caller asking for a redaction saferm
+// cannot perform. It used to be dropped from the compiled set and everything
+// continued, so a typo turned a redaction off in silence.
+func TestCollectEnv_UncompilablePatternIsAnError(t *testing.T) {
+	isolate(t)
+	t.Setenv("SAFERM_TEST_API_KEY", "must-not-leak")
+
+	badPatterns := []struct {
+		name    string
+		pattern string
+	}{
+		// RE2 has no lookahead; this exact pattern was in saferm's own docs.
+		{"lookahead", "(?i)key(?!BOARD)"},
+		{"unterminated class", "[unterminated"},
+		{"dangling repeat", "*key"},
+	}
+
+	for _, bp := range badPatterns {
+		t.Run(bp.name, func(t *testing.T) {
+			result, err := collectEnv([]string{bp.pattern})
+			if err == nil {
+				t.Fatalf("collectEnv(%q) should error; it returned %d variables", bp.pattern, len(result))
+			}
+			if result != nil {
+				t.Errorf("collectEnv(%q) should return no environment alongside its error", bp.pattern)
+			}
+			if !strings.Contains(err.Error(), bp.pattern) {
+				t.Errorf("the error should name the offending pattern, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestCollect_UncompilablePatternIsAnError(t *testing.T) {
+	isolate(t)
+
+	m, err := Collect([]string{"(?i)key(?!BOARD)"}, nil)
+	if err == nil {
+		t.Fatalf("Collect should refuse an uncompilable exclude pattern; got metadata with %d env vars", len(m.Env))
+	}
+	if m != nil {
+		t.Errorf("Collect should return no metadata alongside its error")
 	}
 }
 
