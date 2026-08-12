@@ -1,8 +1,68 @@
 package main
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
+
+	"github.com/smm-h/saferm/internal/db"
 )
+
+// dbExit is the single seam that turns a database-layer failure into an exit
+// code, and the only place exhausted contention becomes 8 rather than 5. The
+// end-to-end proof of that number (internal/test/contention_test.go's
+// TestDeleteExitsWithContentionCodeWhenLockNeverReleased) has to exhaust a real
+// retry budget against a real busy_timeout, so it is skipped under -short --
+// which is exactly what CI, the pre-push hook and the release preflight run.
+//
+// This test covers the mapping in microseconds, so automation verifies it on
+// every run. It is one third of a compositional proof: the db layer really
+// produces a *db.ContentionError under a held lock
+// (internal/db.TestInsertExhaustsTheRetryBudgetUnderAHeldLock, fast), dbExit
+// really maps that type onto ExitContention (here), and a command's database
+// error path really routes through dbExit
+// (internal/test.TestDeleteExitsWithDatabaseCodeWhenTheArchiveDatabaseIsUnreadable,
+// fast).
+func TestDbExit(t *testing.T) {
+	// The literal numbers, not the constants: a test written against the
+	// constants would keep passing if the value changed underneath it, and the
+	// exit code is a promise made to scripts, which compare numbers.
+	if ExitContention != 8 {
+		t.Errorf("ExitContention is %d, want 8", ExitContention)
+	}
+	if ExitDatabase != 5 {
+		t.Errorf("ExitDatabase is %d, want 5", ExitDatabase)
+	}
+
+	exhausted := &db.ContentionError{
+		Attempts: 5,
+		Elapsed:  250 * time.Millisecond,
+		Err:      errors.New("database is locked (5) (SQLITE_BUSY)"),
+	}
+
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"exhausted contention", exhausted, ExitContention},
+		{"exhausted contention wrapped by a caller", fmt.Errorf("inserting record: %w", exhausted), ExitContention},
+		{"a record that is not there", db.ErrNotFound, ExitDatabase},
+		{"an empty result", sql.ErrNoRows, ExitDatabase},
+		{"a corrupt database file", errors.New("file is not a database (26) (SQLITE_NOTADB)"), ExitDatabase},
+		{"an arbitrary failure", errors.New("disk exploded"), ExitDatabase},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := dbExit(tc.err); got != tc.want {
+				t.Errorf("dbExit(%v) = %d, want %d", tc.err, got, tc.want)
+			}
+		})
+	}
+}
 
 func TestMatchArchivePath(t *testing.T) {
 	cases := []struct {
