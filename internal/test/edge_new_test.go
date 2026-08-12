@@ -26,7 +26,7 @@ func TestDelete_ReadOnlyFile(t *testing.T) {
 	}
 
 	// saferm should still archive it (parent dir is writable, so rename works).
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "readonly test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "readonly test", filePath)
 	if code != 0 {
 		t.Fatalf("delete read-only file failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -73,7 +73,7 @@ func TestDelete_LargeFile(t *testing.T) {
 	originalHashHex := hex.EncodeToString(originalHash[:])
 
 	// Delete.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "large file test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "large file test", filePath)
 	if code != 0 {
 		t.Fatalf("delete large file failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -135,7 +135,7 @@ func TestDelete_DeeplyNestedDir(t *testing.T) {
 
 	// Delete the top-level dir.
 	topDir := filepath.Join(workDir, "level1")
-	_, stderr, code := runSaferm(t, homeDir, "delete", "-r", "--description", "deep dir test", topDir)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "deep dir test", topDir)
 	if code != 0 {
 		t.Fatalf("delete deep dir failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -172,7 +172,7 @@ func TestDelete_EmptyDirectory(t *testing.T) {
 	}
 
 	// Delete empty directory.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "-r", "--description", "empty dir test", emptyDir)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "empty dir test", emptyDir)
 	if code != 0 {
 		t.Fatalf("delete empty dir failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -222,7 +222,7 @@ func TestDelete_DirWithSymlinks(t *testing.T) {
 	}
 
 	// Delete the directory.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "-r", "--description", "symlink dir test", dirPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "symlink dir test", dirPath)
 	if code != 0 {
 		t.Fatalf("delete dir with symlinks failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -265,7 +265,7 @@ func TestDelete_SpecialCharsInPath(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, specialName, content)
 
 	// Delete.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "special chars test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "special chars test", filePath)
 	if code != 0 {
 		t.Fatalf("delete special chars file failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -301,7 +301,7 @@ func TestPurge_VerifyArchiveDeleted(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "purge-archive.txt", "to be purged from disk")
 
 	// Delete.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "purge archive test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "purge archive test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}

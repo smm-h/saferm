@@ -38,7 +38,7 @@ func TestConcurrentDeletes(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			desc := fmt.Sprintf("concurrent %d", idx)
-			stdout, stderr, code := runSaferm(t, homeDir, "delete",
+			stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 				"--description", desc, files[idx])
 			results[idx].stdout = stdout
 			results[idx].stderr = stderr
@@ -97,7 +97,7 @@ func TestConcurrentDeleteAndUndelete(t *testing.T) {
 		content := fmt.Sprintf("pre-deleted content %d", i)
 		path := testutil.CreateTempFile(t, workDir, name, content)
 
-		_, stderr, code := runSaferm(t, homeDir, "delete",
+		_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 			"--description", fmt.Sprintf("pre-delete %d", i), path)
 		if code != 0 {
 			t.Fatalf("pre-delete %d failed (exit %d): stderr=%q", i, code, stderr)
@@ -144,7 +144,7 @@ func TestConcurrentDeleteAndUndelete(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			desc := fmt.Sprintf("concurrent del %d", idx)
-			_, stderr, code := runSaferm(t, homeDir, "delete",
+			_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 				"--description", desc, deleteFiles[idx])
 			deleteResults[idx].exitCode = code
 			deleteResults[idx].stderr = stderr

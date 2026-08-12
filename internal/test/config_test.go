@@ -81,7 +81,7 @@ func TestConfig_CLIOverride(t *testing.T) {
 
 	// Run delete with CLI flag overrides and -f (force, to skip nonexistent file error).
 	// This confirms CLI flags are accepted without error.
-	_, stderr, code := runSaferm(t, homeDir, "delete",
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 		"--archive-dir", "/tmp/saferm-test-cli-override-archive",
 		"--db-path", "/tmp/saferm-test-cli-override-db",
 		"--description", "testing CLI override",

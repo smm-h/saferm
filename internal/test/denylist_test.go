@@ -23,7 +23,7 @@ func TestDelete_UncompilableExcludePattern_IsHardError(t *testing.T) {
 	// disable a redaction silently.
 	_, stderr, code := runSaferm(t, homeDir,
 		"--exclude-env-patterns", "(?i)key(?!BOARD)",
-		"delete", "--description", "uncompilable pattern test", filePath,
+		"delete", "--on-error", "abort", "--description", "uncompilable pattern test", filePath,
 	)
 	if code == 0 {
 		t.Fatalf("an uncompilable exclude pattern must fail the command; got exit 0, stderr=%q", stderr)
@@ -45,7 +45,7 @@ func TestDelete_UncompilableExcludePattern_FailsUnderDryRunToo(t *testing.T) {
 	_, stderr, code := runSaferm(t, homeDir,
 		"--dry-run",
 		"--exclude-env-patterns", "[unterminated",
-		"delete", "--description", "uncompilable pattern dry run", filePath,
+		"delete", "--on-error", "abort", "--description", "uncompilable pattern dry run", filePath,
 	)
 	if code == 0 {
 		t.Fatalf("an uncompilable exclude pattern must fail the preview too; got exit 0, stderr=%q", stderr)
@@ -64,7 +64,7 @@ func TestDelete_ValidExcludePattern_StillRedacts(t *testing.T) {
 
 	_, stderr, code := runSaferm(t, homeDir,
 		"--exclude-env-patterns", "(?i)key",
-		"delete", "--description", "valid pattern test", filePath,
+		"delete", "--on-error", "abort", "--description", "valid pattern test", filePath,
 	)
 	if code != 0 {
 		t.Fatalf("a valid exclude pattern should succeed, got exit %d: stderr=%q", code, stderr)

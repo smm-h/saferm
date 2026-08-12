@@ -10,7 +10,8 @@ Go CLI that replaces `rm` with safe archival to `~/.saferm/`. AI-first design: e
 ```
 main.go          -- app setup, registers commands via strictcli
 delete.go        -- saferm delete: archive files/dirs
-undelete.go      -- saferm undelete: restore by ID or path
+undelete.go      -- saferm undelete: restore by uuid, ID or path
+identifiers.go   -- the one identifier resolver: uuid, then numeric ID, then path
 list.go          -- saferm list: show archived items
 purge.go         -- saferm purge: permanently remove from archive
 info.go          -- saferm info: full metadata for a deletion
@@ -42,14 +43,18 @@ go install .                # install locally (picks up changes)
 ## Key conventions
 
 - **CLI framework:** strictcli (`github.com/smm-h/strictcli/go/strictcli`). Commands use functional options. Handlers receive `map[string]interface{}`.
-- **Only `purge` asks for confirmation.** strictcli's confirm protocol keys on the `consequential` declaration, not on the `mutating` classification, and `purge` is the one saferm command that declares it: it destroys archived content permanently and nothing in the tool can bring it back. `delete` and `undelete` are recoverable by construction and run bare -- `saferm delete --description "why" <files>` is the correct, complete invocation from a script or an agent, with no approval flag. `purge` prompts on a terminal and refuses outright (`error: stdin is not interactive; pass --approve-consequential to confirm`) where there is none, so a non-interactive purge is `saferm --approve-consequential purge --all`. That framework gate is the **only** consent purge asks for: saferm's own `--skip-confirmation`/`-f` prompt is gone, because one operation asking twice meant the second ask was unanswerable exactly where the first had already been given. What the prompt was for survives it -- the per-record listing of everything about to be destroyed prints unconditionally after consent and before the first removal, and `--quiet` does not suppress it. `list` and `info` are `read_only` and cannot be consequential at all.
+- **Only `purge` asks for confirmation.** strictcli's confirm protocol keys on the `consequential` declaration, not on the `mutating` classification, and `purge` is the one saferm command that declares it: it destroys archived content permanently and nothing in the tool can bring it back. `delete` and `undelete` are recoverable by construction and run bare -- `saferm delete --on-error abort --description "why" <files>` is the correct, complete invocation from a script or an agent, with no approval flag. `purge` prompts on a terminal and refuses outright (`error: stdin is not interactive; pass --approve-consequential to confirm`) where there is none, so a non-interactive purge is `saferm --approve-consequential purge --all`. That framework gate is the **only** consent purge asks for: saferm's own `--skip-confirmation`/`-f` prompt is gone, because one operation asking twice meant the second ask was unanswerable exactly where the first had already been given. What the prompt was for survives it -- the per-record listing of everything about to be destroyed prints unconditionally after consent and before the first removal, and `--quiet` does not suppress it. `list` and `info` are `read_only` and cannot be consequential at all.
 - **`--quiet`, `--verbose`, `--dry-run` and `--approve-consequential` belong to the framework**, are recognized anywhere on the command line, and have no short forms. The approval flag is deliberately unwieldy so it cannot decay into muscle memory. saferm's own `--verbose` global and `purge --dry-run` flag are gone -- both spellings still work, they are just delivered by the framework now, and `--dry-run` applies to every command rather than only to `purge`.
 - **`--quiet` silences chatter, never answers.** It suppresses the counted summaries (`3 file(s) archived`, `2 item(s) purged`), the `--verbose` per-item progress, `Nothing to purge.` and the `Restored <path>` confirmation, and it dominates `--verbose` when both are passed. It never suppresses the outputs that ARE the command: `list`'s and `info`'s tables, the `--dry-run` previews and the framework's would-do log, `purge`'s listing of what it is destroying, or anything on stderr.
 - **`--dry-run` records instead of acting.** Every mutation `delete`, `undelete` and `purge` perform is minted on `ctx.Effects()`, so a dry run prints a would-do log naming each path it would move, write or destroy, and touches nothing. The database row is the one exception: no member of the effects handle's closed method set can describe a SQLite row change, so those writes sit outside the handle and are skipped in dry mode.
 - **`--description` is mandatory** on delete (no default value in strictcli). Never add a default.
+- **`--on-error` is mandatory** on delete too, with no default and the values `abort` and `continue`. A batch that meets a bad path has two defensible answers -- stop, or archive the rest -- and they suit opposite callers, so saferm refuses to pick one silently. `abort` stops at the first failing path; `continue` archives the remaining paths, reports every failure, and exits at the end with the FIRST failure's code. Either way the identifiers of everything already archived are on stdout before the failure is reported. Never add a default.
+- **`delete` prints both identifiers per archived path**: `archived: [<id>] <uuid> <path> (<size>)`, one line per record, through `say()` so `--quiet` still silences it. The uuid is the durable handle -- `undelete`, `info` and `purge` all accept it, and `undelete` accepts an original path as well.
+- **Identifier disambiguation is by shape, in one place** (`identifiers.go`): a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID, anything else is a path. The order is total and independent of what happens to exist, so the same argument always means the same thing. `info` and `purge` refuse a path outright, naming the two forms they take.
+- **`info` states a record's status** in one derived line: `restorable`, `restored at <time>`, `purged at <time>`, or both when a record was restored and later purged. It is read off `restored_at`/`purged_at` -- there is no scan of the archive directory.
 - **`-r` required for directories** (like rm).
 - **`-f` skips errors** on nonexistent files (`delete --ignore-missing`). It is `delete`'s flag only; `purge` no longer has one.
-- **Files** archived via `os.Rename` (or copy+verify for cross-device moves).
+- **Files** archived via `os.Link` into the archive (copy+verify when the filesystem or policy refuses the link, e.g. across devices), and the source is removed only after the database row exists.
 - **Directories** archived as `.tar.zst` (tar + zstandard compression).
 - **SHA-256 hash** computed for integrity verification.
 - **SQLite WAL** with `busy_timeout=5000`, plus saferm's own bounded retry on top of it: every database operation that meets SQLITE_BUSY/SQLITE_LOCKED contention is retried up to 5 attempts total with a linear 50ms-per-attempt backoff, reported on stderr under `--verbose`. A lock that outlives the whole budget exits **8** (`ExitContention`), not 5 -- the archive is fine, another process is simply holding the write lock. The classifier (`db.IsContention`) reads the driver's result code, not its message, and covers every extended flavour of BUSY and LOCKED.
@@ -89,20 +94,23 @@ saferm is designed for AI agents to use instead of `rm`. Always provide a meanin
 ### Basic usage
 
 ```bash
-# Delete a file
-saferm delete --description "Removing stale config after migration" old-config.yaml
+# Delete a file (--on-error is mandatory: abort or continue)
+saferm delete --on-error abort --description "Removing stale config after migration" old-config.yaml
 
 # Delete a directory (requires -r)
-saferm delete -r --description "Removing build artifacts after successful CI" ./build/
+saferm delete --on-error abort -r --description "Removing build artifacts after successful CI" ./build/
 
 # Delete with force (ignore nonexistent files)
-saferm delete -f --description "Pruning stale cache files" cache/*.json
+saferm delete --on-error abort -f --description "Pruning stale cache files" cache/*.json
+
+# Archive as much of a batch as possible, and still fail at the end
+saferm delete --on-error continue --description "Pruning generated reports" report-*.json
 
 # Record the original rm command that was replaced
-saferm delete --description "Cleaning temp test output" --command "rm -rf test-output/" -r test-output/
+saferm delete --on-error abort --description "Cleaning temp test output" --command "rm -rf test-output/" -r test-output/
 
 # Add custom metadata
-saferm delete --description "Removing deprecated module" --meta reason=deprecated --meta ticket=PROJ-123 old-module.go
+saferm delete --on-error abort --description "Removing deprecated module" --meta reason=deprecated --meta ticket=PROJ-123 old-module.go
 ```
 
 ### Other commands
@@ -114,16 +122,18 @@ saferm list --all              # include restored items
 saferm list --path "/home/m/Projects/*"   # glob over the full original path; * spans directories
 saferm list --path "*/build/*"            # anything archived from a build/ directory, at any depth
 
-# Show full metadata for a deletion
+# Show full metadata for a deletion (numeric ID or uuid)
 saferm info 42
+saferm info 6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11
 
-# Restore a file (by ID or path)
+# Restore a file (by uuid, ID or path)
 saferm undelete 42
+saferm undelete 6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11
 saferm undelete /path/to/file
 saferm undelete --force-overwrite 42  # overwrite existing file
 
 # Permanently remove from archive
-saferm --approve-consequential purge 42 43 44             # by IDs
+saferm --approve-consequential purge 42 43 44             # by IDs or uuids
 saferm --approve-consequential purge --older-than 30d     # by age (h/d/w/m)
 saferm --approve-consequential purge --all                # everything
 ```

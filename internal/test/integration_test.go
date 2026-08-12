@@ -150,7 +150,7 @@ func TestDeleteAndUndelete_Roundtrip(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "roundtrip.txt", content)
 
 	// Delete the file.
-	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--description", "roundtrip test", filePath)
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "roundtrip test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
@@ -194,7 +194,7 @@ func TestDeleteDirectory_Roundtrip(t *testing.T) {
 	dirPath := testutil.CreateTempDir(t, workDir, "mydir")
 
 	// Delete the directory.
-	stdout, stderr, code := runSaferm(t, homeDir, "delete", "-r", "--description", "dir roundtrip", dirPath)
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "dir roundtrip", dirPath)
 	if code != 0 {
 		t.Fatalf("delete dir failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
@@ -244,7 +244,7 @@ func TestDelete_RequiresDescription(t *testing.T) {
 
 	filePath := testutil.CreateTempFile(t, workDir, "nodesc.txt", "content")
 
-	_, _, code := runSaferm(t, homeDir, "delete", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", filePath)
 	if code == 0 {
 		t.Fatal("delete without --description should fail")
 	}
@@ -256,7 +256,7 @@ func TestDelete_RequiresRecursiveForDir(t *testing.T) {
 
 	dirPath := testutil.CreateTempDir(t, workDir, "norecursive")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "test", dirPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "test", dirPath)
 	if code == 0 {
 		t.Fatal("delete directory without -r should fail")
 	}
@@ -272,7 +272,7 @@ func TestUndelete_ConflictError(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "conflict.txt", "original")
 
 	// Delete.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "conflict test", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "conflict test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -310,7 +310,7 @@ func TestUndelete_ForceOverwrite(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "forcetest.txt", "original content")
 
 	// Delete.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "force test", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "force test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -345,7 +345,7 @@ func TestPurge_ById(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "purge-me.txt", "to be purged")
 
 	// Delete.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "purge test", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "purge test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -401,7 +401,7 @@ func TestList_PathFilter(t *testing.T) {
 
 	// Delete all three.
 	for _, f := range []string{fileA, fileB, fileC} {
-		_, _, code := runSaferm(t, homeDir, "delete", "--description", "filter test", f)
+		_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "filter test", f)
 		if code != 0 {
 			t.Fatalf("delete %s failed", f)
 		}
@@ -431,7 +431,7 @@ func TestInfo_ShowsMetadata(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "info-test.txt", "metadata test")
 
 	// Delete with custom metadata and command.
-	_, _, code := runSaferm(t, homeDir, "delete",
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 		"--description", "info meta test",
 		"--command", "rm info-test.txt",
 		"--meta", "foo=bar",

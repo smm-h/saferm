@@ -25,7 +25,7 @@ import (
 func seedArchive(t *testing.T, home, work, name string) string {
 	t.Helper()
 	target := testutil.CreateTempFile(t, work, name, "content\n")
-	if _, stderr, code := runSaferm(t, home, "delete", "--description", "seed", target); code != 0 {
+	if _, stderr, code := runSaferm(t, home, "delete", "--on-error", "abort", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 	return target
@@ -36,7 +36,7 @@ func TestQuietSuppressesDeleteSummary(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "quiet.txt", "content\n")
 
-	stdout, stderr, code := runSaferm(t, home, "--quiet", "delete", "--description", "quiet delete", target)
+	stdout, stderr, code := runSaferm(t, home, "--quiet", "delete", "--on-error", "abort", "--description", "quiet delete", target)
 	if code != 0 {
 		t.Fatalf("quiet delete failed (%d): %s", code, stderr)
 	}
@@ -56,7 +56,7 @@ func TestQuietDominatesVerbose(t *testing.T) {
 	target := testutil.CreateTempFile(t, work, "loud.txt", "content\n")
 
 	stdout, stderr, code := runSaferm(t, home,
-		"--quiet", "--verbose", "delete", "--description", "quiet beats verbose", target)
+		"--quiet", "--verbose", "delete", "--on-error", "abort", "--description", "quiet beats verbose", target)
 	if code != 0 {
 		t.Fatalf("quiet+verbose delete failed (%d): %s", code, stderr)
 	}

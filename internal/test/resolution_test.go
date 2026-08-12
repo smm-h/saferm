@@ -17,7 +17,7 @@ import (
 // deleteOne archives one file and returns the id and uuid `delete` printed.
 func deleteOne(t *testing.T, home, path string) (id, uuid string) {
 	t.Helper()
-	stdout, stderr, code := runSaferm(t, home, "delete", "--description", "resolution test", path)
+	stdout, stderr, code := runSaferm(t, home, "delete", "--on-error", "abort", "--description", "resolution test", path)
 	if code != 0 {
 		t.Fatalf("delete failed (%d): %s", code, stderr)
 	}

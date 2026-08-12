@@ -33,7 +33,7 @@ func TestDryRunDeleteCreatesNoStateDirectory(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "doomed.txt", "content\n")
 
-	stdout, stderr, code := runSaferm(t, home, "--dry-run", "delete", "--description", "preview", target)
+	stdout, stderr, code := runSaferm(t, home, "--dry-run", "delete", "--on-error", "abort", "--description", "preview", target)
 	if code != 0 {
 		t.Fatalf("first-ever dry-run delete failed (%d): %s", code, stderr)
 	}
@@ -115,7 +115,7 @@ func TestRealDeleteCreatesTheStateDirectory(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "doomed.txt", "content\n")
 
-	if _, stderr, code := runSaferm(t, home, "delete", "--description", "for real", target); code != 0 {
+	if _, stderr, code := runSaferm(t, home, "delete", "--on-error", "abort", "--description", "for real", target); code != 0 {
 		t.Fatalf("first-ever delete failed (%d): %s", code, stderr)
 	}
 	for _, dir := range []string{

@@ -16,7 +16,7 @@ func TestDelete_NonexistentFile(t *testing.T) {
 	nonexistent := filepath.Join(workDir, "does-not-exist.txt")
 
 	// Without -f: should fail.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "nonexist", nonexistent)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "nonexist", nonexistent)
 	if code == 0 {
 		t.Fatal("delete of nonexistent file without -f should fail")
 	}
@@ -26,7 +26,7 @@ func TestDelete_NonexistentFile(t *testing.T) {
 	}
 
 	// With -f: should succeed (no-op).
-	_, stderr, code = runSaferm(t, homeDir, "delete", "-f", "--description", "nonexist", nonexistent)
+	_, stderr, code = runSaferm(t, homeDir, "delete", "--on-error", "abort", "-f", "--description", "nonexist", nonexistent)
 	if code != 0 {
 		t.Fatalf("delete -f of nonexistent file should succeed, got exit %d: stderr=%q", code, stderr)
 	}
@@ -40,7 +40,7 @@ func TestDelete_FileWithSpaces(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "my file with spaces.txt", content)
 
 	// Delete.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "spaces test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "spaces test", filePath)
 	if code != 0 {
 		t.Fatalf("delete file with spaces failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -77,7 +77,7 @@ func TestDelete_FileWithUnicode(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "日本語.txt", content)
 
 	// Delete.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "unicode test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "unicode test", filePath)
 	if code != 0 {
 		t.Fatalf("delete unicode file failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -111,7 +111,7 @@ func TestDelete_EmptyFile(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "empty.txt", "")
 
 	// Delete.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "empty file test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "empty file test", filePath)
 	if code != 0 {
 		t.Fatalf("delete empty file failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -152,7 +152,7 @@ func TestDelete_Symlink(t *testing.T) {
 
 	// Delete the symlink (it's inside a directory, so we delete it as a file within a dir).
 	// Actually delete the symlink as a single file -- saferm should archive the link itself.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "symlink test", symlinkPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "symlink test", symlinkPath)
 	if code != 0 {
 		t.Fatalf("delete symlink failed (exit %d): stderr=%q", code, stderr)
 	}

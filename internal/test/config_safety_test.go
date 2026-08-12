@@ -35,7 +35,7 @@ func TestConfigSafety_MalformedConfig_HardError(t *testing.T) {
 	writeConfig(t, homeDir, "archive_dir = \"no closing quote\ndb_path = \"/x\"\n")
 
 	// Drive a non-config command so the parse error is a hard abort.
-	_, stderr, code := runSaferm(t, homeDir, "delete",
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 		"--description", "malformed config test",
 		"-f", "nonexistent-malformed-config-test-file")
 
@@ -63,7 +63,7 @@ func TestConfigSafety_UnknownKey_HardError(t *testing.T) {
 	// "archve_dir" is a typo of "archive_dir".
 	writeConfig(t, homeDir, "archve_dir = \"/some/path\"\n")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete",
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 		"--description", "unknown key test",
 		"-f", "nonexistent-unknown-key-test-file")
 
@@ -101,7 +101,7 @@ func TestConfigSafety_DivergentArchiveDir_HardError(t *testing.T) {
 
 	_, stderr, code := runSaferm(t, homeDir,
 		"--archive-dir", cliArchive,
-		"delete",
+		"delete", "--on-error", "abort",
 		"--description", "divergent archive-dir test",
 		"-f", "nonexistent-divergent-test-file")
 
@@ -130,7 +130,7 @@ func TestConfigSafety_IdenticalArchiveDir_Guard_ExitZero(t *testing.T) {
 
 	_, stderr, code := runSaferm(t, homeDir,
 		"--archive-dir", shared,
-		"delete",
+		"delete", "--on-error", "abort",
 		"--description", "identical archive-dir guard",
 		"-f", "nonexistent-identical-guard-file")
 
@@ -182,7 +182,7 @@ func TestConfigSafety_ExcludeEnvPatternsOverlap_Guard_ExitZero(t *testing.T) {
 	homeDir := testutil.SetupTestEnv(t)
 	writeConfig(t, homeDir, "exclude_env_patterns = [\"(?i)token\", \"(?i)secret\"]\n")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete",
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 		"--exclude-env-patterns", "(?i)token",
 		"--description", "exclude-env-patterns overlap guard",
 		"-f", "nonexistent-exclude-guard-file")

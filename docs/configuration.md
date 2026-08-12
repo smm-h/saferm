@@ -84,7 +84,7 @@ The `--hermetic` flag suppresses all config-file and environment values for conf
 ```bash
 # Uses SAFERM_HOME (or ~/.saferm/) with default subdirectory layout,
 # ignoring any archive_dir or db_path set in config.toml
-saferm --hermetic delete --description "reason" file.txt
+saferm --hermetic delete --on-error abort --description "reason" file.txt
 ```
 
 ## Archive directory discovery

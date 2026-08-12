@@ -40,7 +40,7 @@ func TestDeleteNeedsNoConsent(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "doomed.txt", "content\n")
 
-	_, stderr, code := runSafermNoConsent(t, home, "delete", "--description", "bare delete", target)
+	_, stderr, code := runSafermNoConsent(t, home, "delete", "--on-error", "abort", "--description", "bare delete", target)
 	if code != 0 {
 		t.Fatalf("bare `saferm delete` must succeed with no approval flag; code=%d stderr=%s", code, stderr)
 	}
@@ -60,7 +60,7 @@ func TestUndeleteNeedsNoConsent(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "restore-me.txt", "content\n")
 
-	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--description", "seed", target); code != 0 {
+	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--on-error", "abort", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 	_, stderr, code := runSafermNoConsent(t, home, "undelete", "1")
@@ -81,7 +81,7 @@ func TestPurgeRefusesWithoutConsent(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "archived.txt", "content\n")
 
-	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--description", "seed", target); code != 0 {
+	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--on-error", "abort", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 
@@ -112,7 +112,7 @@ func TestPurgeWithApprovalProceeds(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "archived.txt", "content\n")
 
-	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--description", "seed", target); code != 0 {
+	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--on-error", "abort", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 
@@ -161,7 +161,7 @@ func TestApprovedPurgeListsWhatItDestroys(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "listed.txt", "content\n")
 
-	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--description", "seed", target); code != 0 {
+	if _, stderr, code := runSafermNoConsent(t, home, "delete", "--on-error", "abort", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding delete failed (%d): %s", code, stderr)
 	}
 
@@ -193,7 +193,7 @@ func TestDeleteDryRunRecordsAndDeletesNothing(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "doomed.txt", "content\n")
 
-	stdout, stderr, code := runSaferm(t, home, "--dry-run", "delete", "--description", "preview", target)
+	stdout, stderr, code := runSaferm(t, home, "--dry-run", "delete", "--on-error", "abort", "--description", "preview", target)
 	if code != 0 {
 		t.Fatalf("delete --dry-run failed (%d): %s", code, stderr)
 	}
@@ -231,7 +231,7 @@ func TestDeleteDirectoryDryRunRecordsAndDeletesNothing(t *testing.T) {
 	dir := testutil.CreateTempDir(t, work, "tree")
 	testutil.CreateTempFile(t, dir, "inner.txt", "content\n")
 
-	stdout, stderr, code := runSaferm(t, home, "--dry-run", "delete", "-r", "--description", "preview", dir)
+	stdout, stderr, code := runSaferm(t, home, "--dry-run", "delete", "--on-error", "abort", "-r", "--description", "preview", dir)
 	if code != 0 {
 		t.Fatalf("delete -r --dry-run failed (%d): %s", code, stderr)
 	}
@@ -255,7 +255,7 @@ func TestPurgeDryRunRecordsAndDestroysNothing(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "gone.txt", "content\n")
 
-	if _, stderr, code := runSaferm(t, home, "delete", "--description", "seed", target); code != 0 {
+	if _, stderr, code := runSaferm(t, home, "delete", "--on-error", "abort", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding the archive failed: %s", stderr)
 	}
 
@@ -290,7 +290,7 @@ func TestUndeleteDryRunRestoresNothing(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "back.txt", "content\n")
 
-	if _, stderr, code := runSaferm(t, home, "delete", "--description", "seed", target); code != 0 {
+	if _, stderr, code := runSaferm(t, home, "delete", "--on-error", "abort", "--description", "seed", target); code != 0 {
 		t.Fatalf("seeding the archive failed: %s", stderr)
 	}
 

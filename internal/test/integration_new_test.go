@@ -18,7 +18,7 @@ func TestDeleteMultipleFiles(t *testing.T) {
 	f3 := testutil.CreateTempFile(t, workDir, "file3.txt", "three")
 
 	// Delete all 3 in one command.
-	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--description", "multi delete", f1, f2, f3)
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "multi delete", f1, f2, f3)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
@@ -48,7 +48,7 @@ func TestDeleteWithMeta(t *testing.T) {
 
 	filePath := testutil.CreateTempFile(t, workDir, "meta-test.txt", "metadata content")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete",
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
 		"--description", "cleanup build",
 		"--meta", "author=alice",
 		"--meta", "reason=cleanup",
@@ -92,7 +92,7 @@ func TestDeleteWithForce_NonexistentSkipped(t *testing.T) {
 	existsPath := testutil.CreateTempFile(t, workDir, "exists.txt", "I exist")
 	noexistPath := filepath.Join(workDir, "noexist.txt")
 
-	stdout, stderr, code := runSaferm(t, homeDir, "delete", "-f",
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-f",
 		"--description", "force skip test",
 		existsPath, noexistPath,
 	)
@@ -125,7 +125,7 @@ func TestUndeleteByPath(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "bypath.txt", content)
 
 	// Delete.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "path restore", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "path restore", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -153,7 +153,7 @@ func TestUndeleteByPath_MultipleMatches(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "multi-match.txt", "first version")
 
 	// Delete the first time.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "first delete", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "first delete", filePath)
 	if code != 0 {
 		t.Fatalf("first delete failed (exit %d)", code)
 	}
@@ -172,7 +172,7 @@ func TestUndeleteByPath_MultipleMatches(t *testing.T) {
 	if err := os.WriteFile(filePath, []byte("second version"), 0644); err != nil {
 		t.Fatalf("writing second version: %v", err)
 	}
-	_, _, code = runSaferm(t, homeDir, "delete", "--description", "second delete", filePath)
+	_, _, code = runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "second delete", filePath)
 	if code != 0 {
 		t.Fatalf("second delete failed (exit %d)", code)
 	}
@@ -208,7 +208,7 @@ func TestPurgeOlderThan(t *testing.T) {
 	f2 := testutil.CreateTempFile(t, workDir, "old2.txt", "old content 2")
 
 	// Delete both.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "purge test", f1, f2)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "purge test", f1, f2)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -244,7 +244,7 @@ func TestPurgeAll(t *testing.T) {
 	f3 := testutil.CreateTempFile(t, workDir, "purge3.txt", "content3")
 
 	// Delete all 3.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "purge all test", f1, f2, f3)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "purge all test", f1, f2, f3)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -282,7 +282,7 @@ func TestListAll_IncludesRestored(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "restored-list.txt", "content")
 
 	// Delete.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "list all test", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "list all test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -328,7 +328,7 @@ func TestListOrdering(t *testing.T) {
 
 	// Delete in order: A, B, C.
 	for _, f := range []string{fileA, fileB, fileC} {
-		_, _, code := runSaferm(t, homeDir, "delete", "--description", "order test", f)
+		_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "order test", f)
 		if code != 0 {
 			t.Fatalf("delete %s failed", f)
 		}
@@ -370,7 +370,7 @@ func TestInfoDirectory(t *testing.T) {
 	dirPath := testutil.CreateTempDir(t, workDir, "info-dir")
 
 	// Delete directory.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "-r", "--description", "dir info test", dirPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "dir info test", dirPath)
 	if code != 0 {
 		t.Fatalf("delete dir failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -396,7 +396,7 @@ func TestInfoRestoredRecord(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "info-restored.txt", "content")
 
 	// Delete.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "info restore test", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "info restore test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -431,7 +431,7 @@ func TestDeleteSameFileTwice(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "twice.txt", "first")
 
 	// Delete first time.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "first", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "first", filePath)
 	if code != 0 {
 		t.Fatalf("first delete failed (exit %d)", code)
 	}
@@ -450,7 +450,7 @@ func TestDeleteSameFileTwice(t *testing.T) {
 	if err := os.WriteFile(filePath, []byte("second"), 0644); err != nil {
 		t.Fatalf("writing second version: %v", err)
 	}
-	_, _, code = runSaferm(t, homeDir, "delete", "--description", "second", filePath)
+	_, _, code = runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "second", filePath)
 	if code != 0 {
 		t.Fatalf("second delete failed (exit %d)", code)
 	}
@@ -485,13 +485,13 @@ func TestSafermHome_IsolatesData(t *testing.T) {
 	fileB := testutil.CreateTempFile(t, workDir, "other.txt", "other content")
 
 	// Delete a file using home A.
-	_, stderr, code := runSaferm(t, homeDirA, "delete", "--description", "isolation test", fileA)
+	_, stderr, code := runSaferm(t, homeDirA, "delete", "--on-error", "abort", "--description", "isolation test", fileA)
 	if code != 0 {
 		t.Fatalf("delete in A failed (exit %d): stderr=%q", code, stderr)
 	}
 
 	// Delete a different file using home B so its DB is initialized.
-	_, stderr, code = runSaferm(t, homeDirB, "delete", "--description", "isolation test B", fileB)
+	_, stderr, code = runSaferm(t, homeDirB, "delete", "--on-error", "abort", "--description", "isolation test B", fileB)
 	if code != 0 {
 		t.Fatalf("delete in B failed (exit %d): stderr=%q", code, stderr)
 	}

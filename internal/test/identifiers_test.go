@@ -41,7 +41,7 @@ func TestDelete_PrintsIDAndUUIDForEveryArchivedPath(t *testing.T) {
 	first := testutil.CreateTempFile(t, work, "first.txt", "first\n")
 	second := testutil.CreateTempFile(t, work, "second.txt", "second\n")
 
-	stdout, stderr, code := runSaferm(t, home, "delete", "--description", "durable handle", first, second)
+	stdout, stderr, code := runSaferm(t, home, "delete", "--on-error", "abort", "--description", "durable handle", first, second)
 	if code != 0 {
 		t.Fatalf("delete failed (%d): %s", code, stderr)
 	}
@@ -78,7 +78,7 @@ func TestDelete_PrintsIdentifiersUnderVerboseToo(t *testing.T) {
 	work := t.TempDir()
 	target := testutil.CreateTempFile(t, work, "verbose.txt", "content\n")
 
-	stdout, stderr, code := runSaferm(t, home, "--verbose", "delete", "--description", "verbose handle", target)
+	stdout, stderr, code := runSaferm(t, home, "--verbose", "delete", "--on-error", "abort", "--description", "verbose handle", target)
 	if code != 0 {
 		t.Fatalf("verbose delete failed (%d): %s", code, stderr)
 	}

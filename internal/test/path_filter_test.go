@@ -22,7 +22,7 @@ func TestList_PathFilter_MatchesNestedPaths(t *testing.T) {
 	shallow := testutil.CreateTempFile(t, workDir, "surface.txt", "surface")
 
 	for _, f := range []string{nested, shallow} {
-		if _, stderr, code := runSaferm(t, homeDir, "delete", "--description", "nested filter test", f); code != 0 {
+		if _, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "nested filter test", f); code != 0 {
 			t.Fatalf("delete %s failed (exit %d): stderr=%q", f, code, stderr)
 		}
 	}
@@ -50,7 +50,7 @@ func TestList_PathFilter_MatchesAcrossInterveningDirectories(t *testing.T) {
 	other := testutil.CreateTempFile(t, workDir, "one/two/src/main.go", "src")
 
 	for _, f := range []string{target, other} {
-		if _, stderr, code := runSaferm(t, homeDir, "delete", "--description", "subtree filter test", f); code != 0 {
+		if _, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "subtree filter test", f); code != 0 {
 			t.Fatalf("delete %s failed (exit %d): stderr=%q", f, code, stderr)
 		}
 	}
@@ -74,7 +74,7 @@ func TestList_PathFilter_MalformedPatternIsUsageError(t *testing.T) {
 	workDir := t.TempDir()
 
 	f := testutil.CreateTempFile(t, workDir, "x.txt", "x")
-	if _, stderr, code := runSaferm(t, homeDir, "delete", "--description", "bad glob test", f); code != 0 {
+	if _, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "bad glob test", f); code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}
 

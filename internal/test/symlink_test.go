@@ -54,7 +54,7 @@ func TestDelete_Symlink_Standalone(t *testing.T) {
 	}
 
 	// Delete the symlink.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "standalone symlink test", symlinkPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "standalone symlink test", symlinkPath)
 	if code != 0 {
 		t.Fatalf("delete symlink failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -174,7 +174,7 @@ func TestDelete_Symlink_Relative(t *testing.T) {
 	}
 
 	// Delete the symlink.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "relative symlink test", symlinkPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "relative symlink test", symlinkPath)
 	if code != 0 {
 		t.Fatalf("delete relative symlink failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -270,12 +270,12 @@ func TestList_Symlink_TypeIndicator(t *testing.T) {
 	}
 
 	// Delete both: the symlink first, then the regular file.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "list indicator test sym", symlinkPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "list indicator test sym", symlinkPath)
 	if code != 0 {
 		t.Fatalf("delete symlink failed (exit %d): stderr=%q", code, stderr)
 	}
 
-	_, stderr, code = runSaferm(t, homeDir, "delete", "--description", "list indicator test reg", targetPath)
+	_, stderr, code = runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "list indicator test reg", targetPath)
 	if code != 0 {
 		t.Fatalf("delete regular file failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -330,7 +330,7 @@ func TestPurge_Symlink(t *testing.T) {
 	}
 
 	// Delete the symlink via saferm.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "purge symlink test", symlinkPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "purge symlink test", symlinkPath)
 	if code != 0 {
 		t.Fatalf("delete symlink failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -413,7 +413,7 @@ func TestDelete_Symlink_Dangling(t *testing.T) {
 	// Run saferm delete on the dangling symlink.
 	// Currently this will FAIL because hashFile calls os.Open which follows the
 	// dangling symlink and gets a "no such file" error.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "dangling symlink test", symlinkPath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "dangling symlink test", symlinkPath)
 	if code != 0 {
 		t.Fatalf("delete dangling symlink should succeed (exit 0), got exit %d: stderr=%q", code, stderr)
 	}

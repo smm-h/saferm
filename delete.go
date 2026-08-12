@@ -16,6 +16,12 @@ import (
 	"github.com/smm-h/strictcli/go/strictcli"
 )
 
+// The two error modes `delete` accepts, spelled once.
+const (
+	onErrorAbort    = "abort"
+	onErrorContinue = "continue"
+)
+
 func registerDeleteCmd(app *strictcli.App) {
 	app.Command("delete", "Move files to the saferm archive with metadata tracking", handleDelete,
 		strictcli.WithEffect(strictcli.EffectMutating),
@@ -32,6 +38,15 @@ func registerDeleteCmd(app *strictcli.App) {
 			strictcli.StringFlag("command", "Record the original rm command being replaced by saferm", strictcli.Default("")),
 			strictcli.StringFlag("meta", "Attach additional metadata as key=value pairs (repeatable)", strictcli.Repeatable(), strictcli.Unique(false), strictcli.Default(nil)),
 			strictcli.BoolFlag("update-git-index", "Run git rm --cached to stage removal in the git index", strictcli.Default(true)),
+			// Mandatory, with no default. A batch that meets a bad path has two
+			// defensible answers and they suit opposite callers: a script wants
+			// the batch to stop before it does more, an interactive cleanup
+			// wants the remaining paths archived anyway. Choosing one silently
+			// would be wrong for the other half of the callers, so saferm
+			// refuses to choose.
+			strictcli.StringFlag("on-error",
+				"What to do when a path cannot be archived: abort (stop at the first failure) or continue (archive the remaining paths, report every failure, and exit non-zero at the end). Mandatory: there is no default",
+				strictcli.Choices(onErrorAbort, onErrorContinue)),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("files", "One or more files or directories to move into the archive", strictcli.Variadic()),
@@ -46,6 +61,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 	description := kwargs["description"].(string)
 	command := kwargs["command"].(string)
 	updateGitIndex := kwargs["update_git_index"].(bool)
+	onError := kwargs["on_error"].(string)
 	metaValues := kwargs["meta"].([]interface{})
 	filesRaw := kwargs["files"].([]interface{})
 	verbose := ctx.Verbose()
@@ -107,105 +123,46 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 		return strictcli.Exit(ExitGeneral)
 	}
 
-	scanner := bufio.NewScanner(os.Stdin)
+	run := &deleteRun{
+		ctx:            ctx,
+		fx:             fx,
+		database:       database,
+		archiveDir:     archiveDir,
+		recursive:      recursive,
+		ignoreMissing:  ignoreMissing,
+		interactive:    interactive,
+		updateGitIndex: updateGitIndex,
+		verbose:        verbose,
+		dryRun:         dryRun,
+		description:    description,
+		command:        command,
+		metaJSON:       string(metaJSON),
+		gitRoot:        metadata.GitRoot,
+		scanner:        bufio.NewScanner(os.Stdin),
+	}
+
 	archived := 0
+	failed := 0
+	firstFailure := ExitSuccess
 
 	for _, fileRaw := range filesRaw {
-		file := fileRaw.(string)
-
-		// Resolve to absolute path
-		absPath, err := filepath.Abs(file)
-		if err != nil {
-			if ignoreMissing {
-				continue
-			}
-			fmt.Fprintf(os.Stderr, "error: resolving path %q: %s\n", file, err)
-			return strictcli.Exit(ExitGeneral)
-		}
-
-		if interactive {
-			fmt.Fprintf(os.Stderr, "delete %s? [y/N] ", absPath)
-			if !scanner.Scan() || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(scanner.Text())), "y") {
-				continue
-			}
-		}
-
-		// Plan first: everything up to the point of no return is reads, so it
-		// runs identically in both modes and the preview is built from the
-		// same facts the real archival uses.
-		plan, err := archive.NewPlan(absPath, archiveDir, recursive)
-		if err != nil {
-			if ignoreMissing && (err == archive.ErrFileNotFound) {
-				continue
-			}
-			if err == archive.ErrRecursiveRequired {
-				fmt.Fprintf(os.Stderr, "error: %s is a directory; use -r to delete recursively\n", file)
-				return strictcli.Exit(ExitUsage)
-			}
-			fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
-			return strictcli.Exit(ExitArchive)
-		}
-
-		if dryRun {
-			if err := recordArchival(fx, plan); err != nil {
-				fmt.Fprintf(os.Stderr, "error: recording archival of %s: %s\n", file, err)
-				return strictcli.Exit(ExitArchive)
-			}
+		ok, code := run.archiveOne(fileRaw.(string))
+		if ok {
 			archived++
-			if verbose {
-				say(ctx, "would archive: %s\n", absPath)
-			}
+		}
+		if code == ExitSuccess {
 			continue
 		}
-
-		result, err := archive.Execute(plan)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
-			return strictcli.Exit(ExitArchive)
+		failed++
+		if firstFailure == ExitSuccess {
+			firstFailure = code
 		}
-
-		// Stage removal in git index if the file was tracked.
-		if updateGitIndex && metadata.GitRoot != "" && gitutil.IsGitTracked(absPath) {
-			if err := gitutil.GitRmCached(absPath, result.IsDirectory); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
-			} else if verbose {
-				say(ctx, "Staged removal in git: %s\n", file)
-			}
+		// abort: stop here. Everything archived so far is already committed and
+		// its identifiers are already on stdout, so the caller loses nothing by
+		// the exit -- which is exactly why this mode is safe to offer.
+		if onError == onErrorAbort {
+			return strictcli.Exit(code)
 		}
-
-		rec := &db.DeletionRecord{
-			UUID:         result.UUID,
-			OriginalPath: absPath,
-			OriginalName: filepath.Base(absPath),
-			Size:         result.Size,
-			Hash:         result.Hash,
-			IsDirectory:  result.IsDirectory,
-			DeletedAt:    time.Now(),
-			Command:      command,
-			Description:  description,
-			Metadata:     string(metaJSON),
-		}
-		if result.IsSymlink {
-			rec.SymlinkTarget = &result.SymlinkTarget
-		}
-
-		id, err := database.Insert(rec)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: inserting database record: %s\n", err)
-			return strictcli.Exit(dbExit(err))
-		}
-
-		// Both identifiers, one line per record, in every mode but --quiet.
-		// The numeric id is the counter of this one database; the uuid names
-		// the archived entry itself and is the handle that survives -- `info`,
-		// `undelete` and `purge` all accept it. Printing them here is what
-		// spares a caller from running `list` afterwards and guessing which row
-		// was its own, and it is why an abort partway through a multi-path
-		// delete still leaves the caller holding the identifiers of everything
-		// that did get archived.
-		say(ctx, "archived: [%d] %s %s (%s)\n", id, result.UUID, absPath, humanSize(result.Size))
-
-		archived++
 	}
 
 	if archived > 0 && !verbose {
@@ -216,7 +173,139 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 		}
 	}
 
+	if failed > 0 {
+		// continue mode: every failure was reported as it happened, and the
+		// count is repeated at the end because the per-path lines are far up
+		// the stream by now. The exit code is the FIRST failure's, so a caller
+		// reading only the code learns what went wrong first rather than last.
+		fmt.Fprintf(os.Stderr, "error: %d of %d path(s) failed; --on-error %s archived the rest\n",
+			failed, len(filesRaw), onErrorContinue)
+		return strictcli.Exit(firstFailure)
+	}
+
 	return strictcli.Exit(ExitSuccess)
+}
+
+// deleteRun is everything one `delete` invocation established before it began
+// walking its paths: the open archive, the flags, and the metadata blob every
+// record it writes will carry.
+type deleteRun struct {
+	ctx            *strictcli.Context
+	fx             *strictcli.Effects
+	database       *db.DB
+	archiveDir     string
+	recursive      bool
+	ignoreMissing  bool
+	interactive    bool
+	updateGitIndex bool
+	verbose        bool
+	dryRun         bool
+	description    string
+	command        string
+	metaJSON       string
+	gitRoot        string
+	scanner        *bufio.Scanner
+}
+
+// archiveOne archives a single path, reporting its own failures on stderr.
+//
+// It returns whether a record was created (a path the caller declined
+// interactively, or skipped under --ignore-missing, creates none and is not a
+// failure either) and the exit code the failure deserves, or ExitSuccess. The
+// caller decides what a failure means for the rest of the batch -- that is
+// --on-error's whole job -- so nothing here ends the command.
+func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
+	absPath, err := filepath.Abs(file)
+	if err != nil {
+		if r.ignoreMissing {
+			return false, ExitSuccess
+		}
+		fmt.Fprintf(os.Stderr, "error: resolving path %q: %s\n", file, err)
+		return false, ExitGeneral
+	}
+
+	if r.interactive {
+		fmt.Fprintf(os.Stderr, "delete %s? [y/N] ", absPath)
+		if !r.scanner.Scan() || !strings.HasPrefix(strings.ToLower(strings.TrimSpace(r.scanner.Text())), "y") {
+			return false, ExitSuccess
+		}
+	}
+
+	// Plan first: everything up to the point of no return is reads, so it
+	// runs identically in both modes and the preview is built from the
+	// same facts the real archival uses.
+	plan, err := archive.NewPlan(absPath, r.archiveDir, r.recursive)
+	if err != nil {
+		if r.ignoreMissing && (err == archive.ErrFileNotFound) {
+			return false, ExitSuccess
+		}
+		if err == archive.ErrRecursiveRequired {
+			fmt.Fprintf(os.Stderr, "error: %s is a directory; use -r to delete recursively\n", file)
+			return false, ExitUsage
+		}
+		fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
+		return false, ExitArchive
+	}
+
+	if r.dryRun {
+		if err := recordArchival(r.fx, plan); err != nil {
+			fmt.Fprintf(os.Stderr, "error: recording archival of %s: %s\n", file, err)
+			return false, ExitArchive
+		}
+		if r.verbose {
+			say(r.ctx, "would archive: %s\n", absPath)
+		}
+		return true, ExitSuccess
+	}
+
+	result, err := archive.Execute(plan)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
+		return false, ExitArchive
+	}
+
+	// Stage removal in git index if the file was tracked.
+	if r.updateGitIndex && r.gitRoot != "" && gitutil.IsGitTracked(absPath) {
+		if err := gitutil.GitRmCached(absPath, result.IsDirectory); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
+		} else if r.verbose {
+			say(r.ctx, "Staged removal in git: %s\n", file)
+		}
+	}
+
+	rec := &db.DeletionRecord{
+		UUID:         result.UUID,
+		OriginalPath: absPath,
+		OriginalName: filepath.Base(absPath),
+		Size:         result.Size,
+		Hash:         result.Hash,
+		IsDirectory:  result.IsDirectory,
+		DeletedAt:    time.Now(),
+		Command:      r.command,
+		Description:  r.description,
+		Metadata:     r.metaJSON,
+	}
+	if result.IsSymlink {
+		rec.SymlinkTarget = &result.SymlinkTarget
+	}
+
+	id, err := r.database.Insert(rec)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: inserting database record for %s: %s\n", absPath, err)
+		return false, dbExit(err)
+	}
+
+	// Both identifiers, one line per record, in every mode but --quiet.
+	// The numeric id is the counter of this one database; the uuid names
+	// the archived entry itself and is the handle that survives -- `info`,
+	// `undelete` and `purge` all accept it. Printing them here is what
+	// spares a caller from running `list` afterwards and guessing which row
+	// was its own, and it is why an abort partway through a multi-path
+	// delete still leaves the caller holding the identifiers of everything
+	// that did get archived.
+	say(r.ctx, "archived: [%d] %s %s (%s)\n", id, result.UUID, absPath, humanSize(result.Size))
+
+	return true, ExitSuccess
 }
 
 // recordArchival mints the mutations an archival performs onto the effects

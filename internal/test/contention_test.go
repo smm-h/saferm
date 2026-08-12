@@ -88,7 +88,7 @@ func TestDeleteExitsWithDatabaseCodeWhenTheArchiveDatabaseIsUnreadable(t *testin
 	}
 
 	path := testutil.CreateTempFile(t, workDir, "unreadable.txt", "unreadable")
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "archive database is corrupt", path)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "archive database is corrupt", path)
 
 	if code != exitDatabase {
 		t.Fatalf("expected exit %d (generic database failure), got %d: stderr=%q", exitDatabase, code, stderr)
@@ -132,7 +132,7 @@ func TestDeleteExitsWithContentionCodeWhenLockNeverReleased(t *testing.T) {
 	holdArchiveWriteLock(t, homeDir)
 
 	path := testutil.CreateTempFile(t, workDir, "blocked.txt", "blocked")
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "blocked by a held write lock", path)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "blocked by a held write lock", path)
 
 	if code != exitContention {
 		t.Fatalf("expected exit %d (contention exhausted), got %d: stderr=%q", exitContention, code, stderr)
@@ -170,7 +170,7 @@ func TestDeleteSucceedsWhenLockIsReleasedWithinRetryBudget(t *testing.T) {
 
 	path := testutil.CreateTempFile(t, workDir, "delayed.txt", "delayed")
 	start := time.Now()
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--verbose", "--description", "released within the retry budget", path)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--verbose", "--description", "released within the retry budget", path)
 	elapsed := time.Since(start)
 
 	if code != 0 {

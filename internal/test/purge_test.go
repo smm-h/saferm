@@ -25,7 +25,7 @@ func TestPurge_LargerThan(t *testing.T) {
 
 	// Archive all three.
 	for _, f := range []string{smallFile, medFile, largeFile} {
-		_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "size test", f)
+		_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "size test", f)
 		if code != 0 {
 			t.Fatalf("delete %s failed (exit %d): stderr=%q", f, code, stderr)
 		}
@@ -86,7 +86,7 @@ func TestPurge_PreservesMetadata(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "preserve.txt", "metadata preservation test")
 
 	// Delete the file.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "preserve metadata test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "preserve metadata test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -162,7 +162,7 @@ func TestPurge_AlreadyPurgedIsNoop(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "double-purge.txt", "double purge test")
 
 	// Delete.
-	_, _, code := runSaferm(t, homeDir, "delete", "--description", "double purge test", filePath)
+	_, _, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "double purge test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d)", code)
 	}
@@ -198,7 +198,7 @@ func TestPurge_DryRun(t *testing.T) {
 	filePath := testutil.CreateTempFile(t, workDir, "dryrun.txt", "dry run test content")
 
 	// Archive the file.
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "dry run test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "dry run test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}

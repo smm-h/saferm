@@ -25,7 +25,7 @@ func TestUndelete_AlreadyRestored_DestinationGone_ReportsStatus(t *testing.T) {
 
 	filePath := testutil.CreateTempFile(t, workDir, "consumed.txt", "consumed content")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "consumed record test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "consumed record test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -64,7 +64,7 @@ func TestUndelete_AlreadyRestored_DestinationPresent_ReportsStatus(t *testing.T)
 
 	filePath := testutil.CreateTempFile(t, workDir, "consumed-present.txt", "consumed content")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "consumed record test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "consumed record test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}
@@ -99,7 +99,7 @@ func TestUndelete_Purged_ReportsStatus(t *testing.T) {
 
 	filePath := testutil.CreateTempFile(t, workDir, "purged.txt", "purged content")
 
-	_, stderr, code := runSaferm(t, homeDir, "delete", "--description", "purged record test", filePath)
+	_, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "purged record test", filePath)
 	if code != 0 {
 		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
 	}
