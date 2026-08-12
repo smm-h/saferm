@@ -159,3 +159,5 @@ saferm captures environment variables as part of deletion metadata to provide fu
 - `(?i)credential`
 
 Custom patterns can be set via the `--exclude-env-patterns` flag (repeatable). This flag is CLI-only and not configurable via `config.toml`.
+
+Patterns are Go regular expressions, which means RE2: lookahead and backreferences do not exist there, and a pattern borrowed from a flavour that has them will not compile. An exclude pattern that does not compile is a hard error naming the offending entry -- saferm refuses to run rather than proceed with a redaction it cannot apply.

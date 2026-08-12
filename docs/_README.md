@@ -109,12 +109,12 @@ exclude_env_patterns = [
   "(?i)token",
   "(?i)secret",
   "(?i)password",
-  "(?i)key(?!BOARD)",
+  "(?i)key",
   "(?i)credential",
 ]
 ```
 
-The `exclude_env_patterns` list controls which environment variables are redacted from captured metadata.
+The `exclude_env_patterns` list controls which environment variables are redacted from captured metadata. The values shown above are the defaults. Each entry is a Go regular expression matched against the variable *name*; Go uses RE2, so lookahead (`(?!...)`) and backreferences are not available. A pattern that does not compile is a hard error -- saferm refuses to run rather than proceed with a redaction it cannot apply.
 
 A malformed `config.toml` is a hard error (exit 1) reporting the parse position, never silently ignored. Unknown keys are rejected, and for `archive_dir`/`db_path`, passing a CLI value that diverges from the config value is a hard error rather than silently letting one win. This conflict check only fires when the global flag is given in the pre-command position (`saferm --archive-dir X delete ...`); a post-command placement (`saferm delete --archive-dir X`) is not currently conflict-checked. `--hermetic` suppresses config-file and environment *values*, falling back to defaults -- but it does not touch `SAFERM_HOME`, which is infrastructure, not configuration.
 
