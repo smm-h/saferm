@@ -49,12 +49,12 @@
         },
         {
           "level": 3,
-          "text": "DeletionRecord",
+          "text": "`DeletionRecord`",
           "anchor": "deletionrecord"
         },
         {
           "level": 3,
-          "text": "Collect",
+          "text": "`Collect`",
           "anchor": "collect"
         },
         {
@@ -64,7 +64,7 @@
         },
         {
           "level": 3,
-          "text": "GitRmCached",
+          "text": "`GitRmCached`",
           "anchor": "gitrmcached"
         },
         {
@@ -74,7 +74,7 @@
         },
         {
           "level": 3,
-          "text": "Restore",
+          "text": "`Restore`",
           "anchor": "restore"
         },
         {
@@ -109,7 +109,7 @@
         },
         {
           "level": 3,
-          "text": "Open",
+          "text": "`Open`",
           "anchor": "open"
         },
         {
@@ -459,192 +459,187 @@
         },
         {
           "level": 2,
-          "text": "internal/archive",
+          "text": "`internal/archive`",
           "anchor": "internalarchive"
         },
         {
           "level": 3,
-          "text": "KindFile",
+          "text": "`KindFile`",
           "anchor": "kindfile"
         },
         {
           "level": 3,
-          "text": "KindDirectory",
+          "text": "`KindDirectory`",
           "anchor": "kinddirectory"
         },
         {
           "level": 3,
-          "text": "KindSymlink",
+          "text": "`KindSymlink`",
           "anchor": "kindsymlink"
         },
         {
           "level": 3,
-          "text": "ErrFileNotFound",
+          "text": "`ErrFileNotFound`",
           "anchor": "errfilenotfound"
         },
         {
           "level": 3,
-          "text": "ErrRecursiveRequired",
+          "text": "`ErrRecursiveRequired`",
           "anchor": "errrecursiverequired"
         },
         {
           "level": 3,
-          "text": "ErrConflict",
+          "text": "`ErrConflict`",
           "anchor": "errconflict"
         },
         {
           "level": 3,
-          "text": "ErrHashMismatch",
+          "text": "`ErrHashMismatch`",
           "anchor": "errhashmismatch"
         },
         {
           "level": 3,
-          "text": "ArchiveResult",
+          "text": "`ArchiveResult`",
           "anchor": "archiveresult"
         },
         {
           "level": 3,
-          "text": "Kind",
+          "text": "`Kind`",
           "anchor": "kind"
         },
         {
           "level": 3,
-          "text": "Plan",
+          "text": "`Plan`",
           "anchor": "plan"
         },
         {
           "level": 3,
-          "text": "NewPlan",
+          "text": "`NewPlan`",
           "anchor": "newplan"
         },
         {
           "level": 3,
-          "text": "Execute",
+          "text": "`Execute`",
           "anchor": "execute"
         },
         {
           "level": 3,
-          "text": "Archive",
+          "text": "`Archive`",
           "anchor": "archive"
         },
         {
           "level": 3,
-          "text": "Restore",
+          "text": "`Restore`",
           "anchor": "restore"
         },
         {
           "level": 2,
-          "text": "internal/db",
+          "text": "`internal/db`",
           "anchor": "internaldb"
         },
         {
           "level": 3,
-          "text": "SchemaSQL",
+          "text": "`SchemaSQL`",
           "anchor": "schemasql"
         },
         {
           "level": 3,
-          "text": "ErrNotFound",
+          "text": "`ErrNotFound`",
           "anchor": "errnotfound"
         },
         {
           "level": 3,
-          "text": "DB",
+          "text": "`DB`",
           "anchor": "db"
         },
         {
           "level": 3,
-          "text": "DeletionRecord",
+          "text": "`DeletionRecord`",
           "anchor": "deletionrecord"
         },
         {
           "level": 3,
-          "text": "Open",
+          "text": "`Open`",
           "anchor": "open"
         },
         {
           "level": 3,
-          "text": "DB.Close",
+          "text": "`DB.Close`",
           "anchor": "dbclose"
         },
         {
           "level": 3,
-          "text": "DB.Insert",
+          "text": "`DB.Insert`",
           "anchor": "dbinsert"
         },
         {
           "level": 3,
-          "text": "DB.QueryByID",
+          "text": "`DB.QueryByID`",
           "anchor": "dbquerybyid"
         },
         {
           "level": 3,
-          "text": "DB.QueryByPath",
+          "text": "`DB.QueryByPath`",
           "anchor": "dbquerybypath"
         },
         {
           "level": 3,
-          "text": "DB.QueryAll",
+          "text": "`DB.QueryAll`",
           "anchor": "dbqueryall"
         },
         {
           "level": 3,
-          "text": "DB.MarkRestored",
+          "text": "`DB.MarkRestored`",
           "anchor": "dbmarkrestored"
         },
         {
           "level": 3,
-          "text": "DB.MarkPurged",
+          "text": "`DB.MarkPurged`",
           "anchor": "dbmarkpurged"
         },
         {
           "level": 3,
-          "text": "DB.Delete",
-          "anchor": "dbdelete"
-        },
-        {
-          "level": 3,
-          "text": "DB.QueryOlderThan",
+          "text": "`DB.QueryOlderThan`",
           "anchor": "dbqueryolderthan"
         },
         {
           "level": 2,
-          "text": "internal/git",
+          "text": "`internal/git`",
           "anchor": "internalgit"
         },
         {
           "level": 3,
-          "text": "IsInGitRepo",
+          "text": "`IsInGitRepo`",
           "anchor": "isingitrepo"
         },
         {
           "level": 3,
-          "text": "IsGitTracked",
+          "text": "`IsGitTracked`",
           "anchor": "isgittracked"
         },
         {
           "level": 3,
-          "text": "GitRmCached",
+          "text": "`GitRmCached`",
           "anchor": "gitrmcached"
         },
         {
           "level": 3,
-          "text": "GitAdd",
+          "text": "`GitAdd`",
           "anchor": "gitadd"
         },
         {
           "level": 2,
-          "text": "internal/meta",
+          "text": "`internal/meta`",
           "anchor": "internalmeta"
         },
         {
           "level": 3,
-          "text": "Metadata",
+          "text": "`Metadata`",
           "anchor": "metadata"
         },
         {
           "level": 3,
-          "text": "Collect",
+          "text": "`Collect`",
           "anchor": "collect"
         }
       ]
@@ -661,77 +656,77 @@
         },
         {
           "level": 2,
-          "text": "internal/archive",
+          "text": "`internal/archive`",
           "anchor": "internalarchive"
         },
         {
           "level": 3,
-          "text": "KindFile",
+          "text": "`KindFile`",
           "anchor": "kindfile"
         },
         {
           "level": 3,
-          "text": "KindDirectory",
+          "text": "`KindDirectory`",
           "anchor": "kinddirectory"
         },
         {
           "level": 3,
-          "text": "KindSymlink",
+          "text": "`KindSymlink`",
           "anchor": "kindsymlink"
         },
         {
           "level": 3,
-          "text": "ErrFileNotFound",
+          "text": "`ErrFileNotFound`",
           "anchor": "errfilenotfound"
         },
         {
           "level": 3,
-          "text": "ErrRecursiveRequired",
+          "text": "`ErrRecursiveRequired`",
           "anchor": "errrecursiverequired"
         },
         {
           "level": 3,
-          "text": "ErrConflict",
+          "text": "`ErrConflict`",
           "anchor": "errconflict"
         },
         {
           "level": 3,
-          "text": "ErrHashMismatch",
+          "text": "`ErrHashMismatch`",
           "anchor": "errhashmismatch"
         },
         {
           "level": 3,
-          "text": "ArchiveResult",
+          "text": "`ArchiveResult`",
           "anchor": "archiveresult"
         },
         {
           "level": 3,
-          "text": "Kind",
+          "text": "`Kind`",
           "anchor": "kind"
         },
         {
           "level": 3,
-          "text": "Plan",
+          "text": "`Plan`",
           "anchor": "plan"
         },
         {
           "level": 3,
-          "text": "NewPlan",
+          "text": "`NewPlan`",
           "anchor": "newplan"
         },
         {
           "level": 3,
-          "text": "Execute",
+          "text": "`Execute`",
           "anchor": "execute"
         },
         {
           "level": 3,
-          "text": "Archive",
+          "text": "`Archive`",
           "anchor": "archive"
         },
         {
           "level": 3,
-          "text": "Restore",
+          "text": "`Restore`",
           "anchor": "restore"
         }
       ]
@@ -748,77 +743,72 @@
         },
         {
           "level": 2,
-          "text": "internal/db",
+          "text": "`internal/db`",
           "anchor": "internaldb"
         },
         {
           "level": 3,
-          "text": "SchemaSQL",
+          "text": "`SchemaSQL`",
           "anchor": "schemasql"
         },
         {
           "level": 3,
-          "text": "ErrNotFound",
+          "text": "`ErrNotFound`",
           "anchor": "errnotfound"
         },
         {
           "level": 3,
-          "text": "DB",
+          "text": "`DB`",
           "anchor": "db"
         },
         {
           "level": 3,
-          "text": "DeletionRecord",
+          "text": "`DeletionRecord`",
           "anchor": "deletionrecord"
         },
         {
           "level": 3,
-          "text": "Open",
+          "text": "`Open`",
           "anchor": "open"
         },
         {
           "level": 3,
-          "text": "DB.Close",
+          "text": "`DB.Close`",
           "anchor": "dbclose"
         },
         {
           "level": 3,
-          "text": "DB.Insert",
+          "text": "`DB.Insert`",
           "anchor": "dbinsert"
         },
         {
           "level": 3,
-          "text": "DB.QueryByID",
+          "text": "`DB.QueryByID`",
           "anchor": "dbquerybyid"
         },
         {
           "level": 3,
-          "text": "DB.QueryByPath",
+          "text": "`DB.QueryByPath`",
           "anchor": "dbquerybypath"
         },
         {
           "level": 3,
-          "text": "DB.QueryAll",
+          "text": "`DB.QueryAll`",
           "anchor": "dbqueryall"
         },
         {
           "level": 3,
-          "text": "DB.MarkRestored",
+          "text": "`DB.MarkRestored`",
           "anchor": "dbmarkrestored"
         },
         {
           "level": 3,
-          "text": "DB.MarkPurged",
+          "text": "`DB.MarkPurged`",
           "anchor": "dbmarkpurged"
         },
         {
           "level": 3,
-          "text": "DB.Delete",
-          "anchor": "dbdelete"
-        },
-        {
-          "level": 3,
-          "text": "DB.QueryOlderThan",
+          "text": "`DB.QueryOlderThan`",
           "anchor": "dbqueryolderthan"
         }
       ]
@@ -835,27 +825,27 @@
         },
         {
           "level": 2,
-          "text": "internal/git",
+          "text": "`internal/git`",
           "anchor": "internalgit"
         },
         {
           "level": 3,
-          "text": "IsInGitRepo",
+          "text": "`IsInGitRepo`",
           "anchor": "isingitrepo"
         },
         {
           "level": 3,
-          "text": "IsGitTracked",
+          "text": "`IsGitTracked`",
           "anchor": "isgittracked"
         },
         {
           "level": 3,
-          "text": "GitRmCached",
+          "text": "`GitRmCached`",
           "anchor": "gitrmcached"
         },
         {
           "level": 3,
-          "text": "GitAdd",
+          "text": "`GitAdd`",
           "anchor": "gitadd"
         }
       ]
@@ -872,22 +862,22 @@
         },
         {
           "level": 2,
-          "text": "internal/meta",
+          "text": "`internal/meta`",
           "anchor": "internalmeta"
         },
         {
           "level": 3,
-          "text": "Metadata",
+          "text": "`Metadata`",
           "anchor": "metadata"
         },
         {
           "level": 3,
-          "text": "Collect",
+          "text": "`Collect`",
           "anchor": "collect"
         }
       ]
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-12T03:38:52.356746+00:00"
+  "last_gen": "2026-08-12T13:25:16.219209+00:00"
 }

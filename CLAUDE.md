@@ -58,7 +58,7 @@ go install .                # install locally (picks up changes)
 - **Config:** `~/.saferm/config.toml` via strictcli's built-in config system (`WithConfig`). Key fields: `archive_dir`, `db_path`, `exclude_env_patterns`. Manage with `saferm config show/set/path/edit`. A malformed `config.toml` is a hard error (exit 1) with a parse position -- it is never silently ignored. Unknown keys and, for `archive_dir`/`db_path`, a CLI/config value that diverges from the config are also hard errors (conflict-mode `error`). The divergence check only fires for a global flag in the pre-command position (`saferm --archive-dir X delete ...`); post-command placement (`saferm delete --archive-dir X`) is not currently conflict-checked.
 - **Config vs infrastructure boundary:** `--hermetic` suppresses config-file and env *values* (config-managed settings fall back to defaults). `SAFERM_HOME` is NOT a config value -- it is location infrastructure, the same category as `HOME`, and is NOT suppressed by `--hermetic`. It selects where saferm lives; config values select how saferm behaves.
 - **`SAFERM_HOME` env var** overrides `~/.saferm/` base dir. Used by tests for isolation. (Infrastructure, not config -- see the boundary note above.)
-- **Exit codes:** 0 (success), 1 (general), 2 (usage), 3 (file not found), 4 (permission), 5 (database), 6 (archive), 7 (conflict). Defined in `exitcodes.go`. Config-layer failures (malformed/unknown-key/conflicting config) are strictcli's and exit **1**; saferm's own semantic conflicts (e.g. an undelete target already exists) exit **7** (`ExitConflict`). The two are distinct: exit 1 means the config could not be loaded/reconciled; exit 7 means saferm ran but hit a semantic conflict.
+- **Exit codes:** 0 (success), 1 (general), 2 (usage), 3 (file not found), 5 (database), 6 (archive), 7 (conflict). Defined in `exitcodes.go`. 4 is deliberately absent: it was `ExitPermission`, which nothing ever returned, and the codes above it are not renumbered. Config-layer failures (malformed/unknown-key/conflicting config) are strictcli's and exit **1**; saferm's own semantic conflicts (e.g. an undelete target already exists) exit **7** (`ExitConflict`). The two are distinct: exit 1 means the config could not be loaded/reconciled; exit 7 means saferm ran but hit a semantic conflict.
 - **Version:** set via ldflags (`-X main.version=x.y.z`) at build time; falls back to `debug.ReadBuildInfo`, then `"dev"`.
 
 ## Testing
@@ -110,7 +110,8 @@ saferm delete --description "Removing deprecated module" --meta reason=deprecate
 # List archived items
 saferm list
 saferm list --all              # include restored items
-saferm list --path "/home/*"   # filter by glob
+saferm list --path "/home/m/Projects/*"   # glob over the full original path; * spans directories
+saferm list --path "*/build/*"            # anything archived from a build/ directory, at any depth
 
 # Show full metadata for a deletion
 saferm info 42
