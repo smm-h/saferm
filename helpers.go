@@ -88,6 +88,32 @@ func openArchiveDBIfPresent(dbPath string) (*db.DB, error) {
 	return db.Open(dbPath)
 }
 
+// pathSeparatorPlaceholder stands in for "/" while a pattern and a path are
+// handed to filepath.Match. NUL is the one byte a POSIX path can never contain
+// (the kernel interface terminates paths with it), so substituting it can never
+// collide with real path content.
+const pathSeparatorPlaceholder = "\x00"
+
+// matchArchivePath reports whether an archived original path matches the
+// user's --path glob.
+//
+// The syntax is filepath.Match's, with one deliberate difference: `*`, `?` and
+// character classes match the path separator too, so a pattern names a subtree
+// rather than exactly one directory level. saferm stores absolute original
+// paths, which are always several levels deep, so the stock semantics made
+// `--path "/home/*"` mean "the immediate children of /home and nothing else" --
+// a filter that could not reach a single realistically archived path. Spanning
+// separators is what the flag's own documented example always implied.
+//
+// Malformed patterns still come back as filepath.ErrBadPattern, so the caller
+// keeps reporting them as usage errors rather than as an empty result.
+func matchArchivePath(pattern, path string) (bool, error) {
+	return filepath.Match(
+		strings.ReplaceAll(pattern, "/", pathSeparatorPlaceholder),
+		strings.ReplaceAll(path, "/", pathSeparatorPlaceholder),
+	)
+}
+
 // humanSize formats a byte count as a human-readable string.
 func humanSize(bytes int64) string {
 	if bytes < 1024 {

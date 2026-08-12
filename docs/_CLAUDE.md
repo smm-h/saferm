@@ -111,7 +111,8 @@ saferm delete --description "Removing deprecated module" --meta reason=deprecate
 # List archived items
 saferm list
 saferm list --all              # include restored items
-saferm list --path "/home/*"   # filter by glob
+saferm list --path "/home/m/Projects/*"   # glob over the full original path; * spans directories
+saferm list --path "*/build/*"            # anything archived from a build/ directory, at any depth
 
 # Show full metadata for a deletion
 saferm info 42

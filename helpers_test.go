@@ -4,6 +4,43 @@ import (
 	"testing"
 )
 
+func TestMatchArchivePath(t *testing.T) {
+	cases := []struct {
+		name    string
+		pattern string
+		path    string
+		want    bool
+	}{
+		{"star spans one separator", "/home/*", "/home/m/notes.txt", true},
+		{"star spans many separators", "/home/*", "/home/m/Projects/saferm/list.go", true},
+		{"star still matches a direct child", "/home/*", "/home/m", true},
+		{"star does not escape its prefix", "/home/*", "/var/log/syslog", false},
+		{"literal segments around a star", "/home/*/build/*", "/home/m/p/q/build/out/a.o", true},
+		{"literal segments must all appear", "/home/*/build/*", "/home/m/p/src/a.go", false},
+		{"filename glob", "/home/m/*.txt", "/home/m/deep/er/notes.txt", true},
+		{"exact path", "/home/m/notes.txt", "/home/m/notes.txt", true},
+		{"question mark spans a separator", "/a?c", "/a/c", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := matchArchivePath(tc.pattern, tc.path)
+			if err != nil {
+				t.Fatalf("matchArchivePath(%q, %q) errored: %v", tc.pattern, tc.path, err)
+			}
+			if got != tc.want {
+				t.Errorf("matchArchivePath(%q, %q) = %v, want %v", tc.pattern, tc.path, got, tc.want)
+			}
+		})
+	}
+
+	t.Run("malformed pattern reports an error", func(t *testing.T) {
+		if _, err := matchArchivePath("[", "/home/m/x"); err == nil {
+			t.Error("matchArchivePath with an unterminated character class should error")
+		}
+	})
+}
+
 func TestParseSize(t *testing.T) {
 	validCases := []struct {
 		name  string

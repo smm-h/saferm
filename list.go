@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/smm-h/saferm/internal/db"
 	"github.com/smm-h/strictcli/go/strictcli"
@@ -13,7 +12,7 @@ func registerListCmd(app *strictcli.App) {
 	app.Command("list", "Show all items currently held in the saferm archive", handleList,
 		strictcli.WithEffect(strictcli.EffectReadOnly),
 		strictcli.WithFlags(
-			strictcli.StringFlag("path", "Filter results to paths matching the given glob pattern", strictcli.Default("")),
+			strictcli.StringFlag("path", "Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth)", strictcli.Default("")),
 			strictcli.BoolFlag("all", "Include items that have already been restored or purged", strictcli.Default(false)),
 		),
 	)
@@ -48,7 +47,7 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 	if pathGlob != "" {
 		var filtered []*db.DeletionRecord
 		for _, rec := range records {
-			matched, err := filepath.Match(pathGlob, rec.OriginalPath)
+			matched, err := matchArchivePath(pathGlob, rec.OriginalPath)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: invalid glob pattern %q: %s\n", pathGlob, err)
 				return strictcli.Exit(ExitUsage)
