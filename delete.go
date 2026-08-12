@@ -258,19 +258,14 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 		return true, ExitSuccess
 	}
 
+	// The archive entry is written first and the source is left alone: the
+	// removal below happens only once the record exists, so an insert that
+	// fails can discard the entry and leave the path untouched. See
+	// archive.Execute.
 	result, err := archive.Execute(plan)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
 		return false, ExitArchive
-	}
-
-	// Stage removal in git index if the file was tracked.
-	if r.updateGitIndex && r.gitRoot != "" && gitutil.IsGitTracked(absPath) {
-		if err := gitutil.GitRmCached(absPath, result.IsDirectory); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
-		} else if r.verbose {
-			say(r.ctx, "Staged removal in git: %s\n", file)
-		}
 	}
 
 	rec := &db.DeletionRecord{
@@ -292,7 +287,36 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	id, err := r.database.Insert(rec)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: inserting database record for %s: %s\n", absPath, err)
+		// Nothing has happened to the caller's path yet, so the archival can be
+		// taken back whole: drop the entry and say so. A discard that itself
+		// fails is the one remaining way to leave a blob with no row, so it is
+		// reported loudly and by name rather than swallowed.
+		if derr := archive.DiscardBlob(plan); derr != nil {
+			fmt.Fprintf(os.Stderr, "error: removing the unrecorded archive entry %s: %s; it is an orphaned copy no saferm command can name\n",
+				plan.Dest, derr)
+		} else {
+			fmt.Fprintf(os.Stderr, "note: %s was left in place; nothing was archived\n", absPath)
+		}
 		return false, dbExit(err)
+	}
+
+	// The record exists from here on, so the archived copy is findable by both
+	// identifiers whatever happens next. Removing the source is the second half
+	// of the archival: a failure here leaves a recorded deletion whose original
+	// is still on disk, which is worth an error and is not silent data loss.
+	if err := archive.RemoveSource(plan); err != nil {
+		fmt.Fprintf(os.Stderr, "error: removing %s after archiving it: %s; record [%d] %s holds the archived copy\n",
+			absPath, err, id, result.UUID)
+		return false, ExitArchive
+	}
+
+	// Stage removal in git index if the file was tracked.
+	if r.updateGitIndex && r.gitRoot != "" && gitutil.IsGitTracked(absPath) {
+		if err := gitutil.GitRmCached(absPath, result.IsDirectory); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: git rm --cached failed for %s: %s\n", file, err)
+		} else if r.verbose {
+			say(r.ctx, "Staged removal in git: %s\n", file)
+		}
 	}
 
 	// Both identifiers, one line per record, in every mode but --quiet.

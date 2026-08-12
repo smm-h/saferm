@@ -20,7 +20,7 @@ exitcodes.go     -- exit codes 0-8
 version.go       -- version from ldflags or debug.ReadBuildInfo
 
 internal/
-  archive/       -- file/dir archival (os.Rename, copy+verify for cross-device, tar+zstd for dirs)
+  archive/       -- file/dir archival (os.Link, copy+verify when the link is refused, tar+zstd for dirs); Execute writes the entry, RemoveSource removes the original, DiscardBlob takes it back
   db/            -- SQLite database (WAL mode, busy_timeout=5000, bounded contention retry, CRUD operations)
   meta/          -- metadata collection (env vars, git context, PPID + parent cmdline)
   test/          -- integration tests (builds binary, runs as subprocess)

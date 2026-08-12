@@ -375,3 +375,139 @@ func TestTarZst_PathTraversal(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+// Execute writes the archive entry and stops there. The two halves of an
+// archival are separate calls so that a caller can record the deletion in
+// between -- and so a caller that fails to record it can take the whole thing
+// back with DiscardBlob, having never touched the original.
+
+func TestExecute_LeavesTheSourceInPlace(t *testing.T) {
+	tmpDir := t.TempDir()
+	archiveDir := filepath.Join(tmpDir, "archive")
+
+	cases := []struct {
+		name  string
+		build func(t *testing.T) string
+		rec   bool
+	}{
+		{
+			name: "file",
+			build: func(t *testing.T) string {
+				p := filepath.Join(tmpDir, "file.txt")
+				if err := os.WriteFile(p, []byte("content"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return p
+			},
+		},
+		{
+			name: "directory",
+			build: func(t *testing.T) string {
+				p := filepath.Join(tmpDir, "tree")
+				if err := os.MkdirAll(filepath.Join(p, "nested"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(p, "nested", "f.txt"), []byte("x"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return p
+			},
+			rec: true,
+		},
+		{
+			name: "symlink",
+			build: func(t *testing.T) string {
+				p := filepath.Join(tmpDir, "link")
+				if err := os.Symlink("/etc/hostname", p); err != nil {
+					t.Fatal(err)
+				}
+				return p
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := c.build(t)
+
+			plan, err := NewPlan(src, archiveDir, c.rec)
+			if err != nil {
+				t.Fatalf("NewPlan: %v", err)
+			}
+			if _, err := Execute(plan); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+
+			if _, err := os.Lstat(src); err != nil {
+				t.Errorf("Execute removed the source: %v", err)
+			}
+			if _, err := os.Lstat(plan.Dest); err != nil {
+				t.Errorf("Execute wrote no archive entry: %v", err)
+			}
+
+			// DiscardBlob takes the archival back whole.
+			if err := DiscardBlob(plan); err != nil {
+				t.Fatalf("DiscardBlob: %v", err)
+			}
+			if _, err := os.Lstat(plan.Dest); !os.IsNotExist(err) {
+				t.Errorf("DiscardBlob left the archive entry behind (err=%v)", err)
+			}
+			if _, err := os.Lstat(src); err != nil {
+				t.Errorf("a discarded archival must leave the source exactly as it was: %v", err)
+			}
+
+			// And RemoveSource is the other half, once a caller has recorded it.
+			if _, err := Execute(plan); err != nil {
+				t.Fatalf("second Execute: %v", err)
+			}
+			if err := RemoveSource(plan); err != nil {
+				t.Fatalf("RemoveSource: %v", err)
+			}
+			if _, err := os.Lstat(src); !os.IsNotExist(err) {
+				t.Errorf("RemoveSource left the source behind (err=%v)", err)
+			}
+		})
+	}
+}
+
+// A file's archive entry is a hard link to the original while both exist, so
+// nothing is copied and the archived content is the original's own bytes.
+func TestExecute_FileEntryIsTheSameInode(t *testing.T) {
+	tmpDir := t.TempDir()
+	archiveDir := filepath.Join(tmpDir, "archive")
+	src := filepath.Join(tmpDir, "linked.txt")
+	if err := os.WriteFile(src, []byte("same inode"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := NewPlan(src, archiveDir, false)
+	if err != nil {
+		t.Fatalf("NewPlan: %v", err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dstInfo, err := os.Stat(plan.Dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(srcInfo, dstInfo) {
+		t.Error("the archive entry is a copy, not a link to the original")
+	}
+
+	if err := RemoveSource(plan); err != nil {
+		t.Fatalf("RemoveSource: %v", err)
+	}
+	content, err := os.ReadFile(plan.Dest)
+	if err != nil {
+		t.Fatalf("reading the archived entry after the source went: %v", err)
+	}
+	if string(content) != "same inode" {
+		t.Errorf("archived content is %q", content)
+	}
+}

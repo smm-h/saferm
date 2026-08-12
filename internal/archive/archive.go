@@ -93,7 +93,21 @@ func NewPlan(path string, archiveDir string, isRecursive bool) (*Plan, error) {
 	return p, nil
 }
 
-// Execute carries out the archival a [Plan] describes.
+// Execute writes the archive entry a [Plan] describes, and LEAVES THE SOURCE
+// WHERE IT IS.
+//
+// Archiving is deliberately split from removing the original, because between
+// the two there is a third party: the caller's database, which is what makes an
+// archived entry findable at all. Doing it in one step meant an archive that
+// succeeded and a record that failed produced a blob nobody could name, a
+// source path that was gone, and no way back -- and the live archive really did
+// collect orphaned blobs that way. So the order is Execute, record, then
+// [RemoveSource]; a record that fails calls [DiscardBlob] instead and the
+// caller's file has never been touched.
+//
+// For a regular file the entry is a hard link to the original, which is why
+// leaving the source in place costs nothing: the content is not copied and both
+// names point at the same inode until RemoveSource drops one of them.
 func Execute(p *Plan) (*ArchiveResult, error) {
 	if err := os.MkdirAll(p.ArchiveDir, 0700); err != nil {
 		return nil, fmt.Errorf("creating archive dir: %w", err)
@@ -108,15 +122,39 @@ func Execute(p *Plan) (*ArchiveResult, error) {
 	}
 }
 
-// Archive moves a file or directory into archiveDir, returning the result.
-// For files: moved directly (or copied cross-device) with SHA-256 hash.
+// RemoveSource removes the original an executed [Plan] archived. It is the
+// second half of an archival and runs only once the entry is recorded.
+func RemoveSource(p *Plan) error {
+	if p.Kind == KindDirectory {
+		return os.RemoveAll(p.Source)
+	}
+	return os.Remove(p.Source)
+}
+
+// DiscardBlob removes the archive entry [Execute] wrote, undoing it. The source
+// is untouched by both calls, so a discarded archival leaves the filesystem
+// exactly as it was.
+func DiscardBlob(p *Plan) error {
+	return os.Remove(p.Dest)
+}
+
+// Archive moves a file or directory into archiveDir, returning the result:
+// [Execute] followed by [RemoveSource], with nothing recorded in between.
+// For files: hard-linked (or copied and verified when the link is refused).
 // For directories: compressed into a .tar.zst archive.
 func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, error) {
 	p, err := NewPlan(path, archiveDir, isRecursive)
 	if err != nil {
 		return nil, err
 	}
-	return Execute(p)
+	result, err := Execute(p)
+	if err != nil {
+		return nil, err
+	}
+	if err := RemoveSource(p); err != nil {
+		return nil, fmt.Errorf("removing original after archiving: %w", err)
+	}
+	return result, nil
 }
 
 func archiveSymlink(path string, archiveDir string, uuid string) (*ArchiveResult, error) {
@@ -126,16 +164,11 @@ func archiveSymlink(path string, archiveDir string, uuid string) (*ArchiveResult
 	}
 
 	// Write the target path to a .symlink metadata file for defense-in-depth
-	// recovery if the database is lost.
+	// recovery if the database is lost. The link itself stays until the caller
+	// has recorded the entry; see [Execute].
 	metaPath := filepath.Join(archiveDir, uuid+".symlink")
 	if err := os.WriteFile(metaPath, []byte(target), 0600); err != nil {
 		return nil, fmt.Errorf("writing symlink metadata: %w", err)
-	}
-
-	if err := os.Remove(path); err != nil {
-		// Clean up metadata file on failure.
-		os.Remove(metaPath)
-		return nil, fmt.Errorf("removing symlink: %w", err)
 	}
 
 	return &ArchiveResult{UUID: uuid, Hash: "", Size: 0, IsSymlink: true, SymlinkTarget: target}, nil
@@ -155,17 +188,22 @@ func archiveFile(path string, archiveDir string, uuid string) (*ArchiveResult, e
 
 	dst := filepath.Join(archiveDir, uuid)
 
-	err = os.Rename(path, dst)
-	if err != nil {
-		if isCrossDevice(err) {
-			if err := copyAndVerify(path, dst, hash); err != nil {
-				return nil, err
-			}
-			if err := os.Remove(path); err != nil {
-				return nil, fmt.Errorf("removing original after cross-device copy: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("moving file to archive: %w", err)
+	// A hard link, not a rename: the archive entry and the original are the
+	// same inode until the caller has recorded the deletion and calls
+	// [RemoveSource]. It costs one directory entry and no content copy, and it
+	// is what lets a failed record undo itself with the source untouched.
+	if err := os.Link(path, dst); err != nil {
+		if !linkRefused(err) {
+			return nil, fmt.Errorf("linking file into archive: %w", err)
+		}
+		// The filesystem or the kernel's policy will not link this file --
+		// a different device, a filesystem without hard links, or Linux's
+		// protected_hardlinks refusing a file the caller does not own. Copying
+		// and verifying the copy against the hash reaches the same state at the
+		// cost of reading the file twice, which is what the cross-device path
+		// has always done.
+		if err := copyAndVerify(path, dst, hash); err != nil {
+			return nil, err
 		}
 	}
 
@@ -206,11 +244,9 @@ func archiveDirectory(path string, archiveDir string, uuid string) (*ArchiveResu
 		return nil, fmt.Errorf("hashing archive: %w", err)
 	}
 
-	// Only remove original after successful archive+hash.
-	if err := os.RemoveAll(path); err != nil {
-		return nil, fmt.Errorf("removing original directory: %w", err)
-	}
-
+	// The tree itself stays until the caller has recorded the entry; see
+	// [Execute]. It used to go here, which is why a failing record left a
+	// compressed tree nobody could name and no directory to go back to.
 	return &ArchiveResult{UUID: uuid, Hash: hash, Size: totalSize, IsDirectory: true}, nil
 }
 
@@ -548,6 +584,33 @@ func isCrossDevice(err error) bool {
 	if errors.As(err, &linkErr) {
 		if sysErr, ok := linkErr.Err.(syscall.Errno); ok {
 			return sysErr == syscall.EXDEV
+		}
+	}
+	return false
+}
+
+// linkRefused reports whether a failed os.Link means "this file cannot be hard
+// linked here", as opposed to a genuine failure.
+//
+// The four refusals, all of which the copy-and-verify path handles correctly:
+// EXDEV (source and archive on different filesystems), EPERM (Linux's
+// protected_hardlinks refusing a link to a file the caller neither owns nor can
+// write, and filesystems that reject links outright), EOPNOTSUPP/ENOSYS (a
+// filesystem with no hard links at all) and EMLINK (the inode is already at its
+// link limit). Anything else -- a missing archive directory, a full disk, a
+// read-only mount -- is reported as the failure it is, because copying would
+// fail the same way and hide the reason.
+func linkRefused(err error) bool {
+	if isCrossDevice(err) {
+		return true
+	}
+	var linkErr *os.LinkError
+	if errors.As(err, &linkErr) {
+		if sysErr, ok := linkErr.Err.(syscall.Errno); ok {
+			switch sysErr {
+			case syscall.EPERM, syscall.EOPNOTSUPP, syscall.ENOSYS, syscall.EMLINK:
+				return true
+			}
 		}
 	}
 	return false

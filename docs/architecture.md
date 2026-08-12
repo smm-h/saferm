@@ -25,7 +25,7 @@ All saferm data lives under a single root directory (default `~/.saferm/`, overr
 ```
 ~/.saferm/
   archive/          # Archived file content
-    <uuid>          # Regular file (renamed or copied from original)
+    <uuid>          # Regular file (hard-linked, or copied, from the original)
     <uuid>.tar.zst  # Directory (compressed archive)
     <uuid>.symlink  # Symlink metadata (target path as plain text)
   db/
@@ -37,7 +37,7 @@ All saferm data lives under a single root directory (default `~/.saferm/`, overr
 
 ## Deletion lifecycle
 
-A deletion passes through four stages: validation, archival, metadata recording, and git index update. Each stage must succeed before the next begins, and failures at any point leave the system in a consistent state. Validation catches invalid inputs early, archival ensures the content is safely stored before the original is removed, metadata recording captures the full context of the deletion, and the git index update keeps the working tree in sync.
+A deletion passes through five stages: validation, archival, metadata recording, removal of the original, and git index update. Each stage must succeed before the next begins, and failures at any point leave the system in a consistent state. The order is what makes that true: the archive entry is written while the original is still in place, the record is inserted next, and only then is the original removed. A record that fails discards the archive entry it just wrote and leaves the caller's path untouched, so there is no window in which content exists in the archive under a name nothing can resolve.
 
 ### 1. Validation
 
@@ -47,15 +47,15 @@ The `archive.Archive` function stats the target path and determines its type. Di
 
 The archival strategy depends on the target type. Regular files are moved atomically when possible and copied with integrity verification when the archive sits on a different filesystem. Directories are compressed into tar archives with zstandard compression. Symlinks store only their target path, since they carry no content of their own:
 
-**Regular files.** The file is hashed (SHA-256, streaming) before being moved. The move uses `os.Rename` for an atomic same-filesystem operation. If `Rename` returns `EXDEV` (cross-device link error), the fallback path copies the file, verifies the copy's hash matches the pre-computed hash, and only then removes the original. The archived file is stored as `<uuid>` (no extension) in the archive directory.
+**Regular files.** The file is hashed (SHA-256, streaming), then hard-linked into the archive with `os.Link`: no content is copied and the archive entry and the original are the same inode until the original's name is removed. If the link is refused -- `EXDEV` across filesystems, `EPERM` from Linux's `protected_hardlinks` or a filesystem that rejects links, `EOPNOTSUPP`/`ENOSYS` where hard links do not exist, `EMLINK` at the inode's link limit -- the fallback path copies the file and verifies the copy's hash against the pre-computed one. Any other error is reported as itself. The archived file is stored as `<uuid>` (no extension) in the archive directory.
 
-**Directories.** The directory tree is walked to compute total size, then compressed into a `.tar.zst` archive (tar format with zstandard compression via `github.com/klauspost/compress/zstd`). The tar preserves relative paths, permissions, and symlinks within the tree. After successful compression and hashing of the archive file, the original directory is removed with `os.RemoveAll`. Partial archives are cleaned up on failure.
+**Directories.** The directory tree is walked to compute total size, then compressed into a `.tar.zst` archive (tar format with zstandard compression via `github.com/klauspost/compress/zstd`). The tar preserves relative paths, permissions, and symlinks within the tree. The original tree stays where it is until the deletion has been recorded; it is then removed with `os.RemoveAll`. Partial archives are cleaned up on failure.
 
-**Symlinks.** The symlink's target path is read via `os.Readlink` and written to a `.symlink` metadata file in the archive directory. The symlink itself is then removed. No content is archived because symlinks have no content -- the target path is sufficient for reconstruction.
+**Symlinks.** The symlink's target path is read via `os.Readlink` and written to a `.symlink` metadata file in the archive directory. The symlink itself is removed after the deletion is recorded, like every other kind. No content is archived because symlinks have no content -- the target path is sufficient for reconstruction.
 
 ### 3. Metadata recording
 
-After successful archival, the command handler collects contextual metadata via the `meta` package and inserts a `DeletionRecord` into the SQLite database. This metadata is what makes saferm's deletions auditable and reversible: every record links the archived content to its original location, captures who deleted it and why, and stores enough context to understand the circumstances of the deletion months later. The record captures:
+After the archive entry is written -- and while the original is still on disk -- the command handler collects contextual metadata via the `meta` package and inserts a `DeletionRecord` into the SQLite database. An insert that fails removes the archive entry again (`archive.DiscardBlob`) and reports that the path was left in place; a discard that itself fails is reported by name, because that is the one remaining way to end up with an archive entry no command can resolve. This metadata is what makes saferm's deletions auditable and reversible: every record links the archived content to its original location, captures who deleted it and why, and stores enough context to understand the circumstances of the deletion months later. The record captures:
 
 - **Identity**: auto-increment ID, UUID (matches archive filename), original absolute path, original filename
 - **Content**: file size (bytes), SHA-256 hash, directory flag, symlink target
@@ -97,13 +97,13 @@ If the destination is inside a git repository, `git add` is run to stage the res
 
 Purging permanently removes the archived content while preserving the metadata record. The archive file (`<uuid>`, `<uuid>.tar.zst`, or `<uuid>.symlink`) is deleted from disk, and the database record's `purged_at` field is set. This means `saferm list --all` still shows the deletion history, but `saferm undelete` will refuse to restore a purged item because the content is gone.
 
-Records can be selected for purging by ID, by age (`--older-than`), by size (`--larger-than`), or all at once (`--all`).
+Records can be selected for purging by record UUID or numeric ID, by age (`--older-than`), by size (`--larger-than`), or all at once (`--all`).
 
 ## Cross-device handling
 
-When the source file and the archive directory reside on different filesystems (different mount points, network shares, container bind mounts), `os.Rename` fails with `EXDEV`. saferm detects this specific error by unwrapping the `*os.LinkError` and checking for `syscall.EXDEV`.
+When the source file and the archive directory reside on different filesystems (different mount points, network shares, container bind mounts), `os.Link` fails with `EXDEV`. saferm detects this specific error by unwrapping the `*os.LinkError` and checking for `syscall.EXDEV`, and treats three further errno values the same way (`EPERM`, `EOPNOTSUPP`/`ENOSYS`, `EMLINK`): each means the filesystem or the kernel's policy will not link this file, not that the archival has failed.
 
-The fallback path for files is copy-and-verify: copy the content, compute the SHA-256 hash of the copy, compare it against the hash of the original. If the hashes match, the original is removed. If they do not match, the copy is deleted and the operation fails with `ErrHashMismatch`. This ensures no data loss even when atomic renames are unavailable.
+The fallback path for files is copy-and-verify: copy the content, compute the SHA-256 hash of the copy, compare it against the hash of the original. If the hashes do not match, the copy is deleted and the operation fails with `ErrHashMismatch`. The original is removed later, after the record exists, exactly as in the linked case. This ensures no data loss even when hard links are unavailable.
 
 Directories always use tar+zstd compression, which inherently handles cross-device scenarios because `createTarZst` reads the source tree and writes to the archive directory independently.
 
