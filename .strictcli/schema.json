@@ -85,7 +85,7 @@
       "flags": [
         {
           "default": "",
-          "help": "Filter results to paths matching the given glob pattern",
+          "help": "Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth)",
           "name": "path",
           "type": "str"
         },
