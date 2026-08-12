@@ -189,14 +189,21 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 			rec.SymlinkTarget = &result.SymlinkTarget
 		}
 
-		if _, err := database.Insert(rec); err != nil {
+		id, err := database.Insert(rec)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: inserting database record: %s\n", err)
 			return strictcli.Exit(dbExit(err))
 		}
 
-		if verbose {
-			say(ctx, "archived: %s (%s)\n", absPath, humanSize(result.Size))
-		}
+		// Both identifiers, one line per record, in every mode but --quiet.
+		// The numeric id is the counter of this one database; the uuid names
+		// the archived entry itself and is the handle that survives -- `info`,
+		// `undelete` and `purge` all accept it. Printing them here is what
+		// spares a caller from running `list` afterwards and guessing which row
+		// was its own, and it is why an abort partway through a multi-path
+		// delete still leaves the caller holding the identifiers of everything
+		// that did get archived.
+		say(ctx, "archived: [%d] %s %s (%s)\n", id, result.UUID, absPath, humanSize(result.Size))
 
 		archived++
 	}
