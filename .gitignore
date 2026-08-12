@@ -20,5 +20,8 @@ pypi/saferm/_bin/
 
 .rlsbl-monorepo/lock
 
+go.work
+go.work.sum
+
 build/
 target/
