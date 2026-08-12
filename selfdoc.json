@@ -57,10 +57,6 @@
       "*"
     ]
   },
-  "deploy": {
-    "provider": "cloudflare-pages",
-    "project": "saferm"
-  },
   "topology": {
     "slug": "saferm",
     "docs_base": "https://smmh.dev",
