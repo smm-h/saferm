@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -65,10 +66,10 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 		return strictcli.Exit(ExitGeneral)
 	}
 
-	database, err := openArchiveDB(dryRun, dbPath)
+	database, err := openArchiveDB(ctx, dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 	// nil means the dry run found no archive at all, which is the emptiest
 	// possible selection.
@@ -90,8 +91,15 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 			}
 			rec, err := database.QueryByID(id)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
-				return strictcli.Exit(ExitFileNotFound)
+				// A missing record and a locked database are different
+				// answers: reporting contention as "no record with ID" would
+				// tell a caller its record is gone when it is only busy.
+				if errors.Is(err, db.ErrNotFound) {
+					fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
+					return strictcli.Exit(ExitFileNotFound)
+				}
+				fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
+				return strictcli.Exit(dbExit(err))
 			}
 			records = append(records, rec)
 		}
@@ -105,14 +113,14 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 		records, err = database.QueryOlderThan(before)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return strictcli.Exit(ExitDatabase)
+			return strictcli.Exit(dbExit(err))
 		}
 	} else {
 		// --all or --larger-than alone (which implies all records)
 		records, err = database.QueryAll(true)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return strictcli.Exit(ExitDatabase)
+			return strictcli.Exit(dbExit(err))
 		}
 	}
 

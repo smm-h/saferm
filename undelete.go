@@ -43,10 +43,10 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 		return strictcli.Exit(ExitGeneral)
 	}
 
-	database, err := openArchiveDB(ctx.DryRun(), dbPath)
+	database, err := openArchiveDB(ctx, dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 	// nil means the dry run found no archive at all, so there is nothing to
 	// restore from and no record to name.
@@ -67,14 +67,14 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 				return strictcli.Exit(ExitFileNotFound)
 			}
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return strictcli.Exit(ExitDatabase)
+			return strictcli.Exit(dbExit(err))
 		}
 	} else {
 		// Treat as a file path
 		records, err := database.QueryByPath(target)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return strictcli.Exit(ExitDatabase)
+			return strictcli.Exit(dbExit(err))
 		}
 		if len(records) == 0 {
 			fmt.Fprintf(os.Stderr, "error: no archived record found for path %q\n", target)
@@ -155,7 +155,7 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 
 	if err := database.MarkRestored(rec.ID, dest); err != nil {
 		fmt.Fprintf(os.Stderr, "error: updating database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 
 	// Stage the restored file in git if inside a git repo.

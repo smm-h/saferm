@@ -122,6 +122,8 @@ The database opens with two SQLite pragmas that configure it for concurrent acce
 - `journal_mode=WAL` -- write-ahead logging for concurrent read/write access
 - `busy_timeout=5000` -- wait up to 5 seconds for locks, supporting multiple simultaneous saferm sessions
 
+Above those pragmas, saferm applies its own bounded retry: an operation that still meets `SQLITE_BUSY` or `SQLITE_LOCKED` after the busy timeout is tried again, up to five attempts in total, pausing 50ms, 100ms, 150ms and 200ms between them. Each retry is reported on stderr under `--verbose`. Contention that survives the whole budget exits **8** rather than the generic database code, which tells a caller to run the command again rather than to investigate the archive. Neither the retry budget nor the pragmas are user-configurable.
+
 ### Schema
 
 The database has a single `deletions` table that stores the complete lifecycle of every archived item. Each row tracks the original file identity, content hash, deletion context, and restoration or purge status. Schema migrations are tracked via SQLite's `PRAGMA user_version` and run automatically on database open, so the table evolves safely across saferm upgrades:

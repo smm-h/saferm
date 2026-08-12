@@ -56,6 +56,38 @@ func ensureDirectories(fx *strictcli.Effects, baseDir, archiveDir, dbPath string
 	return nil
 }
 
+// dbExit picks the exit code a database-layer failure deserves.
+//
+// Contention that outlived the retry budget is not a database failure in the
+// same sense as the rest: nothing is wrong with the archive, another process
+// simply held the write lock the whole time, and the caller's correct response
+// is to run the command again rather than to investigate. It gets its own exit
+// code so a script can tell the two apart without reading English.
+func dbExit(err error) int {
+	if db.IsContentionExhausted(err) {
+		return ExitContention
+	}
+	return ExitDatabase
+}
+
+// retryNotifier reports each database contention retry on stderr under
+// --verbose, and reports nothing otherwise.
+//
+// stderr rather than stdout, and so outside say(): for `list` and `info` stdout
+// IS the command's output, and a retry notice interleaved into a table would
+// corrupt the thing the caller asked for. A retry is a diagnostic about the
+// wait, which is what stderr is for -- and --quiet, which never touches stderr,
+// leaves it alone.
+func retryNotifier(ctx *strictcli.Context) db.RetryNotifier {
+	if !ctx.Verbose() {
+		return nil
+	}
+	return func(attempt, maxAttempts int, delay time.Duration, err error) {
+		fmt.Fprintf(os.Stderr, "database is locked by another process (attempt %d/%d); retrying in %s\n",
+			attempt, maxAttempts, delay)
+	}
+}
+
 // openArchiveDB opens the archive database, or reports that no archive exists.
 //
 // Under --dry-run ensureDirectories only records the directories it would
@@ -65,11 +97,11 @@ func ensureDirectories(fx *strictcli.Effects, baseDir, archiveDir, dbPath string
 // archive yet" and must say so in its own vocabulary. Outside dry mode the
 // directories have just been created, so the open always proceeds and the
 // result is never nil.
-func openArchiveDB(dryRun bool, dbPath string) (*db.DB, error) {
-	if dryRun {
-		return openArchiveDBIfPresent(dbPath)
+func openArchiveDB(ctx *strictcli.Context, dbPath string) (*db.DB, error) {
+	if ctx.DryRun() {
+		return openArchiveDBIfPresent(ctx, dbPath)
 	}
-	return db.Open(dbPath)
+	return db.Open(dbPath, retryNotifier(ctx))
 }
 
 // openArchiveDBIfPresent opens the archive database, or returns nil when there
@@ -81,11 +113,11 @@ func openArchiveDB(dryRun bool, dbPath string) (*db.DB, error) {
 // anything they meet a file that is not there. SQLite's "unable to open
 // database file" is the wrong answer to "what have I deleted?"; the caller
 // turns the nil into "nothing", which is the true one.
-func openArchiveDBIfPresent(dbPath string) (*db.DB, error) {
+func openArchiveDBIfPresent(ctx *strictcli.Context, dbPath string) (*db.DB, error) {
 	if _, err := os.Stat(dbPath); errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
-	return db.Open(dbPath)
+	return db.Open(dbPath, retryNotifier(ctx))
 }
 
 // pathSeparatorPlaceholder stands in for "/" while a pattern and a path are

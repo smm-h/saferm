@@ -32,10 +32,10 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 
 	dbPath := kwargs["db_path"].(string)
 
-	database, err := openArchiveDBIfPresent(dbPath)
+	database, err := openArchiveDBIfPresent(ctx, dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 	// No database file means nothing has ever been deleted on this machine, so
 	// no ID resolves -- the same answer as an ID that was never issued.
@@ -52,7 +52,7 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 			return strictcli.Exit(ExitFileNotFound)
 		}
 		fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 
 	fileType := "file"

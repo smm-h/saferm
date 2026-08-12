@@ -14,7 +14,8 @@ var ErrNotFound = errors.New("record not found")
 
 // DB wraps a *sql.DB connection to the saferm SQLite database.
 type DB struct {
-	conn *sql.DB
+	conn   *sql.DB
+	notify RetryNotifier
 }
 
 // DeletionRecord represents a single archived deletion in the database.
@@ -36,29 +37,46 @@ type DeletionRecord struct {
 	PurgedAt      *time.Time // nil if not purged
 }
 
+// busyTimeoutMS is how long SQLite itself waits for a held lock before handing
+// back SQLITE_BUSY. saferm's own bounded retry (see contention.go) sits on top
+// of it: SQLite absorbs the brief overlaps, the retry absorbs the long ones,
+// and only a lock that outlives both reaches the caller.
+const busyTimeoutMS = 5000
+
 // Open opens (or creates) the SQLite database at dbPath with WAL mode and
-// busy_timeout=5000ms, then runs the schema DDL.
-func Open(dbPath string) (*DB, error) {
+// busy_timeout, then runs the schema DDL.
+//
+// notify, when non-nil, is called before each contention retry -- for every
+// operation on the returned DB as well as for the schema work below, which is
+// why it is supplied here rather than set afterwards. Pass nil for no
+// reporting.
+func Open(dbPath string, notify RetryNotifier) (*DB, error) {
+	return open(dbPath, busyTimeoutMS, notify)
+}
+
+// open is Open with the busy timeout exposed, so tests can produce real
+// contention without waiting seconds for it.
+func open(dbPath string, busyTimeout int, notify RetryNotifier) (*DB, error) {
 	// Pass pragmas via DSN so they take effect on every connection in the pool.
-	dsn := dbPath + "?_pragma=busy_timeout%3d5000&_pragma=journal_mode%3dWAL"
+	dsn := fmt.Sprintf("%s?_pragma=busy_timeout%%3d%d&_pragma=journal_mode%%3dWAL", dbPath, busyTimeout)
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create tables and indexes.
-	if _, err := conn.Exec(SchemaSQL); err != nil {
+	// Create tables and indexes, then run schema migrations. Both are write
+	// paths and both are idempotent, so both are retried under contention.
+	if err := retryBusy(notify, func() error {
+		if _, err := conn.Exec(SchemaSQL); err != nil {
+			return err
+		}
+		return migrate(conn)
+	}); err != nil {
 		conn.Close()
 		return nil, err
 	}
 
-	// Run schema migrations.
-	if err := migrate(conn); err != nil {
-		conn.Close()
-		return nil, err
-	}
-
-	return &DB{conn: conn}, nil
+	return &DB{conn: conn, notify: notify}, nil
 }
 
 // migrate applies schema migrations based on PRAGMA user_version.
@@ -131,36 +149,49 @@ func (d *DB) Close() error {
 
 // Insert inserts a DeletionRecord and returns the auto-increment ID.
 func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
-	result, err := d.conn.Exec(
-		`INSERT INTO deletions (uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		rec.UUID,
-		rec.OriginalPath,
-		rec.OriginalName,
-		rec.Size,
-		rec.Hash,
-		boolToInt(rec.IsDirectory),
-		rec.DeletedAt.Format(time.RFC3339),
-		nullableString(rec.Command),
-		rec.Description,
-		nullableString(rec.Metadata),
-		nullableTime(rec.RestoredAt),
-		rec.RestoredTo,
-		rec.SymlinkTarget,
-	)
+	var id int64
+	err := d.retry(func() error {
+		result, err := d.conn.Exec(
+			`INSERT INTO deletions (uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			rec.UUID,
+			rec.OriginalPath,
+			rec.OriginalName,
+			rec.Size,
+			rec.Hash,
+			boolToInt(rec.IsDirectory),
+			rec.DeletedAt.Format(time.RFC3339),
+			nullableString(rec.Command),
+			rec.Description,
+			nullableString(rec.Metadata),
+			nullableTime(rec.RestoredAt),
+			rec.RestoredTo,
+			rec.SymlinkTarget,
+		)
+		if err != nil {
+			return err
+		}
+		id, err = result.LastInsertId()
+		return err
+	})
 	if err != nil {
 		return 0, err
 	}
-	return result.LastInsertId()
+	return id, nil
 }
 
 // QueryByID retrieves a single record by ID. Returns ErrNotFound if it does
 // not exist.
 func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
-	row := d.conn.QueryRow(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
-		 FROM deletions WHERE id = ?`, id)
-	rec, err := scanRecord(row)
+	var rec *DeletionRecord
+	err := d.retry(func() error {
+		row := d.conn.QueryRow(
+			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			 FROM deletions WHERE id = ?`, id)
+		var err error
+		rec, err = scanRecord(row)
+		return err
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -173,14 +204,22 @@ func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
 // QueryByPath returns all non-restored records matching the given original_path,
 // ordered by deleted_at DESC (newest first).
 func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
-	rows, err := d.conn.Query(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
-		 FROM deletions WHERE original_path = ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`, path)
+	var records []*DeletionRecord
+	err := d.retry(func() error {
+		rows, err := d.conn.Query(
+			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			 FROM deletions WHERE original_path = ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`, path)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		records, err = scanRecords(rows)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	return scanRecords(rows)
+	return records, nil
 }
 
 // QueryAll returns all records ordered by deleted_at DESC. If includeAll
@@ -193,65 +232,85 @@ func (d *DB) QueryAll(includeAll bool) ([]*DeletionRecord, error) {
 	}
 	query += " ORDER BY deleted_at DESC"
 
-	rows, err := d.conn.Query(query)
+	var records []*DeletionRecord
+	err := d.retry(func() error {
+		rows, err := d.conn.Query(query)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		records, err = scanRecords(rows)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	return scanRecords(rows)
+	return records, nil
 }
 
 // MarkRestored sets restored_at to now and restored_to to the given path.
 // Returns ErrNotFound if the record does not exist.
 func (d *DB) MarkRestored(id int64, restoredTo string) error {
 	now := time.Now().Format(time.RFC3339)
-	result, err := d.conn.Exec(
-		`UPDATE deletions SET restored_at = ?, restored_to = ? WHERE id = ?`,
-		now, restoredTo, id)
-	if err != nil {
-		return err
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return d.retry(func() error {
+		result, err := d.conn.Exec(
+			`UPDATE deletions SET restored_at = ?, restored_to = ? WHERE id = ?`,
+			now, restoredTo, id)
+		if err != nil {
+			return err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
 }
 
 // MarkPurged sets purged_at to now, preserving the metadata record.
 // Returns ErrNotFound if the record does not exist.
 func (d *DB) MarkPurged(id int64) error {
 	now := time.Now().Format(time.RFC3339)
-	result, err := d.conn.Exec(
-		`UPDATE deletions SET purged_at = ? WHERE id = ?`,
-		now, id)
-	if err != nil {
-		return err
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return d.retry(func() error {
+		result, err := d.conn.Exec(
+			`UPDATE deletions SET purged_at = ? WHERE id = ?`,
+			now, id)
+		if err != nil {
+			return err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
 }
 
 // QueryOlderThan returns all non-restored, non-purged records deleted before the given time.
 func (d *DB) QueryOlderThan(before time.Time) ([]*DeletionRecord, error) {
-	rows, err := d.conn.Query(
-		`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
-		 FROM deletions WHERE deleted_at < ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`,
-		before.Format(time.RFC3339))
+	var records []*DeletionRecord
+	err := d.retry(func() error {
+		rows, err := d.conn.Query(
+			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			 FROM deletions WHERE deleted_at < ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`,
+			before.Format(time.RFC3339))
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		records, err = scanRecords(rows)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	return scanRecords(rows)
+	return records, nil
 }
 
 // scanner is the common interface between *sql.Row and *sql.Rows.

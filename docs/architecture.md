@@ -121,7 +121,7 @@ Hashing is streaming (`io.Copy` into `crypto/sha256`), so memory usage is consta
 
 ## Concurrency model
 
-saferm is designed for concurrent use by multiple processes, such as parallel AI agent sessions running simultaneously in the same directory. Two mechanisms prevent conflicts: UUID-based archive naming guarantees unique filenames without inter-process coordination, and WAL-mode SQLite allows concurrent reads alongside writes with automatic retry on lock contention. Together, these ensure that simultaneous deletions never corrupt each other's data:
+saferm is designed for concurrent use by multiple processes, such as parallel AI agent sessions running simultaneously in the same directory. Three mechanisms prevent conflicts: UUID-based archive naming guarantees unique filenames without inter-process coordination, WAL-mode SQLite allows concurrent reads alongside writes, and every database operation carries a bounded retry for the lock contention WAL mode cannot avoid. Together, these ensure that simultaneous deletions never corrupt each other's data:
 
 ### UUID-based archive naming
 
@@ -135,6 +135,18 @@ The database connection is opened with two pragmas passed via the SQLite DSN con
 - `busy_timeout=5000`: if a write lock is held by another process, SQLite retries for up to 5 seconds before returning `SQLITE_BUSY`. This handles the brief window where two processes try to insert simultaneously.
 
 :-: ref path="internal/db" target="Open"
+
+### Bounded contention retry
+
+The busy timeout covers brief overlaps; a lock held longer than five seconds still surfaces as `SQLITE_BUSY`, and before this retry existed that raw driver error travelled all the way out to the caller as an ordinary database failure. saferm now classifies it and retries around it.
+
+- **Classification.** `IsContention` reads the driver's result code rather than its message, and compares the low byte, so every extended flavour of `SQLITE_BUSY` and `SQLITE_LOCKED` (`SQLITE_BUSY_SNAPSHOT` and the rest) classifies with its primary code. Nothing else in the database layer is treated as retryable.
+- **Budget.** Five attempts in total, the first one included, with a linear backoff of 50ms before the first retry and 50ms more before each subsequent one -- 500ms of waiting on top of SQLite's own. The numbers are the ones saferm's concurrency tests previously hand-rolled around the binary, which is the measured record of what the suite needed.
+- **Scope.** Every operation on the database goes through it, reads included, along with the schema creation and migration that run at open time. All of them are safe to run again: a statement that met `SQLITE_BUSY` never took the write lock, so it never took effect.
+- **Reporting.** Under `--verbose` each retry prints on stderr, naming the attempt and the pause. It is stderr rather than stdout because for `list` and `info` stdout is the command's output, and `--quiet` never touches stderr.
+- **Exhaustion.** A lock that outlives the whole budget produces a `ContentionError`, which the commands map to exit code 8 instead of the generic database code 5. The distinction is actionable: 5 means the database failed, 8 means the caller should run the command again.
+
+:-: ref path="internal/db" target="IsContention"
 
 ### Schema migrations
 

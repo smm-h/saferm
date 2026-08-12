@@ -9,7 +9,13 @@ package main
 // returned; a permission failure reaches the caller as ExitArchive or
 // ExitDatabase, depending on which layer met it. The number is not reused and
 // the codes below it are not renumbered: that would change the meaning of every
-// existing script's comparison.
+// existing script's comparison. A new code therefore takes the next number
+// after the highest one in use -- ExitContention took 8 while 4 stayed empty,
+// so an old script comparing against 5, 6 or 7 still means what it meant.
+//
+// ExitContention is deliberately distinct from ExitDatabase: it says another
+// process held the archive database's write lock for longer than saferm's whole
+// retry budget, which is a "try again later", not a broken archive.
 const (
 	ExitSuccess      = 0
 	ExitGeneral      = 1
@@ -18,4 +24,5 @@ const (
 	ExitDatabase     = 5
 	ExitArchive      = 6
 	ExitConflict     = 7
+	ExitContention   = 8
 )

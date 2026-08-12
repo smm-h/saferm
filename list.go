@@ -24,10 +24,10 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 
 	dbPath := kwargs["db_path"].(string)
 
-	database, err := openArchiveDBIfPresent(dbPath)
+	database, err := openArchiveDBIfPresent(ctx, dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 	// No database file means nothing has ever been deleted on this machine,
 	// which is a list of length zero, not a failure.
@@ -40,7 +40,7 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 	records, err := database.QueryAll(includeAll)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 
 	// Filter by glob if specified

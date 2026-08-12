@@ -15,12 +15,12 @@ list.go          -- saferm list: show archived items
 purge.go         -- saferm purge: permanently remove from archive
 info.go          -- saferm info: full metadata for a deletion
 helpers.go       -- humanSize, humanAge, parseDuration
-exitcodes.go     -- exit codes 0-7
+exitcodes.go     -- exit codes 0-8
 version.go       -- version from ldflags or debug.ReadBuildInfo
 
 internal/
   archive/       -- file/dir archival (os.Rename, copy+verify for cross-device, tar+zstd for dirs)
-  db/            -- SQLite database (WAL mode, busy_timeout=5000, CRUD operations)
+  db/            -- SQLite database (WAL mode, busy_timeout=5000, bounded contention retry, CRUD operations)
   meta/          -- metadata collection (env vars, git context, PPID + parent cmdline)
   test/          -- integration tests (builds binary, runs as subprocess)
   testutil/      -- test helpers
@@ -52,14 +52,14 @@ go install .                # install locally (picks up changes)
 - **Files** archived via `os.Rename` (or copy+verify for cross-device moves).
 - **Directories** archived as `.tar.zst` (tar + zstandard compression).
 - **SHA-256 hash** computed for integrity verification.
-- **SQLite WAL** with `busy_timeout=5000` for concurrency safety.
+- **SQLite WAL** with `busy_timeout=5000`, plus saferm's own bounded retry on top of it: every database operation that meets SQLITE_BUSY/SQLITE_LOCKED contention is retried up to 5 attempts total with a linear 50ms-per-attempt backoff, reported on stderr under `--verbose`. A lock that outlives the whole budget exits **8** (`ExitContention`), not 5 -- the archive is fine, another process is simply holding the write lock. The classifier (`db.IsContention`) reads the driver's result code, not its message, and covers every extended flavour of BUSY and LOCKED.
 - **All env vars captured** except those matching denylist patterns (secrets, tokens, keys, etc.).
 - **Git context** auto-detected (branch, HEAD, root).
 - **PPID + parent cmdline** captured (platform-specific: `proc_linux.go`, `proc_darwin.go`).
 - **Config:** `~/.saferm/config.toml` via strictcli's built-in config system (`WithConfig`). Key fields: `archive_dir`, `db_path`, `exclude_env_patterns`. Manage with `saferm config show/set/path/edit`. A malformed `config.toml` is a hard error (exit 1) with a parse position -- it is never silently ignored. Unknown keys and, for `archive_dir`/`db_path`, a CLI/config value that diverges from the config are also hard errors (conflict-mode `error`). The divergence check only fires for a global flag in the pre-command position (`saferm --archive-dir X delete ...`); post-command placement (`saferm delete --archive-dir X`) is not currently conflict-checked.
 - **Config vs infrastructure boundary:** `--hermetic` suppresses config-file and env *values* (config-managed settings fall back to defaults). `SAFERM_HOME` is NOT a config value -- it is location infrastructure, the same category as `HOME`, and is NOT suppressed by `--hermetic`. It selects where saferm lives; config values select how saferm behaves.
 - **`SAFERM_HOME` env var** overrides `~/.saferm/` base dir. Used by tests for isolation. (Infrastructure, not config -- see the boundary note above.)
-- **Exit codes:** 0 (success), 1 (general), 2 (usage), 3 (file not found), 5 (database), 6 (archive), 7 (conflict). Defined in `exitcodes.go`. 4 is deliberately absent: it was `ExitPermission`, which nothing ever returned, and the codes above it are not renumbered. Config-layer failures (malformed/unknown-key/conflicting config) are strictcli's and exit **1**; saferm's own semantic conflicts (e.g. an undelete target already exists) exit **7** (`ExitConflict`). The two are distinct: exit 1 means the config could not be loaded/reconciled; exit 7 means saferm ran but hit a semantic conflict.
+- **Exit codes:** 0 (success), 1 (general), 2 (usage), 3 (file not found), 5 (database), 6 (archive), 7 (conflict), 8 (database contention outlived the retry budget). Defined in `exitcodes.go`. 4 is deliberately absent: it was `ExitPermission`, which nothing ever returned, and the codes above it are not renumbered -- a new code takes the next number after the highest in use (8), so an old script's comparisons keep meaning what they meant. Config-layer failures (malformed/unknown-key/conflicting config) are strictcli's and exit **1**; saferm's own semantic conflicts (e.g. an undelete target already exists) exit **7** (`ExitConflict`). The two are distinct: exit 1 means the config could not be loaded/reconciled; exit 7 means saferm ran but hit a semantic conflict.
 - **Version:** set via ldflags (`-X main.version=x.y.z`) at build time; falls back to `debug.ReadBuildInfo`, then `"dev"`.
 
 ## Testing

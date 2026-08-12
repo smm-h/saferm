@@ -79,10 +79,10 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 
 	// nil means "no archive yet", which only a dry run can see. Nothing below
 	// touches the database in dry mode, so there is nothing to say about it.
-	database, err := openArchiveDB(dryRun, dbPath)
+	database, err := openArchiveDB(ctx, dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: opening database: %s\n", err)
-		return strictcli.Exit(ExitDatabase)
+		return strictcli.Exit(dbExit(err))
 	}
 	if database != nil {
 		defer database.Close()
@@ -191,7 +191,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 
 		if _, err := database.Insert(rec); err != nil {
 			fmt.Fprintf(os.Stderr, "error: inserting database record: %s\n", err)
-			return strictcli.Exit(ExitDatabase)
+			return strictcli.Exit(dbExit(err))
 		}
 
 		if verbose {
