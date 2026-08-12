@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/smm-h/saferm/internal/testutil"
 )
@@ -15,7 +14,6 @@ func TestConcurrentDeletes(t *testing.T) {
 	workDir := t.TempDir()
 
 	const numFiles = 20
-	const maxRetries = 3
 
 	// Create all temp files.
 	files := make([]string, numFiles)
@@ -25,7 +23,9 @@ func TestConcurrentDeletes(t *testing.T) {
 		files[i] = testutil.CreateTempFile(t, workDir, name, content)
 	}
 
-	// Launch parallel deletes with retry on SQLITE_BUSY.
+	// Launch parallel deletes. Nothing here retries: saferm retries database
+	// contention itself, and these tests are one of the two places that used to
+	// hand-roll a retry loop around the binary to compensate for it not doing so.
 	var wg sync.WaitGroup
 	results := make([]struct {
 		stdout   string
@@ -38,21 +38,8 @@ func TestConcurrentDeletes(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			desc := fmt.Sprintf("concurrent %d", idx)
-			var stdout, stderr string
-			var code int
-			for attempt := range maxRetries {
-				stdout, stderr, code = runSaferm(t, homeDir, "delete",
-					"--description", desc, files[idx])
-				if code == 0 {
-					break
-				}
-				// Retry on database lock errors.
-				if strings.Contains(stderr, "SQLITE_BUSY") || strings.Contains(stderr, "database is locked") {
-					time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
-					continue
-				}
-				break
-			}
+			stdout, stderr, code := runSaferm(t, homeDir, "delete",
+				"--description", desc, files[idx])
 			results[idx].stdout = stdout
 			results[idx].stderr = stderr
 			results[idx].exitCode = code
@@ -101,7 +88,6 @@ func TestConcurrentDeleteAndUndelete(t *testing.T) {
 
 	const numDeleteFiles = 10
 	const numUndeleteFiles = 5
-	const maxRetries = 5
 
 	// Pre-create files that will be deleted by undelete goroutines (they need
 	// existing records to restore). We delete them first sequentially.
@@ -158,20 +144,8 @@ func TestConcurrentDeleteAndUndelete(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			desc := fmt.Sprintf("concurrent del %d", idx)
-			var stderr string
-			var code int
-			for attempt := range maxRetries {
-				_, stderr, code = runSaferm(t, homeDir, "delete",
-					"--description", desc, deleteFiles[idx])
-				if code == 0 {
-					break
-				}
-				if strings.Contains(stderr, "SQLITE_BUSY") || strings.Contains(stderr, "database is locked") {
-					time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
-					continue
-				}
-				break
-			}
+			_, stderr, code := runSaferm(t, homeDir, "delete",
+				"--description", desc, deleteFiles[idx])
 			deleteResults[idx].exitCode = code
 			deleteResults[idx].stderr = stderr
 		}(i)
@@ -182,19 +156,7 @@ func TestConcurrentDeleteAndUndelete(t *testing.T) {
 	for i := range numUndeleteFiles {
 		go func(idx int) {
 			defer wg.Done()
-			var stderr string
-			var code int
-			for attempt := range maxRetries {
-				_, stderr, code = runSaferm(t, homeDir, "undelete", undeleteIDs[idx])
-				if code == 0 {
-					break
-				}
-				if strings.Contains(stderr, "SQLITE_BUSY") || strings.Contains(stderr, "database is locked") {
-					time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
-					continue
-				}
-				break
-			}
+			_, stderr, code := runSaferm(t, homeDir, "undelete", undeleteIDs[idx])
 			undeleteResults[idx].exitCode = code
 			undeleteResults[idx].stderr = stderr
 		}(i)
