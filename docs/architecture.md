@@ -101,7 +101,7 @@ Records can be selected for purging by record UUID or numeric ID, by age (`--old
 
 ## Cross-device handling
 
-When the source file and the archive directory reside on different filesystems (different mount points, network shares, container bind mounts), `os.Link` fails with `EXDEV`. saferm detects this specific error by unwrapping the `*os.LinkError` and checking for `syscall.EXDEV`, and treats three further errno values the same way (`EPERM`, `EOPNOTSUPP`/`ENOSYS`, `EMLINK`): each means the filesystem or the kernel's policy will not link this file, not that the archival has failed.
+When the source file and the archive directory reside on different filesystems (different mount points, network shares, container bind mounts), `os.Link` fails with `EXDEV`. saferm detects this specific error by unwrapping the `*os.LinkError` and checking for `syscall.EXDEV`, and treats three further system error values the same way (`EPERM`, `EOPNOTSUPP`/`ENOSYS`, `EMLINK`): each means the filesystem or the kernel's policy will not link this file, not that the archival has failed.
 
 The fallback path for files is copy-and-verify: copy the content, compute the SHA-256 hash of the copy, compare it against the hash of the original. If the hashes do not match, the copy is deleted and the operation fails with `ErrHashMismatch`. The original is removed later, after the record exists, exactly as in the linked case. This ensures no data loss even when hard links are unavailable.
 
