@@ -17,15 +17,15 @@ Version: :-: var key="project.version"
 
 ## Commands
 
-- [delete](cli-delete.html) -- Move files to the saferm archive with metadata tracking
-- [info](cli-info.html) -- Display full metadata and context for an archived deletion
-- [list](cli-list.html) -- Show all items currently held in the saferm archive
-- [purge](cli-purge.html) -- Permanently destroy archived items and free disk space
-- [undelete](cli-undelete.html) -- Restore a previously archived file back to its original path
+- [delete](../cli-delete/) -- Move files to the saferm archive with metadata tracking
+- [info](../cli-info/) -- Display full metadata and context for an archived deletion
+- [list](../cli-list/) -- Show all items currently held in the saferm archive
+- [purge](../cli-purge/) -- Permanently destroy archived items and free disk space
+- [undelete](../cli-undelete/) -- Restore a previously archived file back to its original path
 
 ## Command Groups
 
-- [config](cli-config.html) -- Manage persistent configuration values stored in the config file
+- [config](../cli-config/) -- Manage persistent configuration values stored in the config file
 
 ## Global flags
 

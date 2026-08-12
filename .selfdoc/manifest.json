@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "saferm",
   "slug": "saferm",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "",
   "language": "go",
   "base_url": "https://saferm.smmh.dev",
@@ -10,79 +10,884 @@
     {
       "path": "architecture.md",
       "title": "Architecture",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "Architecture",
+          "anchor": "architecture"
+        },
+        {
+          "level": 2,
+          "text": "Component overview",
+          "anchor": "component-overview"
+        },
+        {
+          "level": 2,
+          "text": "Storage layout",
+          "anchor": "storage-layout"
+        },
+        {
+          "level": 2,
+          "text": "Deletion lifecycle",
+          "anchor": "deletion-lifecycle"
+        },
+        {
+          "level": 3,
+          "text": "1. Validation",
+          "anchor": "1-validation"
+        },
+        {
+          "level": 3,
+          "text": "2. Archival",
+          "anchor": "2-archival"
+        },
+        {
+          "level": 3,
+          "text": "3. Metadata recording",
+          "anchor": "3-metadata-recording"
+        },
+        {
+          "level": 3,
+          "text": "DeletionRecord",
+          "anchor": "deletionrecord"
+        },
+        {
+          "level": 3,
+          "text": "Collect",
+          "anchor": "collect"
+        },
+        {
+          "level": 3,
+          "text": "4. Git index update",
+          "anchor": "4-git-index-update"
+        },
+        {
+          "level": 3,
+          "text": "GitRmCached",
+          "anchor": "gitrmcached"
+        },
+        {
+          "level": 2,
+          "text": "Restoration (undelete)",
+          "anchor": "restoration-undelete"
+        },
+        {
+          "level": 3,
+          "text": "Restore",
+          "anchor": "restore"
+        },
+        {
+          "level": 2,
+          "text": "Purge (permanent destruction)",
+          "anchor": "purge-permanent-destruction"
+        },
+        {
+          "level": 2,
+          "text": "Cross-device handling",
+          "anchor": "cross-device-handling"
+        },
+        {
+          "level": 2,
+          "text": "Integrity verification",
+          "anchor": "integrity-verification"
+        },
+        {
+          "level": 2,
+          "text": "Concurrency model",
+          "anchor": "concurrency-model"
+        },
+        {
+          "level": 3,
+          "text": "UUID-based archive naming",
+          "anchor": "uuid-based-archive-naming"
+        },
+        {
+          "level": 3,
+          "text": "WAL-mode SQLite",
+          "anchor": "wal-mode-sqlite"
+        },
+        {
+          "level": 3,
+          "text": "Open",
+          "anchor": "open"
+        },
+        {
+          "level": 3,
+          "text": "Schema migrations",
+          "anchor": "schema-migrations"
+        },
+        {
+          "level": 2,
+          "text": "Security considerations",
+          "anchor": "security-considerations"
+        },
+        {
+          "level": 3,
+          "text": "Tar extraction safety",
+          "anchor": "tar-extraction-safety"
+        },
+        {
+          "level": 3,
+          "text": "Secret filtering",
+          "anchor": "secret-filtering"
+        },
+        {
+          "level": 3,
+          "text": "Archive permissions",
+          "anchor": "archive-permissions"
+        }
+      ]
     },
     {
       "path": "cli-config.md",
       "title": "saferm config",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm config",
+          "anchor": "saferm-config"
+        },
+        {
+          "level": 2,
+          "text": "config edit",
+          "anchor": "config-edit"
+        },
+        {
+          "level": 2,
+          "text": "config init",
+          "anchor": "config-init"
+        },
+        {
+          "level": 2,
+          "text": "config path",
+          "anchor": "config-path"
+        },
+        {
+          "level": 2,
+          "text": "config set",
+          "anchor": "config-set"
+        },
+        {
+          "level": 3,
+          "text": "Flags",
+          "anchor": "flags"
+        },
+        {
+          "level": 3,
+          "text": "Arguments",
+          "anchor": "arguments"
+        },
+        {
+          "level": 2,
+          "text": "config show",
+          "anchor": "config-show"
+        },
+        {
+          "level": 3,
+          "text": "Flags",
+          "anchor": "flags-1"
+        }
+      ]
     },
     {
       "path": "cli-delete.md",
       "title": "saferm delete",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm delete",
+          "anchor": "saferm-delete"
+        },
+        {
+          "level": 2,
+          "text": "Flags",
+          "anchor": "flags"
+        },
+        {
+          "level": 2,
+          "text": "Arguments",
+          "anchor": "arguments"
+        },
+        {
+          "level": 2,
+          "text": "Grants",
+          "anchor": "grants"
+        }
+      ]
     },
     {
       "path": "cli-index.md",
       "title": "saferm CLI Reference",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm CLI Reference",
+          "anchor": "saferm-cli-reference"
+        },
+        {
+          "level": 2,
+          "text": "Commands",
+          "anchor": "commands"
+        },
+        {
+          "level": 2,
+          "text": "Command Groups",
+          "anchor": "command-groups"
+        },
+        {
+          "level": 2,
+          "text": "Global flags",
+          "anchor": "global-flags"
+        },
+        {
+          "level": 2,
+          "text": "Framework flags",
+          "anchor": "framework-flags"
+        },
+        {
+          "level": 2,
+          "text": "Infrastructure",
+          "anchor": "infrastructure"
+        },
+        {
+          "level": 3,
+          "text": "Roots",
+          "anchor": "roots"
+        }
+      ]
     },
     {
       "path": "cli-info.md",
       "title": "saferm info",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm info",
+          "anchor": "saferm-info"
+        },
+        {
+          "level": 2,
+          "text": "Arguments",
+          "anchor": "arguments"
+        }
+      ]
     },
     {
       "path": "cli-list.md",
       "title": "saferm list",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm list",
+          "anchor": "saferm-list"
+        },
+        {
+          "level": 2,
+          "text": "Flags",
+          "anchor": "flags"
+        }
+      ]
     },
     {
       "path": "cli-purge.md",
       "title": "saferm purge",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm purge",
+          "anchor": "saferm-purge"
+        },
+        {
+          "level": 2,
+          "text": "Flags",
+          "anchor": "flags"
+        },
+        {
+          "level": 2,
+          "text": "Arguments",
+          "anchor": "arguments"
+        },
+        {
+          "level": 2,
+          "text": "Grants",
+          "anchor": "grants"
+        }
+      ]
     },
     {
       "path": "cli-undelete.md",
       "title": "saferm undelete",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm undelete",
+          "anchor": "saferm-undelete"
+        },
+        {
+          "level": 2,
+          "text": "Flags",
+          "anchor": "flags"
+        },
+        {
+          "level": 2,
+          "text": "Arguments",
+          "anchor": "arguments"
+        },
+        {
+          "level": 2,
+          "text": "Grants",
+          "anchor": "grants"
+        }
+      ]
     },
     {
       "path": "configuration.md",
       "title": "Configuration",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "Configuration",
+          "anchor": "configuration"
+        },
+        {
+          "level": 2,
+          "text": "SAFERM_HOME and the default archive location",
+          "anchor": "saferm_home-and-the-default-archive-location"
+        },
+        {
+          "level": 2,
+          "text": "Config file",
+          "anchor": "config-file"
+        },
+        {
+          "level": 3,
+          "text": "Configurable fields",
+          "anchor": "configurable-fields"
+        },
+        {
+          "level": 3,
+          "text": "Conflict mode",
+          "anchor": "conflict-mode"
+        },
+        {
+          "level": 2,
+          "text": "Infrastructure vs. config boundary",
+          "anchor": "infrastructure-vs-config-boundary"
+        },
+        {
+          "level": 2,
+          "text": "Hermetic mode",
+          "anchor": "hermetic-mode"
+        },
+        {
+          "level": 2,
+          "text": "Archive directory discovery",
+          "anchor": "archive-directory-discovery"
+        },
+        {
+          "level": 3,
+          "text": "Archive storage format",
+          "anchor": "archive-storage-format"
+        },
+        {
+          "level": 2,
+          "text": "SQLite database",
+          "anchor": "sqlite-database"
+        },
+        {
+          "level": 3,
+          "text": "Path resolution",
+          "anchor": "path-resolution"
+        },
+        {
+          "level": 3,
+          "text": "Database configuration",
+          "anchor": "database-configuration"
+        },
+        {
+          "level": 3,
+          "text": "Schema",
+          "anchor": "schema"
+        },
+        {
+          "level": 2,
+          "text": "Environment variable filtering",
+          "anchor": "environment-variable-filtering"
+        }
+      ]
     },
     {
       "path": "gen-index.md",
       "title": "API Reference",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "API Reference",
+          "anchor": "api-reference"
+        }
+      ]
     },
     {
       "path": "index.md",
       "title": "saferm",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "saferm",
+          "anchor": "saferm"
+        },
+        {
+          "level": 2,
+          "text": "CLI Reference",
+          "anchor": "cli-reference"
+        },
+        {
+          "level": 2,
+          "text": "Packages",
+          "anchor": "packages"
+        },
+        {
+          "level": 2,
+          "text": "internal/archive",
+          "anchor": "internalarchive"
+        },
+        {
+          "level": 3,
+          "text": "KindFile",
+          "anchor": "kindfile"
+        },
+        {
+          "level": 3,
+          "text": "KindDirectory",
+          "anchor": "kinddirectory"
+        },
+        {
+          "level": 3,
+          "text": "KindSymlink",
+          "anchor": "kindsymlink"
+        },
+        {
+          "level": 3,
+          "text": "ErrFileNotFound",
+          "anchor": "errfilenotfound"
+        },
+        {
+          "level": 3,
+          "text": "ErrRecursiveRequired",
+          "anchor": "errrecursiverequired"
+        },
+        {
+          "level": 3,
+          "text": "ErrConflict",
+          "anchor": "errconflict"
+        },
+        {
+          "level": 3,
+          "text": "ErrHashMismatch",
+          "anchor": "errhashmismatch"
+        },
+        {
+          "level": 3,
+          "text": "ArchiveResult",
+          "anchor": "archiveresult"
+        },
+        {
+          "level": 3,
+          "text": "Kind",
+          "anchor": "kind"
+        },
+        {
+          "level": 3,
+          "text": "Plan",
+          "anchor": "plan"
+        },
+        {
+          "level": 3,
+          "text": "NewPlan",
+          "anchor": "newplan"
+        },
+        {
+          "level": 3,
+          "text": "Execute",
+          "anchor": "execute"
+        },
+        {
+          "level": 3,
+          "text": "Archive",
+          "anchor": "archive"
+        },
+        {
+          "level": 3,
+          "text": "Restore",
+          "anchor": "restore"
+        },
+        {
+          "level": 2,
+          "text": "internal/db",
+          "anchor": "internaldb"
+        },
+        {
+          "level": 3,
+          "text": "SchemaSQL",
+          "anchor": "schemasql"
+        },
+        {
+          "level": 3,
+          "text": "ErrNotFound",
+          "anchor": "errnotfound"
+        },
+        {
+          "level": 3,
+          "text": "DB",
+          "anchor": "db"
+        },
+        {
+          "level": 3,
+          "text": "DeletionRecord",
+          "anchor": "deletionrecord"
+        },
+        {
+          "level": 3,
+          "text": "Open",
+          "anchor": "open"
+        },
+        {
+          "level": 3,
+          "text": "DB.Close",
+          "anchor": "dbclose"
+        },
+        {
+          "level": 3,
+          "text": "DB.Insert",
+          "anchor": "dbinsert"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryByID",
+          "anchor": "dbquerybyid"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryByPath",
+          "anchor": "dbquerybypath"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryAll",
+          "anchor": "dbqueryall"
+        },
+        {
+          "level": 3,
+          "text": "DB.MarkRestored",
+          "anchor": "dbmarkrestored"
+        },
+        {
+          "level": 3,
+          "text": "DB.MarkPurged",
+          "anchor": "dbmarkpurged"
+        },
+        {
+          "level": 3,
+          "text": "DB.Delete",
+          "anchor": "dbdelete"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryOlderThan",
+          "anchor": "dbqueryolderthan"
+        },
+        {
+          "level": 2,
+          "text": "internal/git",
+          "anchor": "internalgit"
+        },
+        {
+          "level": 3,
+          "text": "IsInGitRepo",
+          "anchor": "isingitrepo"
+        },
+        {
+          "level": 3,
+          "text": "IsGitTracked",
+          "anchor": "isgittracked"
+        },
+        {
+          "level": 3,
+          "text": "GitRmCached",
+          "anchor": "gitrmcached"
+        },
+        {
+          "level": 3,
+          "text": "GitAdd",
+          "anchor": "gitadd"
+        },
+        {
+          "level": 2,
+          "text": "internal/meta",
+          "anchor": "internalmeta"
+        },
+        {
+          "level": 3,
+          "text": "Metadata",
+          "anchor": "metadata"
+        },
+        {
+          "level": 3,
+          "text": "Collect",
+          "anchor": "collect"
+        }
+      ]
     },
     {
       "path": "internal-archive.md",
       "title": "internal/archive",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "internal/archive",
+          "anchor": "internalarchive"
+        },
+        {
+          "level": 2,
+          "text": "internal/archive",
+          "anchor": "internalarchive"
+        },
+        {
+          "level": 3,
+          "text": "KindFile",
+          "anchor": "kindfile"
+        },
+        {
+          "level": 3,
+          "text": "KindDirectory",
+          "anchor": "kinddirectory"
+        },
+        {
+          "level": 3,
+          "text": "KindSymlink",
+          "anchor": "kindsymlink"
+        },
+        {
+          "level": 3,
+          "text": "ErrFileNotFound",
+          "anchor": "errfilenotfound"
+        },
+        {
+          "level": 3,
+          "text": "ErrRecursiveRequired",
+          "anchor": "errrecursiverequired"
+        },
+        {
+          "level": 3,
+          "text": "ErrConflict",
+          "anchor": "errconflict"
+        },
+        {
+          "level": 3,
+          "text": "ErrHashMismatch",
+          "anchor": "errhashmismatch"
+        },
+        {
+          "level": 3,
+          "text": "ArchiveResult",
+          "anchor": "archiveresult"
+        },
+        {
+          "level": 3,
+          "text": "Kind",
+          "anchor": "kind"
+        },
+        {
+          "level": 3,
+          "text": "Plan",
+          "anchor": "plan"
+        },
+        {
+          "level": 3,
+          "text": "NewPlan",
+          "anchor": "newplan"
+        },
+        {
+          "level": 3,
+          "text": "Execute",
+          "anchor": "execute"
+        },
+        {
+          "level": 3,
+          "text": "Archive",
+          "anchor": "archive"
+        },
+        {
+          "level": 3,
+          "text": "Restore",
+          "anchor": "restore"
+        }
+      ]
     },
     {
       "path": "internal-db.md",
       "title": "internal/db",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "internal/db",
+          "anchor": "internaldb"
+        },
+        {
+          "level": 2,
+          "text": "internal/db",
+          "anchor": "internaldb"
+        },
+        {
+          "level": 3,
+          "text": "SchemaSQL",
+          "anchor": "schemasql"
+        },
+        {
+          "level": 3,
+          "text": "ErrNotFound",
+          "anchor": "errnotfound"
+        },
+        {
+          "level": 3,
+          "text": "DB",
+          "anchor": "db"
+        },
+        {
+          "level": 3,
+          "text": "DeletionRecord",
+          "anchor": "deletionrecord"
+        },
+        {
+          "level": 3,
+          "text": "Open",
+          "anchor": "open"
+        },
+        {
+          "level": 3,
+          "text": "DB.Close",
+          "anchor": "dbclose"
+        },
+        {
+          "level": 3,
+          "text": "DB.Insert",
+          "anchor": "dbinsert"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryByID",
+          "anchor": "dbquerybyid"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryByPath",
+          "anchor": "dbquerybypath"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryAll",
+          "anchor": "dbqueryall"
+        },
+        {
+          "level": 3,
+          "text": "DB.MarkRestored",
+          "anchor": "dbmarkrestored"
+        },
+        {
+          "level": 3,
+          "text": "DB.MarkPurged",
+          "anchor": "dbmarkpurged"
+        },
+        {
+          "level": 3,
+          "text": "DB.Delete",
+          "anchor": "dbdelete"
+        },
+        {
+          "level": 3,
+          "text": "DB.QueryOlderThan",
+          "anchor": "dbqueryolderthan"
+        }
+      ]
     },
     {
       "path": "internal-git.md",
       "title": "internal/git",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "internal/git",
+          "anchor": "internalgit"
+        },
+        {
+          "level": 2,
+          "text": "internal/git",
+          "anchor": "internalgit"
+        },
+        {
+          "level": 3,
+          "text": "IsInGitRepo",
+          "anchor": "isingitrepo"
+        },
+        {
+          "level": 3,
+          "text": "IsGitTracked",
+          "anchor": "isgittracked"
+        },
+        {
+          "level": 3,
+          "text": "GitRmCached",
+          "anchor": "gitrmcached"
+        },
+        {
+          "level": 3,
+          "text": "GitAdd",
+          "anchor": "gitadd"
+        }
+      ]
     },
     {
       "path": "internal-meta.md",
       "title": "internal/meta",
-      "type": "doc"
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "internal/meta",
+          "anchor": "internalmeta"
+        },
+        {
+          "level": 2,
+          "text": "internal/meta",
+          "anchor": "internalmeta"
+        },
+        {
+          "level": 3,
+          "text": "Metadata",
+          "anchor": "metadata"
+        },
+        {
+          "level": 3,
+          "text": "Collect",
+          "anchor": "collect"
+        }
+      ]
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-07T13:38:34.568858+00:00"
+  "last_gen": "2026-08-12T03:38:52.356746+00:00"
 }
