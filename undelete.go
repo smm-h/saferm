@@ -93,6 +93,23 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 		rec = records[0]
 	}
 
+	// Guard: cannot restore an already-restored item. A restore consumes the
+	// archived entry -- it is moved out of the archive, not copied -- so a
+	// second restore of the same record has nothing to read. Reported here, in
+	// the record's own vocabulary, because both routes below answer badly: with
+	// the destination gone the archive layer reports a raw failed stat of a
+	// UUID, and with the destination still there the conflict path advertises
+	// --force-overwrite, which could not have helped.
+	if rec.RestoredAt != nil {
+		restoredTo := rec.OriginalPath
+		if rec.RestoredTo != nil {
+			restoredTo = *rec.RestoredTo
+		}
+		fmt.Fprintf(os.Stderr, "error: record %d was already restored at %s to %s; the archived copy was consumed by that restore\n",
+			rec.ID, rec.RestoredAt.Format(time.RFC3339), restoredTo)
+		return strictcli.Exit(ExitArchive)
+	}
+
 	// Guard: cannot restore a purged item (archive content is gone).
 	if rec.PurgedAt != nil {
 		fmt.Fprintf(os.Stderr, "error: content for %d was purged on %s; metadata is preserved but the file cannot be restored\n",
