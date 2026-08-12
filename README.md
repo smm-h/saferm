@@ -18,11 +18,14 @@ Or via Homebrew (macOS/Linux):
 brew install smm-h/tap/saferm
 ```
 
-Delete a file (the `--description` flag is mandatory):
+Delete a file (`--description` and `--on-error` are both mandatory):
 
 ```
-saferm delete --description "removing stale config" old-config.yaml
+saferm delete --on-error abort --description "removing stale config" old-config.yaml
+archived: [3] 6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11 /home/user/project/old-config.yaml (612 B)
 ```
+
+Every archived path is named with both of its identifiers: the numeric database id and the uuid. The uuid is the durable handle -- `undelete`, `info` and `purge` all take it.
 
 See what you've archived:
 
@@ -64,8 +67,8 @@ saferm undelete old-config.yaml
 ## Example workflow
 
 ```
-$ saferm delete --description "broken migration, rewriting from scratch" -r db/migrations/
-Archived db/migrations/ (id: 3)
+$ saferm delete --on-error abort --description "broken migration, rewriting from scratch" -r db/migrations/
+archived: [3] 6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11 /home/user/project/db/migrations (14 KB)
 
 $ saferm list
 ID  PATH                   SIZE   DELETED
@@ -73,9 +76,11 @@ ID  PATH                   SIZE   DELETED
 
 $ saferm info 3
 ID:          3
+UUID:        6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11
 Path:        /home/user/project/db/migrations/
 Size:        14382
 Type:        directory
+Status:      restorable
 Description: broken migration, rewriting from scratch
 Deleted:     2026-05-16 14:32:01 UTC
 Git branch:  feature/new-schema
@@ -86,6 +91,21 @@ Parent cmd:  claude
 $ saferm undelete 3
 Restored db/migrations/
 ```
+
+## Identifiers and the error mode
+
+`delete` prints one line per archived path carrying the record's numeric id and its uuid, so a caller never has to run `list` afterwards and guess which row was its own. `undelete`, `info` and `purge` accept either, and `undelete` also accepts an original path. An identifier argument is read by shape, in a fixed order: a 36-character hyphenated hex string is a uuid, an all-digit string is a numeric id, anything else is a path.
+
+`--on-error` is mandatory on `delete` and has no default, because a batch that meets a bad path has two defensible answers and they suit opposite callers:
+
+| Value | Behaviour |
+|-------|-----------|
+| `abort` | stop at the first failing path; everything archived before it keeps its record and its printed identifiers |
+| `continue` | archive the remaining paths, report every failure, and exit non-zero at the end with the first failure's code |
+
+Either way the identifiers of everything already archived are on stdout before the failure is reported.
+
+`info` also states the record's status in one line: `restorable`, `restored at <time>`, `purged at <time>`, or both stamps when a record was restored and later purged.
 
 ## Metadata
 

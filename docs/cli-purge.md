@@ -25,7 +25,7 @@ Permanently destroy archived items and free disk space
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `ids` | no | Numeric database IDs of specific items to permanently destroy |
+| `targets` | no | Record UUIDs or numeric database IDs of specific items to permanently destroy (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID) |
 
 ## Grants
 

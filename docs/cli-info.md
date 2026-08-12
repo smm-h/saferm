@@ -17,4 +17,4 @@ Display full metadata and context for an archived deletion
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `id` | yes | Numeric database ID of the archived item to inspect |
+| `target` | yes | Record UUID or numeric database ID of the archived item to inspect (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID) |

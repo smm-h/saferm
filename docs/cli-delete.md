@@ -24,6 +24,7 @@ Move files to the saferm archive with metadata tracking
 | `--command` |  | str |  |  | Record the original rm command being replaced by saferm |
 | `--meta` |  | str |  |  | Attach additional metadata as key=value pairs (repeatable) |
 | `--update-git-index` |  | bool | True |  | Run git rm --cached to stage removal in the git index |
+| `--on-error` |  | str |  |  | What to do when a path cannot be archived: abort (stop at the first failure) or continue (archive the remaining paths, report every failure, and exit non-zero at the end). Mandatory: there is no default |
 
 ## Arguments
 

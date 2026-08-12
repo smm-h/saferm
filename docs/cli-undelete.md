@@ -23,7 +23,7 @@ Restore a previously archived file back to its original path
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `target` | yes | Numeric database ID or original file path of the item to restore |
+| `target` | yes | Record UUID, numeric database ID, or original file path of the item to restore (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID, anything else is a path) |
 
 ## Grants
 
