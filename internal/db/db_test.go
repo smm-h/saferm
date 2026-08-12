@@ -80,6 +80,41 @@ func TestOpen_CreatesSchema(t *testing.T) {
 	}
 }
 
+// hasColumn used to discard its query error and answer "no such column". Inside
+// migrate -- which the contention retry now wraps -- that reading turned a
+// transient failure into a schema decision: the ALTER that followed failed with
+// its own unrelated message, and the retry never saw the contention error that
+// would have classified it. The query error has to surface instead.
+func TestHasColumnSurfacesQueryErrors(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	d, err := Open(dbPath, nil)
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+
+	// The column really is there while the connection is open, so the closed
+	// connection below is the only thing the second call changes.
+	present, err := hasColumn(d.conn, "deletions", "symlink_target")
+	if err != nil {
+		t.Fatalf("hasColumn on an open connection errored: %v", err)
+	}
+	if !present {
+		t.Fatal("symlink_target is missing from a freshly created schema")
+	}
+
+	if err := d.Close(); err != nil {
+		t.Fatalf("closing the database: %v", err)
+	}
+
+	present, err = hasColumn(d.conn, "deletions", "symlink_target")
+	if err == nil {
+		t.Fatalf("hasColumn on a closed connection returned (%v, nil); the query error must surface", present)
+	}
+	if present {
+		t.Errorf("hasColumn reported the column present on a failed query")
+	}
+}
+
 func TestInsertAndQueryByID(t *testing.T) {
 	d := openTestDB(t)
 	now := time.Now().Truncate(time.Second)

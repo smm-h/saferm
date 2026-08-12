@@ -90,7 +90,11 @@ func migrate(conn *sql.DB) error {
 		// Migration 1: add symlink_target column.
 		// The column exists in fresh databases (from CREATE TABLE) but not
 		// in databases created before this migration was added.
-		if !hasColumn(conn, "deletions", "symlink_target") {
+		present, err := hasColumn(conn, "deletions", "symlink_target")
+		if err != nil {
+			return fmt.Errorf("migration 1 (add symlink_target): %w", err)
+		}
+		if !present {
 			if _, err := conn.Exec("ALTER TABLE deletions ADD COLUMN symlink_target TEXT"); err != nil {
 				return fmt.Errorf("migration 1 (add symlink_target): %w", err)
 			}
@@ -104,7 +108,11 @@ func migrate(conn *sql.DB) error {
 		// Migration 2: add purged_at column.
 		// The column exists in fresh databases (from CREATE TABLE) but not
 		// in databases created before this migration was added.
-		if !hasColumn(conn, "deletions", "purged_at") {
+		present, err := hasColumn(conn, "deletions", "purged_at")
+		if err != nil {
+			return fmt.Errorf("migration 2 (add purged_at): %w", err)
+		}
+		if !present {
 			if _, err := conn.Exec("ALTER TABLE deletions ADD COLUMN purged_at TEXT"); err != nil {
 				return fmt.Errorf("migration 2 (add purged_at): %w", err)
 			}
@@ -117,11 +125,19 @@ func migrate(conn *sql.DB) error {
 	return nil
 }
 
-// hasColumn checks whether a table has a column with the given name.
-func hasColumn(conn *sql.DB, table, column string) bool {
+// hasColumn reports whether a table has a column with the given name.
+//
+// A failed query is an error, never a "no". It used to be a "no": the query
+// error was discarded and the caller read the false as "the column is missing",
+// then ran an ALTER TABLE that failed with its own unrelated message. Under the
+// contention retry that wraps migrate, the swallowed error is worse than
+// misleading -- SQLITE_BUSY read as "column missing" produces a follow-up
+// failure that the classifier cannot recognize as contention, so the operation
+// that would have succeeded on the next attempt fails permanently instead.
+func hasColumn(conn *sql.DB, table, column string) (bool, error) {
 	rows, err := conn.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
 	if err != nil {
-		return false
+		return false, fmt.Errorf("reading columns of %s: %w", table, err)
 	}
 	defer rows.Close()
 
@@ -133,13 +149,16 @@ func hasColumn(conn *sql.DB, table, column string) bool {
 		var dfltValue sql.NullString
 		var pk int
 		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
-			return false
+			return false, fmt.Errorf("reading columns of %s: %w", table, err)
 		}
 		if name == column {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("reading columns of %s: %w", table, err)
+	}
+	return false, nil
 }
 
 // Close closes the underlying database connection.
