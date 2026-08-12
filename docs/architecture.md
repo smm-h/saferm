@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: "How saferm's internal components fit together: archive storage, SQLite metadata, git integration, cross-device handling, and concurrency safety."
+description: "How saferm's internal components fit together: archive storage, SQLite metadata, git integration, cross-device handling, and concurrency safety with a bounded retry for database lock contention."
 ---
 
 # Architecture
@@ -140,7 +140,7 @@ The database connection is opened with two pragmas passed via the SQLite DSN con
 
 The busy timeout covers brief overlaps; a lock held longer than five seconds still surfaces as `SQLITE_BUSY`, and before this retry existed that raw driver error travelled all the way out to the caller as an ordinary database failure. saferm now classifies it and retries around it.
 
-- **Classification.** `IsContention` reads the driver's result code rather than its message, and compares the low byte, so every extended flavour of `SQLITE_BUSY` and `SQLITE_LOCKED` (`SQLITE_BUSY_SNAPSHOT` and the rest) classifies with its primary code. Nothing else in the database layer is treated as retryable.
+- **Classification.** `IsContention` reads the driver's result code rather than its message, and compares the low byte, so every extended flavour of `SQLITE_BUSY` and `SQLITE_LOCKED` (`SQLITE_BUSY_SNAPSHOT` and the rest) classifies with its primary code. Nothing else in the database layer is retried.
 - **Budget.** Five attempts in total, the first one included, with a linear backoff of 50ms before the first retry and 50ms more before each subsequent one -- 500ms of waiting on top of SQLite's own. The numbers are the ones saferm's concurrency tests previously hand-rolled around the binary, which is the measured record of what the suite needed.
 - **Scope.** Every operation on the database goes through it, reads included, along with the schema creation and migration that run at open time. All of them are safe to run again: a statement that met `SQLITE_BUSY` never took the write lock, so it never took effect.
 - **Reporting.** Under `--verbose` each retry prints on stderr, naming the attempt and the pause. It is stderr rather than stdout because for `list` and `info` stdout is the command's output, and `--quiet` never touches stderr.
