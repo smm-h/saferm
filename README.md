@@ -131,7 +131,9 @@ A malformed `config.toml` is a hard error (exit 1) reporting the parse position,
 
 ## Concurrency
 
-saferm is safe for concurrent use. SQLite WAL mode with `busy_timeout` and UUID-based archive naming mean multiple AI sessions (or humans) can delete files simultaneously without conflicts.
+saferm is safe for concurrent use. UUID-based archive naming needs no coordination between processes, and the archive database is protected in two layers: SQLite's own `busy_timeout` waits up to 5 seconds for a lock held by another process, and saferm retries a contended operation up to 5 times in total on top of that, pausing 50ms, 100ms, 150ms and 200ms between attempts. Under `--verbose` each retry is reported on stderr.
+
+Contention that outlives the whole budget is reported as such and exits **8** rather than the generic database code -- nothing is wrong with the archive, another process simply held the write lock throughout, and running the command again is the right response.
 
 ## Exit codes
 
@@ -144,8 +146,11 @@ saferm is safe for concurrent use. SQLite WAL mode with `busy_timeout` and UUID-
 | 5 | `ExitDatabase` | 5 |
 | 6 | `ExitArchive` | 6 |
 | 7 | `ExitConflict` | 7 |
+| 8 | `ExitContention` | 8 |
 
 Config-layer failures -- a malformed `config.toml`, an unknown key, or a CLI value that conflicts with `archive_dir`/`db_path` in the config -- exit **1** (they are reported by the CLI framework before saferm runs). saferm's own semantic conflicts exit **7**. The distinction: exit 1 means the configuration could not be loaded or reconciled; exit 7 means saferm ran and hit a semantic conflict.
+
+Exit **5** and exit **8** are likewise distinct: 5 means the database itself failed, 8 means another process held its write lock for longer than saferm's whole retry budget. 8 is the one exit code that says "try again". Code 4 is deliberately absent (it was a permission code nothing ever returned) and is never reused, so the numbers below it keep their meaning.
 
 ## Platforms
 

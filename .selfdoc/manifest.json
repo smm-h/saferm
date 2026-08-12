@@ -114,6 +114,16 @@
         },
         {
           "level": 3,
+          "text": "Bounded contention retry",
+          "anchor": "bounded-contention-retry"
+        },
+        {
+          "level": 3,
+          "text": "`IsContention`",
+          "anchor": "iscontention"
+        },
+        {
+          "level": 3,
           "text": "Schema migrations",
           "anchor": "schema-migrations"
         },
@@ -549,6 +559,16 @@
         },
         {
           "level": 3,
+          "text": "`RetryNotifier`",
+          "anchor": "retrynotifier"
+        },
+        {
+          "level": 3,
+          "text": "`ContentionError`",
+          "anchor": "contentionerror"
+        },
+        {
+          "level": 3,
           "text": "`DB`",
           "anchor": "db"
         },
@@ -559,8 +579,28 @@
         },
         {
           "level": 3,
+          "text": "`IsContention`",
+          "anchor": "iscontention"
+        },
+        {
+          "level": 3,
+          "text": "`IsContentionExhausted`",
+          "anchor": "iscontentionexhausted"
+        },
+        {
+          "level": 3,
           "text": "`Open`",
           "anchor": "open"
+        },
+        {
+          "level": 3,
+          "text": "`ContentionError.Error`",
+          "anchor": "contentionerrorerror"
+        },
+        {
+          "level": 3,
+          "text": "`ContentionError.Unwrap`",
+          "anchor": "contentionerrorunwrap"
         },
         {
           "level": 3,
@@ -758,6 +798,16 @@
         },
         {
           "level": 3,
+          "text": "`RetryNotifier`",
+          "anchor": "retrynotifier"
+        },
+        {
+          "level": 3,
+          "text": "`ContentionError`",
+          "anchor": "contentionerror"
+        },
+        {
+          "level": 3,
           "text": "`DB`",
           "anchor": "db"
         },
@@ -768,8 +818,28 @@
         },
         {
           "level": 3,
+          "text": "`IsContention`",
+          "anchor": "iscontention"
+        },
+        {
+          "level": 3,
+          "text": "`IsContentionExhausted`",
+          "anchor": "iscontentionexhausted"
+        },
+        {
+          "level": 3,
           "text": "`Open`",
           "anchor": "open"
+        },
+        {
+          "level": 3,
+          "text": "`ContentionError.Error`",
+          "anchor": "contentionerrorerror"
+        },
+        {
+          "level": 3,
+          "text": "`ContentionError.Unwrap`",
+          "anchor": "contentionerrorunwrap"
         },
         {
           "level": 3,
@@ -879,5 +949,5 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-12T13:25:16.219209+00:00"
+  "last_gen": "2026-08-12T20:29:44.322447+00:00"
 }
