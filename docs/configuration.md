@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: "How saferm discovers archive and database paths, the SAFERM_HOME environment variable, config file, hermetic mode, and SQLite schema."
+description: "How saferm finds its archive and database, plus SAFERM_HOME, the config file, hermetic mode, the SQLite schema, and environment-variable filtering."
 ---
 
 # Configuration
