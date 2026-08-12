@@ -2,13 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
-	"github.com/smm-h/saferm/internal/db"
 	"github.com/smm-h/saferm/internal/meta"
 	"github.com/smm-h/strictcli/go/strictcli"
 )
@@ -17,17 +14,18 @@ func registerInfoCmd(app *strictcli.App) {
 	app.Command("info", "Display full metadata and context for an archived deletion", handleInfo,
 		strictcli.WithEffect(strictcli.EffectReadOnly),
 		strictcli.WithArgs(
-			strictcli.NewArg("id", "Numeric database ID of the archived item to inspect"),
+			strictcli.NewArg("target", "Record UUID or numeric database ID of the archived item to inspect ("+identifierOrderHelp+")"),
 		),
 	)
 }
 
 func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
-	idStr := kwargs["id"].(string)
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %q is not a valid ID\n", idStr)
-		return strictcli.Exit(ExitUsage)
+	target := kwargs["target"].(string)
+
+	// Shape before archive: a path is refused whether or not this machine has
+	// ever deleted anything.
+	if code := requireIdentifierShape(target); code != ExitSuccess {
+		return strictcli.Exit(code)
 	}
 
 	dbPath := kwargs["db_path"].(string)
@@ -38,21 +36,17 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 		return strictcli.Exit(dbExit(err))
 	}
 	// No database file means nothing has ever been deleted on this machine, so
-	// no ID resolves -- the same answer as an ID that was never issued.
+	// no identifier resolves -- the same answer as one that was never issued.
 	if database == nil {
-		fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
+		reportNoSuchRecord(target)
 		return strictcli.Exit(ExitFileNotFound)
 	}
 	defer database.Close()
 
-	rec, err := database.QueryByID(id)
-	if err != nil {
-		if errors.Is(err, db.ErrNotFound) {
-			fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
-			return strictcli.Exit(ExitFileNotFound)
-		}
-		fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-		return strictcli.Exit(dbExit(err))
+	// Identifier only: `info` inspects a record, and a path can name several.
+	rec, code := resolveRecord(database, target, false)
+	if code != ExitSuccess {
+		return strictcli.Exit(code)
 	}
 
 	fileType := "file"

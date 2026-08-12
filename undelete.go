@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/smm-h/saferm/internal/archive"
-	"github.com/smm-h/saferm/internal/db"
 	gitutil "github.com/smm-h/saferm/internal/git"
 	"github.com/smm-h/strictcli/go/strictcli"
 )
@@ -26,7 +24,7 @@ func registerUndeleteCmd(app *strictcli.App) {
 			strictcli.BoolFlag("force-overwrite", "Overwrite any existing file at the restoration destination", strictcli.Default(false)),
 		),
 		strictcli.WithArgs(
-			strictcli.NewArg("target", "Numeric database ID or original file path of the item to restore"),
+			strictcli.NewArg("target", "Record UUID, numeric database ID, or original file path of the item to restore ("+identifierOrderHelp+", anything else is a path)"),
 		),
 	)
 }
@@ -56,41 +54,11 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	}
 	defer database.Close()
 
-	var rec *db.DeletionRecord
-
-	// Try parsing as numeric ID first
-	if id, parseErr := strconv.ParseInt(target, 10, 64); parseErr == nil {
-		rec, err = database.QueryByID(id)
-		if err != nil {
-			if errors.Is(err, db.ErrNotFound) {
-				fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
-				return strictcli.Exit(ExitFileNotFound)
-			}
-			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return strictcli.Exit(dbExit(err))
-		}
-	} else {
-		// Treat as a file path
-		records, err := database.QueryByPath(target)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-			return strictcli.Exit(dbExit(err))
-		}
-		if len(records) == 0 {
-			fmt.Fprintf(os.Stderr, "error: no archived record found for path %q\n", target)
-			return strictcli.Exit(ExitFileNotFound)
-		}
-		if len(records) > 1 {
-			fmt.Fprintf(os.Stderr, "Multiple matches found:\n")
-			fmt.Fprintf(os.Stderr, "  %-6s %-40s %-10s %s\n", "ID", "Path", "Size", "Deleted")
-			for _, r := range records {
-				fmt.Fprintf(os.Stderr, "  %-6d %-40s %-10s %s\n",
-					r.ID, r.OriginalPath, humanSize(r.Size), humanAge(r.DeletedAt))
-			}
-			fmt.Fprintf(os.Stderr, "\nUse saferm undelete <id> to specify.\n")
-			return strictcli.Exit(ExitUsage)
-		}
-		rec = records[0]
+	// A uuid, a numeric id or an original path -- read in that fixed order by
+	// the one resolver every identifier-taking verb shares.
+	rec, code := resolveRecord(database, target, true)
+	if code != ExitSuccess {
+		return strictcli.Exit(code)
 	}
 
 	// Guard: cannot restore an already-restored item. A restore consumes the

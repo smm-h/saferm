@@ -1,11 +1,9 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/smm-h/saferm/internal/db"
@@ -32,7 +30,7 @@ func registerPurgeCmd(app *strictcli.App) {
 			strictcli.BoolFlag("all", "Select all archived items for permanent destruction", strictcli.Default(false)),
 		),
 		strictcli.WithArgs(
-			strictcli.NewArg("ids", "Numeric database IDs of specific items to permanently destroy",
+			strictcli.NewArg("targets", "Record UUIDs or numeric database IDs of specific items to permanently destroy ("+identifierOrderHelp+")",
 				strictcli.Variadic(), strictcli.ArgRequired(false)),
 		),
 	)
@@ -43,19 +41,27 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 	largerThan := kwargs["larger_than"].(string)
 	purgeAll := kwargs["all"].(bool)
 	dryRun := ctx.DryRun()
-	idsRaw := kwargs["ids"].([]interface{})
+	targetsRaw := kwargs["targets"].([]interface{})
 	verbose := ctx.Verbose()
 	fx := ctx.Effects()
 
-	hasIDs := len(idsRaw) > 0
+	hasTargets := len(targetsRaw) > 0
 	hasOlderThan := olderThan != ""
 	hasLargerThan := largerThan != ""
 
 	// Must specify at least one selection method.
 	// --larger-than alone is valid (acts like --all --larger-than).
-	if !hasIDs && !hasOlderThan && !purgeAll && !hasLargerThan {
-		fmt.Fprintln(os.Stderr, "error: specify IDs, --older-than, --larger-than, or --all")
+	if !hasTargets && !hasOlderThan && !purgeAll && !hasLargerThan {
+		fmt.Fprintln(os.Stderr, "error: specify record UUIDs or numeric IDs, --older-than, --larger-than, or --all")
 		return strictcli.Exit(ExitUsage)
+	}
+
+	// Shape before archive: a path among the targets is refused before anything
+	// is opened or selected, on any machine.
+	for _, raw := range targetsRaw {
+		if code := requireIdentifierShape(raw.(string)); code != ExitSuccess {
+			return strictcli.Exit(code)
+		}
 	}
 
 	archiveDir := kwargs["archive_dir"].(string)
@@ -81,25 +87,15 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 
 	var records []*db.DeletionRecord
 
-	if hasIDs {
-		for _, raw := range idsRaw {
-			idStr := raw.(string)
-			id, err := strconv.ParseInt(idStr, 10, 64)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error: %q is not a valid ID\n", idStr)
-				return strictcli.Exit(ExitUsage)
-			}
-			rec, err := database.QueryByID(id)
-			if err != nil {
-				// A missing record and a locked database are different
-				// answers: reporting contention as "no record with ID" would
-				// tell a caller its record is gone when it is only busy.
-				if errors.Is(err, db.ErrNotFound) {
-					fmt.Fprintf(os.Stderr, "error: no record with ID %d\n", id)
-					return strictcli.Exit(ExitFileNotFound)
-				}
-				fmt.Fprintf(os.Stderr, "error: querying database: %s\n", err)
-				return strictcli.Exit(dbExit(err))
+	if hasTargets {
+		for _, raw := range targetsRaw {
+			// The shared resolver keeps the identifier order identical across
+			// the verbs, and keeps a missing record distinguishable from a
+			// locked database: reporting contention as "no record" would tell a
+			// caller its record is gone when it is only busy.
+			rec, code := resolveRecord(database, raw.(string), false)
+			if code != ExitSuccess {
+				return strictcli.Exit(code)
 			}
 			records = append(records, rec)
 		}

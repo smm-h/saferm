@@ -195,6 +195,48 @@ func TestQueryByID_NotFound(t *testing.T) {
 	}
 }
 
+// The uuid is the handle `delete` hands back, so looking a record up by it has
+// to be exact and has to reach restored and purged records too -- a caller
+// asking about a consumed record is asking a legitimate question.
+func TestQueryByUUID(t *testing.T) {
+	d := openTestDB(t)
+
+	rec := makeRecord("11111111-2222-4333-8444-555555555555", "/home/user/handle.txt", time.Now())
+	id, err := d.Insert(rec)
+	if err != nil {
+		t.Fatalf("Insert failed: %v", err)
+	}
+
+	got, err := d.QueryByUUID(rec.UUID)
+	if err != nil {
+		t.Fatalf("QueryByUUID failed: %v", err)
+	}
+	if got.ID != id || got.OriginalPath != rec.OriginalPath {
+		t.Errorf("QueryByUUID returned id=%d path=%q, want id=%d path=%q",
+			got.ID, got.OriginalPath, id, rec.OriginalPath)
+	}
+
+	if err := d.MarkRestored(id, rec.OriginalPath); err != nil {
+		t.Fatalf("MarkRestored failed: %v", err)
+	}
+	got, err = d.QueryByUUID(rec.UUID)
+	if err != nil {
+		t.Fatalf("QueryByUUID after restore failed: %v", err)
+	}
+	if got.RestoredAt == nil {
+		t.Error("QueryByUUID must reach a consumed record and report it as restored")
+	}
+}
+
+func TestQueryByUUID_NotFound(t *testing.T) {
+	d := openTestDB(t)
+
+	_, err := d.QueryByUUID("99999999-9999-4999-8999-999999999999")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestQueryByPath(t *testing.T) {
 	d := openTestDB(t)
 

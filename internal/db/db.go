@@ -220,6 +220,31 @@ func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
 	return rec, nil
 }
 
+// QueryByUUID retrieves a single record by its archive uuid. Returns
+// ErrNotFound if it does not exist.
+//
+// The uuid is the identifier a record keeps: the numeric id is this database's
+// autoincrement counter, while the uuid names the archived entry on disk and is
+// what `delete` hands back to its caller.
+func (d *DB) QueryByUUID(uuid string) (*DeletionRecord, error) {
+	var rec *DeletionRecord
+	err := d.retry(func() error {
+		row := d.conn.QueryRow(
+			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			 FROM deletions WHERE uuid = ?`, uuid)
+		var err error
+		rec, err = scanRecord(row)
+		return err
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return rec, nil
+}
+
 // QueryByPath returns all non-restored records matching the given original_path,
 // ordered by deleted_at DESC (newest first).
 func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
