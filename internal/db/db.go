@@ -241,23 +241,6 @@ func (d *DB) MarkPurged(id int64) error {
 	return nil
 }
 
-// Delete permanently removes a record by ID (used for purge).
-// Returns ErrNotFound if the record does not exist.
-func (d *DB) Delete(id int64) error {
-	result, err := d.conn.Exec(`DELETE FROM deletions WHERE id = ?`, id)
-	if err != nil {
-		return err
-	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
 // QueryOlderThan returns all non-restored, non-purged records deleted before the given time.
 func (d *DB) QueryOlderThan(before time.Time) ([]*DeletionRecord, error) {
 	rows, err := d.conn.Query(

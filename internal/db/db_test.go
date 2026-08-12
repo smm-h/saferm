@@ -308,36 +308,6 @@ func TestMarkRestored_NotFound(t *testing.T) {
 	}
 }
 
-func TestDelete(t *testing.T) {
-	d := openTestDB(t)
-
-	now := time.Now().Truncate(time.Second)
-	rec := makeRecord("uuid-del", "/home/user/del.txt", now)
-
-	id, err := d.Insert(rec)
-	if err != nil {
-		t.Fatalf("Insert failed: %v", err)
-	}
-
-	if err := d.Delete(id); err != nil {
-		t.Fatalf("Delete failed: %v", err)
-	}
-
-	_, err = d.QueryByID(id)
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("expected ErrNotFound after delete, got %v", err)
-	}
-}
-
-func TestDelete_NotFound(t *testing.T) {
-	d := openTestDB(t)
-
-	err := d.Delete(999)
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("expected ErrNotFound, got %v", err)
-	}
-}
-
 func TestQueryOlderThan(t *testing.T) {
 	d := openTestDB(t)
 
