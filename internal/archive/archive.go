@@ -247,25 +247,6 @@ func DiscardBlob(p *Plan) error {
 	return os.Remove(p.Dest)
 }
 
-// Archive moves a file or directory into archiveDir, returning the result:
-// [Execute] followed by [RemoveSource], with nothing recorded in between.
-// For files: hard-linked (or copied and verified when the link is refused).
-// For directories: compressed into a .tar.zst archive.
-func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, error) {
-	p, err := NewPlan(path, archiveDir, isRecursive)
-	if err != nil {
-		return nil, err
-	}
-	result, err := Execute(p)
-	if err != nil {
-		return nil, err
-	}
-	if err := RemoveSource(p); err != nil {
-		return nil, fmt.Errorf("removing original after archiving: %w", err)
-	}
-	return result, nil
-}
-
 func archiveSymlink(p *Plan) (*ArchiveResult, error) {
 	target, err := os.Readlink(p.Source)
 	if err != nil {

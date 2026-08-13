@@ -41,7 +41,7 @@ A deletion passes through five stages: validation, archival, metadata recording,
 
 ### 1. Validation
 
-The `archive.Archive` function stats the target path and determines its type. Directories require the `-r` flag; without it, the operation fails with `ErrRecursiveRequired`. Missing files fail with `ErrFileNotFound` unless `-f` (ignore-missing) is set.
+`archive.NewPlan` stats the target path and determines its type, resolving where archiving it would put it without mutating anything. Directories require the `-r` flag; without it, the operation fails with `ErrRecursiveRequired`. Missing files fail with `ErrFileNotFound` unless `-f` (ignore-missing) is set.
 
 ### 2. Archival
 

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +14,26 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 )
+
+// archiveNow is [Execute] followed by [RemoveSource] with nothing recorded in
+// between, which is what these tests need and what no caller of the package
+// wants: saferm's whole reason for splitting the two is to put the database
+// insert between them. The package used to export this as Archive, kept alive
+// by these tests alone.
+func archiveNow(path string, archiveDir string, isRecursive bool) (*ArchiveResult, error) {
+	p, err := NewPlan(path, archiveDir, isRecursive)
+	if err != nil {
+		return nil, err
+	}
+	result, err := Execute(p)
+	if err != nil {
+		return nil, err
+	}
+	if err := RemoveSource(p); err != nil {
+		return nil, fmt.Errorf("removing original after archiving: %w", err)
+	}
+	return result, nil
+}
 
 func TestArchive_File(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -28,7 +49,7 @@ func TestArchive_File(t *testing.T) {
 	h := sha256.Sum256(content)
 	expectedHash := hex.EncodeToString(h[:])
 
-	result, err := Archive(srcFile, archiveDir, false)
+	result, err := archiveNow(srcFile, archiveDir, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +87,7 @@ func TestArchive_FileRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Archive(srcFile, archiveDir, false)
+	result, err := archiveNow(srcFile, archiveDir, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +122,7 @@ func TestArchive_Directory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Archive(srcDir, archiveDir, true)
+	result, err := archiveNow(srcDir, archiveDir, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +161,7 @@ func TestArchive_DirectoryRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Archive(srcDir, archiveDir, true)
+	result, err := archiveNow(srcDir, archiveDir, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +197,7 @@ func TestArchive_DirWithoutRecursive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := Archive(srcDir, archiveDir, false)
+	_, err := archiveNow(srcDir, archiveDir, false)
 	if err != ErrRecursiveRequired {
 		t.Errorf("expected ErrRecursiveRequired, got: %v", err)
 	}
@@ -186,7 +207,7 @@ func TestArchive_NonexistentFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	archiveDir := filepath.Join(tmpDir, "archive")
 
-	_, err := Archive(filepath.Join(tmpDir, "nonexistent"), archiveDir, false)
+	_, err := archiveNow(filepath.Join(tmpDir, "nonexistent"), archiveDir, false)
 	if err != ErrFileNotFound {
 		t.Errorf("expected ErrFileNotFound, got: %v", err)
 	}
@@ -206,7 +227,7 @@ func TestRestore_ConflictNoForce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Archive(srcFile, archiveDir, false)
+	result, err := archiveNow(srcFile, archiveDir, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +253,7 @@ func TestRestore_ConflictWithForce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Archive(srcFile, archiveDir, false)
+	result, err := archiveNow(srcFile, archiveDir, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +289,7 @@ func TestArchive_Symlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := Archive(srcDir, archiveDir, true)
+	result, err := archiveNow(srcDir, archiveDir, true)
 	if err != nil {
 		t.Fatal(err)
 	}
