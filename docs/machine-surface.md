@@ -174,12 +174,9 @@ Adding a name is how a new capability becomes negotiable. Removing one is a brea
 
 The payload schemas are not documented here and implemented somewhere else -- they are the same artifact. Each verb declares its schema as an inline JSON Schema literal over the framework's closed subset, and the framework validates the emitted value against that declaration at the point it writes the envelope. A payload that deviates from its declaration fails the run rather than shipping a wrong shape.
 
-That declaration is published on two machine-readable channels, both framework-owned:
+That declaration is published on exactly one machine-readable channel, framework-owned: **`saferm --dump-schema`** writes `.strictcli/schema.json`, which carries every command with its flags, its args, its effect classification and its `payload_schema` verbatim. There is no second convention -- a consumer that wants the machine-readable contract reads that file, and this page is the prose that explains what the fields mean.
 
-- **`saferm --dump-schema`** writes `.strictcli/schema.json`, which carries every command with its flags, its args, its effect classification and its `payload_schema` verbatim.
-- **The MCP server** (`saferm --mcp`) publishes the same commands as tools, with `effect` and `consequential` beside each argument schema.
-
-There is no third convention: a consumer that wants the machine-readable contract reads one of those two, and this page is the prose that explains what the fields mean.
+**The MCP server** (`saferm --mcp`) is not a second copy of it. It publishes the same commands as tools, and a tool descriptor carries the command's name, its help text, its `effect` (plus `consequential` where it applies) and the `inputSchema` for its arguments -- what saferm accepts and what calling it does to the world. No payload schema appears there: an MCP client learns nothing about the shape of the answer from the descriptor, and reads `--dump-schema` for that.
 
 ## Effect classification
 
