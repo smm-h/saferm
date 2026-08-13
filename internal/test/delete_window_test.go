@@ -109,7 +109,10 @@ func startDeleteInsideTheInsert(t *testing.T, home string, args ...string) *inFl
 	release := holdArchiveWriteLock(t, home)
 
 	cmd := exec.Command(safermBinary, append([]string{"--verbose"}, args...)...)
-	env := filterEnv(os.Environ(), "SAFERM_")
+	// Same environment hygiene as runSafermEnv: SAFERM_* and STRICTCLI_* are
+	// stripped from the inherited environment so a developer's overrides and an
+	// inherited trace ancestry cannot reach the process under test.
+	env := filterEnv(filterEnv(os.Environ(), "SAFERM_"), "STRICTCLI_")
 	cmd.Env = append(env, "SAFERM_HOME="+filepath.Join(home, ".saferm"))
 
 	var outBuf bytes.Buffer

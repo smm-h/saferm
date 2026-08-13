@@ -91,8 +91,12 @@ func runSafermEnv(t *testing.T, homeDir string, extraEnv []string, args ...strin
 	// Strip ALL SAFERM_-prefixed vars from the inherited env first: a developer's
 	// SAFERM_ARCHIVE_DIR (or any other SAFERM_* override) would otherwise leak in
 	// and trigger nondeterministic env+config conflicts under conflict-mode "error".
+	// STRICTCLI_-prefixed vars go the same way: a suite run from a traced session
+	// inherits STRICTCLI_TRACE_PARENT, which would give every "untraced" run an
+	// ancestry it never had. A test that wants one appends it through extraEnv,
+	// which is applied after the strip.
 	safermHome := filepath.Join(homeDir, ".saferm")
-	env := filterEnv(os.Environ(), "SAFERM_")
+	env := filterEnv(filterEnv(os.Environ(), "SAFERM_"), "STRICTCLI_")
 	env = append(env, "SAFERM_HOME="+safermHome)
 	env = append(env, extraEnv...)
 	cmd.Env = env
