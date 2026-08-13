@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: "How saferm's internal components fit together: hard-linked archive storage, SQLite metadata, the checks guarding removal of the original, and the origin and ancestry derived from the process trace store."
+description: "How saferm's internal components fit together: hard-linked archive storage, SQLite metadata, the checks guarding removal of the original, the origin and ancestry derived from the process trace store, and the bounds on what that store can put into a record."
 ---
 
 # Architecture
