@@ -379,34 +379,37 @@ func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid st
 //
 // It runs in dry mode only. It is the ONE place in saferm where the record and
 // the execution are separate calls, and it is deliberate: archiving is a
-// compound operation --
-// hash, then rename with a copy-and-verify fallback across devices, or tar +
-// zstd of a whole tree followed by a recursive removal -- and the effects
-// handle's closed method set has no primitive for a streaming archive or a
-// verified copy. Minting `rename` for the file case would silently drop the
-// cross-device fallback. So the handle carries the description and
+// compound operation -- hash, then a hard link with a copy-and-verify fallback
+// where the link is refused, or tar + zstd of a whole tree, and then a separate
+// removal of the original once the deletion is recorded -- and the effects
+// handle's closed method set has no primitive for a streaming archive, a
+// verified copy or a hard link. So the handle carries the description and
 // archive.Execute carries the act; the dry-mode branch in the caller is what
 // keeps the two from ever both happening.
+//
+// Every kind is described the same way, as the two things that actually happen:
+// an archive entry appears, and the source goes. The file case used to mint
+// `rename`, which was true when a file was archived by renaming it and has not
+// been since. A rename says one atomic move whose destination then holds the
+// only copy; the real sequence is a link, a database insert, and an unlink,
+// which leaves the file readable at both names in between and can end with the
+// source still in place. A preview that says `rename` is previewing a saferm
+// that no longer exists, so it says instead exactly what the two seam calls do.
+//
 // The archive directory itself is not minted here: ensureDirectories already
 // declared it once, before the first plan was built, and repeating it per file
 // would pad the would-do log with a line that says nothing new.
 func recordArchival(fx *strictcli.Effects, plan *archive.Plan) error {
-	switch plan.Kind {
-	case archive.KindDirectory:
-		// tar + zstd of the tree, then the tree itself goes.
-		if _, err := fx.Write(plan.Dest, []byte{}, strictcli.Resource("saferm-entry:"+plan.UUID)); err != nil {
-			return err
-		}
-		_, err := fx.Remove(plan.Source, strictcli.Resource("path:"+plan.Source))
-		return err
-	case archive.KindSymlink:
-		if _, err := fx.Write(plan.Dest, []byte(plan.SymlinkTarget), strictcli.Resource("saferm-entry:"+plan.UUID)); err != nil {
-			return err
-		}
-		_, err := fx.Remove(plan.Source, strictcli.Resource("path:"+plan.Source))
-		return err
-	default:
-		_, err := fx.Rename(plan.Source, plan.Dest, strictcli.Resource("saferm-entry:"+plan.UUID))
+	// A symlink's entry IS its target path written out. For the other two kinds
+	// the entry's content is the file's own bytes or a compressed tree, neither
+	// of which the handle can carry, so the write is declared with none.
+	var content []byte
+	if plan.Kind == archive.KindSymlink {
+		content = []byte(plan.SymlinkTarget)
+	}
+	if _, err := fx.Write(plan.Dest, content, strictcli.Resource("saferm-entry:"+plan.UUID)); err != nil {
 		return err
 	}
+	_, err := fx.Remove(plan.Source, strictcli.Resource("path:"+plan.Source))
+	return err
 }

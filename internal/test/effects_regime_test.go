@@ -202,8 +202,20 @@ func TestDeleteDryRunRecordsAndDeletesNothing(t *testing.T) {
 	if log == "" {
 		t.Fatalf("dry mode must render the would-do log, got: %q", stdout)
 	}
-	if !strings.Contains(log, "rename: "+target) {
-		t.Errorf("the would-do log must name the file it would move, got: %s", log)
+	// The two things a file's archival really does, in the order it does them.
+	// It used to be minted as one `rename`, which described the archival saferm
+	// performed before the entry became a hard link and the source's removal
+	// moved behind the database insert -- a preview of a tool that no longer
+	// exists, and one that claimed the source was gone the moment the entry
+	// appeared.
+	if !strings.Contains(log, "write: ") {
+		t.Errorf("the would-do log must record the archive entry it would write, got: %s", log)
+	}
+	if !strings.Contains(log, "remove: "+target) {
+		t.Errorf("the would-do log must name the file it would remove, got: %s", log)
+	}
+	if strings.Contains(log, "rename: ") {
+		t.Errorf("archiving a file is not a rename and the preview must not say it is, got: %s", log)
 	}
 	if !strings.Contains(log, "mkdir:") {
 		t.Errorf("the would-do log must record the archive-directory creation, got: %s", log)
