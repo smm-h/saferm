@@ -216,12 +216,27 @@ type reader struct {
 // lookup finds the entry with the given identifier, recording anything
 // malformed it meets on the way.
 //
-// The search is deterministic rather than a scan: a partition's filename is its
-// range start, a writer clamps an entry whose clock reads earlier than that
-// start, and so every entry's embedded timestamp lies inside its own file's
-// range. The file to read is therefore the greatest label not after the
-// identifier's timestamp -- one binary search over the sorted filenames, and
-// one file read.
+// The search starts deterministically: a partition's filename is its range
+// start, a writer clamps an entry whose clock reads earlier than that start, and
+// so no entry lands in a file whose range begins after it. The candidate file is
+// therefore the greatest label not after the identifier's timestamp -- one
+// binary search over the sorted filenames.
+//
+// The candidate can miss, because the clamp invariant is one-sided: it forbids
+// an entry EARLIER than its file's range start and says nothing about one that
+// is later. A writer that has already selected the active partition and then
+// appends after another writer rolled to a new one strands an entry whose
+// timestamp belongs to the newer file inside the older one. Treating the miss as
+// a dangling parent would report an entry that is right there as missing, so on
+// a miss the reader walks BACKWARD through the older partitions until the entry
+// is found or the labels run out.
+//
+// Cost: the common case is unchanged -- one binary search and one file read. A
+// miss costs at most one read per older partition, each parsed at most once for
+// the whole capture (the reader caches by label), so a whole chain walk is
+// bounded by the number of partition files in the store, not by the chain
+// length. A genuinely absent identifier -- a pruned or foreign one -- is the
+// worst case and reads every partition once.
 func (r *reader) lookup(id string, c *Capture) (*Entry, bool) {
 	ms, ok := ulidTimestamp(id)
 	if !ok {
@@ -242,9 +257,12 @@ func (r *reader) lookup(id string, c *Capture) (*Entry, bool) {
 	if i == 0 {
 		return nil, false // every partition begins after this identifier
 	}
-	entries := r.read(r.labels[i-1], c)
-	entry, ok := entries[id]
-	return entry, ok
+	for j := i - 1; j >= 0; j-- {
+		if entry, ok := r.read(r.labels[j], c)[id]; ok {
+			return entry, true
+		}
+	}
+	return nil, false
 }
 
 // list reads the store directory once. A store that does not exist is not an

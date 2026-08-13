@@ -26,6 +26,8 @@ const (
 	// 2026-08-13T04:17:52.913Z and 2026-08-13T07:30:00.000Z in epoch ms.
 	msHour04 = 1786594672913
 	msHour07 = 1786606200000
+	// 2026-08-13T09:00:01.234Z: five hours past the 04 partition's range start.
+	msHour09 = (msHour04/3600000)*3600000 + 5*3600000 + 1234
 )
 
 // writeStore lays out a store directory with the given partitions. Each value
@@ -152,6 +154,83 @@ func TestCollect_ResolvesChainAndOrigin(t *testing.T) {
 	}
 	if version == nil || *version != "0.25.0" {
 		t.Errorf("origin version is %v, want the immediate caller's version", version)
+	}
+}
+
+// The clamp invariant is one-sided: it stops an entry from landing EARLIER than
+// its file's range start, and says nothing about one landing later. A writer
+// that selected the 04 file and then appended after another writer created the
+// 09 file strands an entry whose timestamp is hour 09 inside the 04 file, so the
+// binary search lands on 09, misses, and would report a dangling parent for an
+// entry that is right there. The reader walks backward through older partitions
+// on a miss.
+func TestCollect_ResolvesAnEntryStrandedByARollover(t *testing.T) {
+	stranded := encodeULID(msHour09, "0000000000000005")
+	neighbour := encodeULID(msHour09+60000, "0000000000000006")
+
+	store := writeStore(t, map[string]string{
+		"2026-08-13T04.jsonl": line(stranded, "", "safegit", "0.25.0"),
+		"2026-08-13T09.jsonl": line(neighbour, "", "unrelated", "1.2.3"),
+	})
+
+	c := collectFrom(store, stranded)
+	if c == nil {
+		t.Fatal("no capture")
+	}
+	if len(c.Anomalies) != 0 {
+		t.Errorf("a stranded but present entry produced anomalies: %+v", c.Anomalies)
+	}
+	if len(c.Chain) != 1 {
+		t.Fatalf("the stranded entry did not resolve: %+v", c.Chain)
+	}
+	if name, version := c.Origin(); name == nil || *name != "safegit" || version == nil || *version != "0.25.0" {
+		t.Errorf("origin is %v/%v, want the stranded entry's app and version", name, version)
+	}
+}
+
+// A chain whose links are spread across partitions in either direction resolves
+// whole: the leaf is stranded in an older file, its parent lives where the
+// search would look for it, and its grandparent is older still.
+func TestCollect_WalksBackwardAcrossSeveralPartitions(t *testing.T) {
+	root := encodeULID(msHour04, "0000000000000001")
+	middle := encodeULID(msHour07, "0000000000000002")
+	leaf := encodeULID(msHour09, "0000000000000003")
+
+	store := writeStore(t, map[string]string{
+		"2026-08-13T04.jsonl": line(root, "", "claudewheel", "0.20.0"),
+		"2026-08-13T06.jsonl": line(middle, root, "rlsbl", "0.61.2") + line(leaf, middle, "safegit", "0.25.0"),
+		"2026-08-13T09.jsonl": line(encodeULID(msHour09+60000, "0000000000000004"), "", "unrelated", "1.2.3"),
+	})
+
+	c := collectFrom(store, leaf)
+	if len(c.Anomalies) != 0 {
+		t.Errorf("a resolvable chain produced anomalies: %+v", c.Anomalies)
+	}
+	if len(c.Chain) != 3 {
+		t.Fatalf("chain holds %d entries, want 3: %+v", len(c.Chain), c.ChainIDs)
+	}
+	if c.Chain[0].App != "safegit" || c.Chain[1].App != "rlsbl" || c.Chain[2].App != "claudewheel" {
+		t.Errorf("chain apps are %q/%q/%q", c.Chain[0].App, c.Chain[1].App, c.Chain[2].App)
+	}
+}
+
+// The walk is bounded by the partitions that exist: an identifier no file holds
+// still dangles, once, after every older partition has been read.
+func TestCollect_BackwardWalkTerminatesOnAnAbsentIdentifier(t *testing.T) {
+	absent := encodeULID(msHour09, "000000000000DEAD")
+
+	store := writeStore(t, map[string]string{
+		"2026-08-13T04.jsonl": line(encodeULID(msHour04, "0000000000000001"), "", "one", "1.0.0"),
+		"2026-08-13T06.jsonl": line(encodeULID(msHour07, "0000000000000002"), "", "two", "2.0.0"),
+		"2026-08-13T09.jsonl": line(encodeULID(msHour09+60000, "0000000000000003"), "", "three", "3.0.0"),
+	})
+
+	c := collectFrom(store, absent)
+	if len(c.Chain) != 0 {
+		t.Errorf("an absent identifier resolved a chain: %+v", c.Chain)
+	}
+	if len(c.Anomalies) != 1 || !hasAnomaly(c, AnomalyDanglingParent, absent) {
+		t.Errorf("an absent identifier produced anomalies %+v", c.Anomalies)
 	}
 }
 
