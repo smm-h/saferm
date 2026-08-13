@@ -20,6 +20,10 @@
     {
       "path": "internal/meta",
       "language": "go"
+    },
+    {
+      "path": "internal/trace",
+      "language": "go"
     }
   ],
   "docs": "docs/",

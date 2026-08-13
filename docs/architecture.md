@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: "How saferm's internal components fit together: hard-linked archive storage, SQLite metadata, the identity, entry-existence and tree-coverage checks guarding removal of the original, and bounded retry under lock contention."
+description: "How saferm's internal components fit together: hard-linked archive storage, SQLite metadata, the checks guarding removal of the original, and the origin and ancestry derived from the process trace store."
 ---
 
 # Architecture
@@ -9,13 +9,14 @@ saferm replaces `rm` with a multi-stage deletion pipeline: archive the content, 
 
 ## Component overview
 
-saferm is organized into four internal packages, each with a single responsibility. These packages are fully independent of one another, communicating only through the top-level command handlers that orchestrate them. This separation keeps the codebase modular and testable, with clear boundaries between physical storage, metadata persistence, context capture, and git integration:
+saferm is organized into five internal packages, each with a single responsibility. Four of them are fully independent of one another, communicating only through the top-level command handlers that orchestrate them; `internal/meta` is the one exception, since capturing the context of a deletion includes resolving who invoked it. This separation keeps the codebase modular and testable, with clear boundaries between physical storage, metadata persistence, context capture, ancestry resolution, and git integration:
 
 | Package | Responsibility |
 |---------|---------------|
 | `internal/archive` | Physical file storage: moving files into the archive, compressing directories, restoring content |
 | `internal/db` | Structured metadata: SQLite schema, CRUD operations, query filters, schema migrations |
-| `internal/meta` | Context capture: environment variables, git state, parent process info, custom key-value pairs |
+| `internal/meta` | Context capture: environment variables, git state, parent process info, custom key-value pairs, the resolved ancestry chain |
+| `internal/trace` | Ancestry resolution: reads the strictcli process trace store to answer "which tool ran this deletion" |
 | `internal/git` | Git index management: detecting tracked files, staging removals on delete, staging additions on restore |
 
 ## Storage layout
@@ -60,6 +61,8 @@ After the archive entry is written -- and while the original is still on disk --
 - **Identity**: auto-increment ID, UUID (matches archive filename), original absolute path, original filename
 - **Content**: file size (bytes), SHA-256 hash, directory flag, symlink target
 - **Context**: deletion timestamp, user-provided description, optional original rm command, JSON metadata blob
+- **Origin**: `origin_name`/`origin_version` -- which tool ran the deletion, derived from the process trace store (see below)
+- **Batch**: `group_id`, shared by every record one delete invocation writes
 - **Lifecycle**: `restored_at`/`restored_to` (set on undelete), `purged_at` (set on purge)
 
 :-: ref path="internal/db" target="DeletionRecord"
@@ -70,8 +73,27 @@ The metadata JSON blob, produced by `meta.Collect`, includes:
 - **Git context**: current branch, HEAD SHA, and repository root -- empty strings when not in a git repo
 - **Parent process**: PPID and parent command line (read from `/proc/<pid>/cmdline` on Linux, `ps` on macOS)
 - **Custom pairs**: arbitrary key-value strings passed via `--meta key=value`
+- **Ancestry**: the chain of invocations that led to this deletion, resolved from the process trace store
 
 :-: ref path="internal/meta" target="Collect"
+
+### Origin and ancestry
+
+Every deletion records which tool ran it, and neither field is ever declared by a caller. saferm derives them: it reads `STRICTCLI_TRACE_PARENT` from its own environment, resolves that entry from the shared process trace store at `~/.local/share/strictcli/trace/`, and takes the entry's declared `app` and `version` into `origin_name` and `origin_version`. Both columns are null when nothing claimed the invocation, which is the ordinary state of a deletion run from a shell and of every deletion recorded before callers carried the variable. There is no `--origin` flag anywhere, nothing is inferred from any other environment variable, and history is not backfilled.
+
+The store is a shared, append-only JSONL record of process ancestry: at the seam where one tool spawns another, the spawning invocation appends one line describing itself and hands that line's identifier to the child. saferm is a consumer of it, never a writer, and reads it itself -- the framework deliberately exposes no accessor, because nothing in the framework may branch on ancestry.
+
+Resolution happens at capture time and keeps the whole chain, not only the identifier:
+
+- The identifier is parsed under a strict profile: exactly 26 canonical-uppercase Crockford base32 characters, lowercase and 128-bit overflow rejected rather than repaired.
+- The entry is found by binary-searching the partition filenames. A filename is its range start, and a writer whose clock reads earlier than the active range clamps its identifier into it, so every entry's embedded timestamp lies inside its own file's range -- one search, one file read, no scan.
+- `parent_id` is then walked to the root, and the flattened entries are written into the metadata blob under `trace`, alongside the bare identifiers for correlation with whatever store data still exists. Embedding rather than referencing is what makes a record self-contained: pruning or compressing old partitions can never orphan it.
+
+The capture is observational and cannot fail a deletion. A polluted variable, a missing or pruned store, a torn line, a line missing one of the entry's thirteen keys, or a parent that resolves to nothing is each recorded verbatim as an anomaly under `trace.anomalies`, and the deletion proceeds. That is deliberate: a dangling parent noticed by a consumer is the trace store's own primary failure-detection channel, so an anomaly that vanished silently would be indistinguishable from a chain that was fine.
+
+:-: ref path="internal/trace" target="Collect"
+
+The version-requires-name invariant -- a record may not carry `origin_version` without `origin_name` -- is enforced in `db.Insert` rather than by a CHECK constraint. SQLite cannot add a constraint to an existing table without rebuilding it, and code-level enforcement is one path covering fresh and migrated databases alike. The accepted cost is stated rather than hidden: a hand-edited database, or a binary from before the migration, bypasses it.
 
 ### 4. Removal of the original
 
@@ -166,6 +188,8 @@ The busy timeout covers brief overlaps; a lock held longer than five seconds sti
 ### Schema migrations
 
 The database uses `PRAGMA user_version` to track schema version. Migrations are idempotent: each checks whether the target column already exists (via `PRAGMA table_info`) before issuing `ALTER TABLE`. This prevents errors when multiple processes race through the migration path on first run.
+
+Every schema change lands twice -- in the `CREATE TABLE` that builds a fresh database, and in the version ladder that upgrades an existing one -- or the two shapes silently fork. The ladder can express exactly one thing, adding a nullable column, and that limit is also what makes a release safe to install under running sessions: the new columns are nullable and unconstrained, so a binary from before a migration keeps opening and writing a database a newer binary has already migrated. Its inserts name no new column and are accepted as they always were; what it cannot do is honour an invariant it does not know about, which is why the origin rule is enforced in code by whichever binary is writing.
 
 ## Security considerations
 
