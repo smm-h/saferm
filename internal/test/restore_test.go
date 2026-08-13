@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -689,5 +690,99 @@ func TestUndelete_AlternateDestinationForATree(t *testing.T) {
 	}
 	if string(got) != "archived\n" {
 		t.Errorf("restored content mismatch: got %q", got)
+	}
+}
+
+// gitRepo makes a throwaway repository with one commit and returns its path.
+func gitRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		{"init"},
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "test"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %s\n%s", args, err, out)
+		}
+	}
+	return dir
+}
+
+func gitRun(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %s\n%s", args, err, out)
+	}
+	return string(out)
+}
+
+// stagedPaths is what the index holds against HEAD: after a saferm delete of a
+// tracked file it names that file (its removal is staged), and after the
+// restore stages it back it names nothing.
+func stagedPaths(t *testing.T, repo string) string {
+	t.Helper()
+	return gitRun(t, repo, "diff", "--cached", "--name-only")
+}
+
+// The delete side has a switch for the git index; the restore side staged
+// unconditionally. Both sides need one, because a caller that hands a whole
+// directory to saferm may want no index side effects at all.
+func TestUndelete_StagesTheRestoredPathByDefault(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	repo := gitRepo(t)
+
+	file := testutil.CreateTempFile(t, repo, "tracked.txt", "tracked content\n")
+	gitRun(t, repo, "add", "tracked.txt")
+	gitRun(t, repo, "commit", "-m", "seed")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "git index test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	// Whatever the delete side did with the index, the removal is staged from
+	// here, so what the restore does to it is the only variable.
+	gitRun(t, repo, "rm", "--cached", "--ignore-unmatch", "tracked.txt")
+	if staged := stagedPaths(t, repo); !strings.Contains(staged, "tracked.txt") {
+		t.Fatalf("the removal should be staged before the restore, got: %q", staged)
+	}
+
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", uuid); code != 0 {
+		t.Fatalf("undelete failed (exit %d): %q", code, stderr)
+	}
+	if staged := stagedPaths(t, repo); strings.Contains(staged, "tracked.txt") {
+		t.Errorf("the restore must stage the restored path by default, still staged: %q", staged)
+	}
+}
+
+func TestUndelete_GitIndexSwitchLeavesTheIndexAlone(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	repo := gitRepo(t)
+
+	file := testutil.CreateTempFile(t, repo, "tracked.txt", "tracked content\n")
+	gitRun(t, repo, "add", "tracked.txt")
+	gitRun(t, repo, "commit", "-m", "seed")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "git index switch test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	gitRun(t, repo, "rm", "--cached", "--ignore-unmatch", "tracked.txt")
+
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--no-update-git-index", uuid); code != 0 {
+		t.Fatalf("undelete --no-update-git-index failed (exit %d): %q", code, stderr)
+	}
+	if _, err := os.Stat(file); err != nil {
+		t.Fatalf("the file must still be restored to the working tree: %v", err)
+	}
+	if staged := stagedPaths(t, repo); !strings.Contains(staged, "tracked.txt") {
+		t.Errorf("the switch must leave the index exactly as it was, got: %q", staged)
 	}
 }

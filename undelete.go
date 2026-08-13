@@ -37,6 +37,10 @@ func registerUndeleteCmd(app *strictcli.App) {
 			strictcli.StringFlag("on-conflict",
 				"What to do when something already exists at the restoration destination: overwrite (check the archived copy against the record, then replace what is there) or abort (refuse and change nothing). Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default",
 				strictcli.Default(nil), strictcli.Choices(onConflictOverwrite, onConflictAbort)),
+			// The delete side's switch, mirrored: a caller that hands paths to
+			// saferm programmatically may want no index side effects at all,
+			// and it must be able to say so on both halves of the round trip.
+			strictcli.BoolFlag("update-git-index", "Run git add to stage the restored path in the git index", strictcli.Default(true)),
 			strictcli.StringFlag("destination",
 				"Restore to this path instead of the record's original one. Where the content actually went is written to the record, so `info` names it afterwards",
 				strictcli.Default("")),
@@ -55,6 +59,7 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	if v, ok := kwargs["on_conflict"].(string); ok {
 		onConflict = v
 	}
+	updateGitIndex := kwargs["update_git_index"].(bool)
 	destination := kwargs["destination"].(string)
 	target := kwargs["target"].(string)
 
@@ -192,7 +197,7 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 
 	// Stage the restored file in git if inside a git repo.
 	destDir := filepath.Dir(dest)
-	if gitutil.IsInGitRepo(destDir) {
+	if updateGitIndex && gitutil.IsInGitRepo(destDir) {
 		if err := gitutil.GitAdd(dest); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: git add failed for %s: %s\n", dest, err)
 		}
