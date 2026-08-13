@@ -106,6 +106,31 @@ func TestMachineMode_StdoutCarriesOnlyTheEnvelope(t *testing.T) {
 	}
 }
 
+// deletePayloadDoc is what `delete` answers with, as a consumer parses it: what
+// the invocation archived, and what it could not.
+type deletePayloadDoc struct {
+	GroupID  string `json:"group_id"`
+	Archived []struct {
+		ID   int64  `json:"id"`
+		UUID string `json:"uuid"`
+		Path string `json:"path"`
+		Size int64  `json:"size"`
+	} `json:"archived"`
+	Failed []struct {
+		Path  string `json:"path"`
+		Error string `json:"error"`
+	} `json:"failed"`
+}
+
+func deletePayloadOf(t *testing.T, env envelope) deletePayloadDoc {
+	t.Helper()
+	var payload deletePayloadDoc
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("delete's payload does not parse (%v): %s", err, env.Payload)
+	}
+	return payload
+}
+
 // `delete`'s payload is the identifier lines it already prints, in a form a
 // consumer does not have to parse out of prose: one entry per archived path,
 // carrying both identifiers, the path, and the size. The group identifier the
@@ -124,17 +149,15 @@ func TestMachineSurface_DeleteNamesEveryRecordItWrote(t *testing.T) {
 		t.Fatalf("delete failed (exit %d): %q", code, stderr)
 	}
 
-	var payload struct {
-		GroupID  string `json:"group_id"`
-		Archived []struct {
-			ID   int64  `json:"id"`
-			UUID string `json:"uuid"`
-			Path string `json:"path"`
-			Size int64  `json:"size"`
-		} `json:"archived"`
+	payload := deletePayloadOf(t, env)
+
+	// A run that failed nothing says so with an empty list rather than with a
+	// missing member: a consumer reads the same two arrays on every answer.
+	if payload.Failed == nil {
+		t.Errorf("the failure list is always present, empty where nothing failed, got: %s", env.Payload)
 	}
-	if err := json.Unmarshal(env.Payload, &payload); err != nil {
-		t.Fatalf("delete's payload does not parse (%v): %s", err, env.Payload)
+	if len(payload.Failed) != 0 {
+		t.Errorf("nothing failed, so the failure list is empty, got: %s", env.Payload)
 	}
 
 	if len(payload.Archived) != 2 {
@@ -162,6 +185,79 @@ func TestMachineSurface_DeleteNamesEveryRecordItWrote(t *testing.T) {
 	// identifiers usable rather than merely present.
 	if _, _, code := runSaferm(t, homeDir, "info", payload.Archived[0].UUID); code != 0 {
 		t.Errorf("the payload's uuid must resolve, got exit %d", code)
+	}
+}
+
+// Under `--on-error continue` the failures are the half of the answer the
+// archived list cannot carry: a consumer that only reads `archived` has to diff
+// its own argument list against it to learn what did not make it, and the
+// reason lives nowhere but stderr prose. The payload names both -- the path and
+// the message saferm printed about it.
+func TestMachineSurface_DeleteNamesEveryPathThatFailed(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	first := testutil.CreateTempFile(t, workDir, "first.txt", "one\n")
+	missing := filepath.Join(workDir, "does-not-exist.txt")
+	third := testutil.CreateTempFile(t, workDir, "third.txt", "three\n")
+
+	env, stderr, code := runSafermJSON(t, homeDir, "delete", "--on-error", "continue",
+		"--description", "failure payload test", first, missing, third)
+	if code == 0 {
+		t.Fatalf("a failing path must fail the command; payload=%s", env.Payload)
+	}
+
+	payload := deletePayloadOf(t, env)
+	if len(payload.Archived) != 2 {
+		t.Fatalf("continue mode archived both surviving paths, so both belong on the payload, got: %s", env.Payload)
+	}
+	if payload.Archived[0].Path != first || payload.Archived[1].Path != third {
+		t.Errorf("archived = %v, want %s and %s", payload.Archived, first, third)
+	}
+	if len(payload.Failed) != 1 {
+		t.Fatalf("one path failed, so the failure list holds one entry, got: %s", env.Payload)
+	}
+	if payload.Failed[0].Path != missing {
+		t.Errorf("the failure names %q, want %q", payload.Failed[0].Path, missing)
+	}
+	if payload.Failed[0].Error == "" {
+		t.Errorf("the failure carries why it failed, got: %s", env.Payload)
+	}
+	// The message is the same one the human stream carries, not a second
+	// vocabulary a consumer would have to learn separately.
+	if !strings.Contains(stderr, payload.Failed[0].Error) {
+		t.Errorf("the payload's message %q is not what stderr said: %q", payload.Failed[0].Error, stderr)
+	}
+}
+
+// The same list survives an abort: the batch stopped at the failing path, and
+// the payload names what it archived above it AND what stopped it. The exit
+// code says a failure happened; only the payload says which path it was.
+func TestMachineSurface_DeleteAbortNamesTheFailureThatStoppedIt(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	first := testutil.CreateTempFile(t, workDir, "first.txt", "one\n")
+	missing := filepath.Join(workDir, "does-not-exist.txt")
+	third := testutil.CreateTempFile(t, workDir, "third.txt", "three\n")
+
+	env, stderr, code := runSafermJSON(t, homeDir, "delete", "--on-error", "abort",
+		"--description", "abort payload test", first, missing, third)
+	if code == 0 {
+		t.Fatalf("a failing path must fail the command; stderr=%q", stderr)
+	}
+
+	payload := deletePayloadOf(t, env)
+	if len(payload.Archived) != 1 || payload.Archived[0].Path != first {
+		t.Fatalf("the abort names everything archived above the failure, got: %s", env.Payload)
+	}
+	if len(payload.Failed) != 1 || payload.Failed[0].Path != missing {
+		t.Fatalf("the abort names the path that stopped it, got: %s", env.Payload)
+	}
+	// Nothing after the failure was attempted, so nothing after it is claimed
+	// on either list.
+	if _, err := os.Lstat(third); err != nil {
+		t.Errorf("abort mode archived %s after the failure: %v", third, err)
 	}
 }
 

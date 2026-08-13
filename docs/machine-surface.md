@@ -52,15 +52,21 @@ The **exit code is still the verdict**. A payload is what a successful run produ
   "group_id": "0f2b...",
   "archived": [
     {"id": 3, "uuid": "6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11", "path": "/home/user/project/old-config.yaml", "size": 612}
+  ],
+  "failed": [
+    {"path": "/home/user/project/gone.yaml", "error": "archiving /home/user/project/gone.yaml: file not found"}
   ]
 }
 ```
 
-One entry per record the invocation wrote, in the order it wrote them -- the same content as the `archived: [id] uuid path (size)` lines, without the parsing. `group_id` is the identifier stamped on every record this one invocation wrote, which nothing on the human stream names.
+`archived` holds one entry per record the invocation wrote, in the order it wrote them -- the same content as the `archived: [id] uuid path (size)` lines, without the parsing. `group_id` is the identifier stamped on every record this one invocation wrote, which nothing on the human stream names.
 
-Two properties a caller can rely on:
+`failed` holds one entry per path the invocation could not archive, in the order it met them, each with the message saferm printed about it on stderr (the same text, without the `error: ` prefix). It is the other half of the answer: without it, a caller under `--on-error continue` has to diff its own argument list against `archived` to find the gaps, and the reason for each gap exists only as prose.
 
-- An **aborted batch still answers**. `--on-error abort` stops at the first failing path, and the payload names everything archived above the failure. The exit code is the failure's.
+Three properties a caller can rely on:
+
+- **Both lists are always present.** A run that failed nothing answers with `"failed": []`, never with a missing member or `null`.
+- An **aborted batch still answers**. `--on-error abort` stops at the first failing path: the payload names everything archived above the failure in `archived`, and the path that stopped it in `failed`. The exit code is the failure's.
 - A **preview claims nothing**. `--dry-run` writes no records, so `archived` is empty; what the delete would do is the envelope's `preview`.
 
 ### undelete

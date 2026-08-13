@@ -127,13 +127,33 @@
             },
             "type": "array"
           },
+          "failed": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "error"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "group_id": {
             "type": "string"
           }
         },
         "required": [
           "group_id",
-          "archived"
+          "archived",
+          "failed"
         ],
         "type": "object"
       }

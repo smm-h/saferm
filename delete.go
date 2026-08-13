@@ -33,17 +33,32 @@ type archivedRecord struct {
 	Size int64  `json:"size"`
 }
 
+// failedPath is one path a `delete` invocation could not archive, carrying the
+// same message the run printed about it on stderr.
+//
+// It exists because the archived list alone cannot answer "what did not make
+// it": under `--on-error continue` a consumer would have to diff its own
+// argument list against `archived` to find the gaps, and the reason for each
+// gap would live nowhere but in prose it would have to parse.
+type failedPath struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
+}
+
 // deletePayload is `delete`'s machine payload: the invocation's group
-// identifier plus every record it wrote.
+// identifier, every record it wrote, and every path it could not archive.
 //
 // A preview writes no records, so `archived` is empty there and no identifier
 // is invented for a row that does not exist -- what a previewed delete WOULD do
 // is the envelope's own `preview` member. `group_id` is minted for the
 // invocation either way, and is the one thing on the payload that the human
-// stream never names.
+// stream never names. Both lists are always present: a run that failed nothing
+// answers with an empty `failed`, never with a missing member, so a consumer
+// reads the same two arrays on every answer.
 type deletePayload struct {
 	GroupID  string           `json:"group_id"`
 	Archived []archivedRecord `json:"archived"`
+	Failed   []failedPath     `json:"failed"`
 }
 
 // deletePayloadSchema declares the payload above over the framework's closed
@@ -68,8 +83,20 @@ var deletePayloadSchema = map[string]interface{}{
 				"additionalProperties": false,
 			},
 		},
+		"failed": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"path":  map[string]interface{}{"type": "string"},
+					"error": map[string]interface{}{"type": "string"},
+				},
+				"required":             []interface{}{"path", "error"},
+				"additionalProperties": false,
+			},
+		},
 	},
-	"required":             []interface{}{"group_id", "archived"},
+	"required":             []interface{}{"group_id", "archived", "failed"},
 	"additionalProperties": false,
 }
 
@@ -205,6 +232,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 		gitRoot:        metadata.GitRoot,
 		scanner:        bufio.NewScanner(os.Stdin),
 		written:        []archivedRecord{},
+		failures:       []failedPath{},
 	}
 
 	// The machine payload is supplied on every way out from here, the abort
@@ -213,7 +241,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 	// looking for them. It is supplied in both modes -- outside machine mode
 	// nothing prints it.
 	supplyPayload := func() {
-		ctx.Payload(deletePayload{GroupID: groupID, Archived: run.written})
+		ctx.Payload(deletePayload{GroupID: groupID, Archived: run.written, Failed: run.failures})
 	}
 
 	archived := 0
@@ -295,8 +323,30 @@ type deleteRun struct {
 	// never disagree about what was archived.
 	written []archivedRecord
 
+	// failures accumulates the paths this invocation could not archive, in the
+	// order it met them. Every entry is appended by fail(), which is also what
+	// prints the message, so the payload and stderr can never disagree about
+	// what failed or why.
+	failures []failedPath
+
 	// groupID is stamped on every record this invocation writes.
 	groupID string
+}
+
+// fail reports why a path could not be archived and records it, in one call.
+//
+// Printing and recording are the same act on purpose: a failure path that
+// printed without recording would leave the machine payload claiming a batch
+// went cleanly, and the two lists a consumer reads would disagree with the
+// stream a human reads. The message is stored without the `error: ` prefix and
+// without its newline -- those belong to the stream, not to the fact.
+//
+// It returns archiveOne's own pair, so a failure site stays one line.
+func (r *deleteRun) fail(path string, code int, format string, args ...interface{}) (archived bool, exitCode int) {
+	msg := fmt.Sprintf(format, args...)
+	fmt.Fprintf(os.Stderr, "error: %s\n", msg)
+	r.failures = append(r.failures, failedPath{Path: path, Error: msg})
+	return false, code
 }
 
 // archiveOne archives a single path, reporting its own failures on stderr.
@@ -312,8 +362,9 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 		if r.ignoreMissing {
 			return false, ExitSuccess
 		}
-		fmt.Fprintf(os.Stderr, "error: resolving path %q: %s\n", file, err)
-		return false, ExitGeneral
+		// The absolute path is exactly what could not be computed, so the
+		// failure is recorded under the path as the caller wrote it.
+		return r.fail(file, ExitGeneral, "resolving path %q: %s", file, err)
 	}
 
 	if r.interactive {
@@ -332,17 +383,14 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 			return false, ExitSuccess
 		}
 		if err == archive.ErrRecursiveRequired {
-			fmt.Fprintf(os.Stderr, "error: %s is a directory; use -r to delete recursively\n", file)
-			return false, ExitUsage
+			return r.fail(absPath, ExitUsage, "%s is a directory; use -r to delete recursively", file)
 		}
-		fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
-		return false, ExitArchive
+		return r.fail(absPath, ExitArchive, "archiving %s: %s", file, err)
 	}
 
 	if r.dryRun {
 		if err := recordArchival(r.ctx, r.fx, plan); err != nil {
-			fmt.Fprintf(os.Stderr, "error: recording archival of %s: %s\n", file, err)
-			return false, ExitArchive
+			return r.fail(absPath, ExitArchive, "recording archival of %s: %s", file, err)
 		}
 		if r.verbose {
 			say(r.ctx, "would archive: %s\n", absPath)
@@ -356,8 +404,7 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	// archive.Execute.
 	result, err := archive.Execute(plan)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: archiving %s: %s\n", file, err)
-		return false, ExitArchive
+		return r.fail(absPath, ExitArchive, "archiving %s: %s", file, err)
 	}
 
 	rec := &db.DeletionRecord{
@@ -381,7 +428,7 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 
 	id, err := r.database.Insert(rec)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: inserting database record for %s: %s\n", absPath, err)
+		archived, code := r.fail(absPath, dbExit(err), "inserting database record for %s: %s", absPath, err)
 		// Nothing has happened to the caller's path yet, so the archival can be
 		// taken back whole: drop the entry and say so. A discard that itself
 		// fails is the one remaining way to leave a blob with no row, so it is
@@ -392,7 +439,7 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 		} else {
 			fmt.Fprintf(os.Stderr, "note: %s was left in place; nothing was archived\n", absPath)
 		}
-		return false, dbExit(err)
+		return archived, code
 	}
 
 	// The record exists from here on, so the archived copy is findable by both
@@ -400,7 +447,8 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	// of the archival: a failure here leaves a recorded deletion whose original
 	// is still on disk, which is worth an error and is not silent data loss.
 	if err := archive.RemoveSource(plan); err != nil {
-		return false, reportUnremovedSource(absPath, plan, id, result.UUID, err)
+		code, msg := describeUnremovedSource(absPath, plan, id, result.UUID, err)
+		return r.fail(absPath, code, "%s", msg)
 	}
 
 	// Stage removal in git index if the file was tracked.
@@ -426,8 +474,14 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	return true, ExitSuccess
 }
 
-// reportUnremovedSource explains a [archive.RemoveSource] that refused or
-// failed, and returns the exit code for it.
+// describeUnremovedSource explains a [archive.RemoveSource] that refused or
+// failed, returning the exit code for it and the message that states it. The
+// caller prints and records that message in one act, which is what keeps the
+// machine payload's failure list and stderr saying the same thing.
+//
+// The auxiliary lines -- a discard that itself failed -- are printed here and
+// not returned: they are a second fact about the archive entry, not the reason
+// this path could not be archived.
 //
 // The record is already committed by the time this runs, so every branch states
 // two things: what the record holds, and what the path holds, because after
@@ -452,16 +506,15 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 // a row naming no blob, which `list` still shows and `purge` can clear, and
 // which is honest about the one thing that must not be got wrong: nothing was
 // destroyed.
-func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid string, err error) int {
+func describeUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid string, err error) (int, string) {
 	switch {
 	case errors.Is(err, archive.ErrArchivedContentChanged):
 		if derr := archive.DiscardBlob(plan); derr != nil {
 			fmt.Fprintf(os.Stderr, "error: removing the archive entry %s, which no longer matches record [%d] %s: %s; it is now a second name for %s and a write to either changes both\n",
 				plan.Dest, id, uuid, derr, absPath)
 		}
-		fmt.Fprintf(os.Stderr, "error: %s was written to while it was being archived: %s; it was left in place with its current content, the archived copy was discarded because record [%d] %s records the hash it had before the write, and that row now names nothing -- purge it and run the delete again\n",
+		return ExitArchive, fmt.Sprintf("%s was written to while it was being archived: %s; it was left in place with its current content, the archived copy was discarded because record [%d] %s records the hash it had before the write, and that row now names nothing -- purge it and run the delete again",
 			absPath, err, id, uuid)
-		return ExitArchive
 
 	case errors.Is(err, archive.ErrDirectoryChanged):
 		// The tree grew or was written into after the tar was closed, so the
@@ -473,23 +526,20 @@ func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid st
 			fmt.Fprintf(os.Stderr, "error: removing the archive entry %s, which does not hold all of %s: %s; it is an incomplete copy under record [%d] %s\n",
 				plan.Dest, absPath, derr, id, uuid)
 		}
-		fmt.Fprintf(os.Stderr, "error: %s changed while it was being archived: %s; the tree was left whole, the incomplete archive was discarded, and record [%d] %s now names nothing -- purge it and run the delete again\n",
+		return ExitArchive, fmt.Sprintf("%s changed while it was being archived: %s; the tree was left whole, the incomplete archive was discarded, and record [%d] %s now names nothing -- purge it and run the delete again",
 			absPath, err, id, uuid)
-		return ExitArchive
 
 	case errors.Is(err, archive.ErrSourceReplaced), errors.Is(err, archive.ErrSourceDiverged):
-		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s holds the content that was archived, and %s now holds something else -- neither was destroyed\n",
+		return ExitArchive, fmt.Sprintf("not removing %s: %s; record [%d] %s holds the content that was archived, and %s now holds something else -- neither was destroyed",
 			absPath, err, id, uuid, absPath)
-		return ExitArchive
 
 	case errors.Is(err, archive.ErrArchiveEntryMissing):
 		// The row was committed and then its blob went -- a concurrent purge
 		// selecting the row saferm had just inserted does exactly this. There is
 		// nothing to discard and nothing to undo: the row names nothing, and the
 		// path the caller asked to delete is now the only copy of its content.
-		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s was committed before the entry disappeared, so that row names nothing and %s is the only copy of its content left -- purge the row and run the delete again\n",
+		return ExitArchive, fmt.Sprintf("not removing %s: %s; record [%d] %s was committed before the entry disappeared, so that row names nothing and %s is the only copy of its content left -- purge the row and run the delete again",
 			absPath, err, id, uuid, absPath)
-		return ExitArchive
 
 	case errors.Is(err, archive.ErrArchiveEntryReplaced):
 		// The entry is still a file, but not the one that was archived, so
@@ -497,14 +547,12 @@ func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid st
 		// would destroy something whose origin is unknown. The row is left
 		// standing over it and is worth nothing, which is what the message
 		// says rather than claiming the record holds the archived content.
-		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s names an archive entry that is no longer what was archived, so that row names nothing saferm can vouch for -- the entry was left alone because saferm did not put it there, and %s was not destroyed\n",
+		return ExitArchive, fmt.Sprintf("not removing %s: %s; record [%d] %s names an archive entry that is no longer what was archived, so that row names nothing saferm can vouch for -- the entry was left alone because saferm did not put it there, and %s was not destroyed",
 			absPath, err, id, uuid, absPath)
-		return ExitArchive
 
 	default:
-		fmt.Fprintf(os.Stderr, "error: removing %s after archiving it: %s; record [%d] %s holds the archived copy\n",
+		return ExitArchive, fmt.Sprintf("removing %s after archiving it: %s; record [%d] %s holds the archived copy",
 			absPath, err, id, uuid)
-		return ExitArchive
 	}
 }
 
