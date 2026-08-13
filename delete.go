@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -305,9 +306,7 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	// of the archival: a failure here leaves a recorded deletion whose original
 	// is still on disk, which is worth an error and is not silent data loss.
 	if err := archive.RemoveSource(plan); err != nil {
-		fmt.Fprintf(os.Stderr, "error: removing %s after archiving it: %s; record [%d] %s holds the archived copy\n",
-			absPath, err, id, result.UUID)
-		return false, ExitArchive
+		return false, reportUnremovedSource(absPath, plan, id, result.UUID, err)
 	}
 
 	// Stage removal in git index if the file was tracked.
@@ -330,6 +329,48 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	say(r.ctx, "archived: [%d] %s %s (%s)\n", id, result.UUID, absPath, humanSize(result.Size))
 
 	return true, ExitSuccess
+}
+
+// reportUnremovedSource explains a [archive.RemoveSource] that refused or
+// failed, and returns the exit code for it.
+//
+// The record is already committed by the time this runs, so every branch states
+// two things: what the record holds, and what the path holds, because after
+// this failure they are no longer the same thing and only saying one of them
+// would be a half-truth.
+//
+// The middle branch is the only one that undoes anything. A file's archive
+// entry is a hard link, so a write through the original path rewrites the
+// archived bytes too: the row says one hash and the blob has another, and no
+// re-reading fixes that, because the content the row describes is gone from the
+// machine. Keeping the entry would leave a permanent lie in the archive AND a
+// second name for a file the caller is still editing, so it is discarded, which
+// costs nothing -- dropping one of two links to an inode leaves the caller's
+// file exactly where it is, with the newer content it now has. What survives is
+// a row naming no blob, which `list` still shows and `purge` can clear, and
+// which is honest about the one thing that must not be got wrong: nothing was
+// destroyed.
+func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid string, err error) int {
+	switch {
+	case errors.Is(err, archive.ErrArchivedContentChanged):
+		if derr := archive.DiscardBlob(plan); derr != nil {
+			fmt.Fprintf(os.Stderr, "error: removing the archive entry %s, which no longer matches record [%d] %s: %s; it is now a second name for %s and a write to either changes both\n",
+				plan.Dest, id, uuid, derr, absPath)
+		}
+		fmt.Fprintf(os.Stderr, "error: %s was written to while it was being archived: %s; it was left in place with its current content, the archived copy was discarded because record [%d] %s records the hash it had before the write, and that row now names nothing -- purge it and run the delete again\n",
+			absPath, err, id, uuid)
+		return ExitArchive
+
+	case errors.Is(err, archive.ErrSourceReplaced), errors.Is(err, archive.ErrSourceDiverged):
+		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s holds the content that was archived, and %s now holds something else -- neither was destroyed\n",
+			absPath, err, id, uuid, absPath)
+		return ExitArchive
+
+	default:
+		fmt.Fprintf(os.Stderr, "error: removing %s after archiving it: %s; record [%d] %s holds the archived copy\n",
+			absPath, err, id, uuid)
+		return ExitArchive
+	}
 }
 
 // recordArchival mints the mutations an archival performs onto the effects

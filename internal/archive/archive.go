@@ -23,7 +23,25 @@ var (
 	ErrRecursiveRequired = errors.New("target is a directory; recursive flag required")
 	ErrConflict          = errors.New("destination already exists")
 	ErrHashMismatch      = errors.New("hash mismatch after copy")
+
+	// The ways a source can stop being what was archived while the caller is
+	// recording the deletion. See [RemoveSource] for why that window is wide
+	// enough to matter and what each of these means for the record.
+	ErrSourceReplaced         = errors.New("the source path no longer names the file that was archived")
+	ErrSourceDiverged         = errors.New("the source changed after it was hashed, and the archive holds an independent copy of the older content")
+	ErrArchivedContentChanged = errors.New("the source was written through while its archive entry was a link to it, so the recorded hash no longer describes the archived bytes")
+	ErrNotExecuted            = errors.New("the plan was never executed, so there is nothing to check the source against")
 )
+
+// linkFile is os.Link, indirected so a test can make the link fail.
+//
+// The copy-and-verify fallback runs only when the kernel or the filesystem
+// refuses a hard link -- a different device, protected_hardlinks, a filesystem
+// with no links, an inode at its link limit -- and a test process can provoke
+// none of those on a temp directory it owns. Without this seam the fallback is
+// reachable only in production, which is the one place it must not be first
+// exercised.
+var linkFile = os.Link
 
 // ArchiveResult holds the outcome of archiving a file or directory.
 type ArchiveResult struct {
@@ -56,6 +74,17 @@ type Plan struct {
 	Kind          Kind
 	Dest          string
 	SymlinkTarget string
+
+	// What [Execute] saw, and what [RemoveSource] checks the path against
+	// before it destroys anything. identity is the source's own os.FileInfo as
+	// of the archival, so it carries the dev/ino pair the identity check needs
+	// and the size and mtime the content check needs; hash is what was
+	// recorded for a file; linked says whether the archive entry is the
+	// source's own inode or an independent copy, which is what decides the
+	// meaning of a content change.
+	identity os.FileInfo
+	hash     string
+	linked   bool
 }
 
 // NewPlan inspects path and resolves where archiving it would put it. It
@@ -114,21 +143,101 @@ func Execute(p *Plan) (*ArchiveResult, error) {
 	}
 	switch p.Kind {
 	case KindDirectory:
-		return archiveDirectory(p.Source, p.ArchiveDir, p.UUID)
+		return archiveDirectory(p)
 	case KindSymlink:
-		return archiveSymlink(p.Source, p.ArchiveDir, p.UUID)
+		return archiveSymlink(p)
 	default:
-		return archiveFile(p.Source, p.ArchiveDir, p.UUID)
+		return archiveFile(p)
 	}
 }
 
 // RemoveSource removes the original an executed [Plan] archived. It is the
 // second half of an archival and runs only once the entry is recorded.
+//
+// It removes by identity, not by name. Between [Execute] and this call sits the
+// caller's database insert, and that is not an instant: a contended SQLite
+// write retries for tens of seconds, and the path is a live filesystem path the
+// whole time. Two things can happen to it, and removing whatever the name
+// happens to resolve to gets both wrong:
+//
+//   - The path can be REPLACED -- renamed over, or removed and recreated. The
+//     archive holds the original; the name now leads somewhere else, and
+//     removing it would destroy a file nothing archived.
+//   - A regular file's archive entry is a hard link, so a write THROUGH the
+//     path mutates the archived bytes. The recorded hash then describes content
+//     that no longer exists anywhere, and removing the source would leave that
+//     record standing over a blob it does not match.
+//
+// So the source is re-checked first and the removal is refused on any
+// mismatch, with [ErrSourceReplaced], [ErrSourceDiverged] or
+// [ErrArchivedContentChanged] naming which of the three the caller is holding.
+// Nothing is undone here: refusing to remove is the whole of the remedy this
+// half can apply, and what to do about the record is the recording caller's
+// decision.
 func RemoveSource(p *Plan) error {
+	if err := verifySource(p); err != nil {
+		return err
+	}
 	if p.Kind == KindDirectory {
 		return os.RemoveAll(p.Source)
 	}
 	return os.Remove(p.Source)
+}
+
+// verifySource reports whether p.Source is still the thing [Execute] archived.
+//
+// Identity is checked for every kind, by dev/ino: a directory or a symlink has
+// no content of its own that the archive shares, so being the same inode is the
+// whole question for them. A regular file is also checked for content, and
+// cheaply -- the size and mtime as of the hash against the current stat, and a
+// re-hash only when those differ, rather than re-reading every archived file on
+// every delete. A write that restores both size and mtime is not detected; that
+// is the one hole left open deliberately, and it costs a full re-read to close.
+func verifySource(p *Plan) error {
+	if p.identity == nil {
+		return ErrNotExecuted
+	}
+
+	cur, err := os.Lstat(p.Source)
+	if err != nil {
+		return fmt.Errorf("re-checking %s before removing it: %w", p.Source, err)
+	}
+	if !os.SameFile(cur, p.identity) {
+		return fmt.Errorf("%s: %w", p.Source, ErrSourceReplaced)
+	}
+	if p.Kind != KindFile {
+		return nil
+	}
+
+	if p.linked {
+		// The exact form of the check, available only while the entry and the
+		// source are one inode: whatever else moved, these two must still be
+		// the same file, or the archive is not holding what is about to be
+		// destroyed.
+		dstInfo, err := os.Stat(p.Dest)
+		if err != nil {
+			return fmt.Errorf("re-checking the archive entry %s: %w", p.Dest, err)
+		}
+		if !os.SameFile(cur, dstInfo) {
+			return fmt.Errorf("the archive entry %s is no longer the same file as %s: %w", p.Dest, p.Source, ErrSourceReplaced)
+		}
+	}
+
+	if cur.Size() == p.identity.Size() && cur.ModTime().Equal(p.identity.ModTime()) {
+		return nil
+	}
+	hash, err := hashFile(p.Source)
+	if err != nil {
+		return fmt.Errorf("re-hashing %s: %w", p.Source, err)
+	}
+	if hash == p.hash {
+		// Touched, but the bytes are the ones that were recorded.
+		return nil
+	}
+	if p.linked {
+		return fmt.Errorf("%s: %w", p.Source, ErrArchivedContentChanged)
+	}
+	return fmt.Errorf("%s: %w", p.Source, ErrSourceDiverged)
 }
 
 // DiscardBlob removes the archive entry [Execute] wrote, undoing it. The source
@@ -157,42 +266,51 @@ func Archive(path string, archiveDir string, isRecursive bool) (*ArchiveResult, 
 	return result, nil
 }
 
-func archiveSymlink(path string, archiveDir string, uuid string) (*ArchiveResult, error) {
-	target, err := os.Readlink(path)
+func archiveSymlink(p *Plan) (*ArchiveResult, error) {
+	target, err := os.Readlink(p.Source)
 	if err != nil {
 		return nil, fmt.Errorf("reading symlink target: %w", err)
+	}
+
+	info, err := os.Lstat(p.Source)
+	if err != nil {
+		return nil, err
 	}
 
 	// Write the target path to a .symlink metadata file for defense-in-depth
 	// recovery if the database is lost. The link itself stays until the caller
 	// has recorded the entry; see [Execute].
-	metaPath := filepath.Join(archiveDir, uuid+".symlink")
+	metaPath := filepath.Join(p.ArchiveDir, p.UUID+".symlink")
 	if err := os.WriteFile(metaPath, []byte(target), 0600); err != nil {
 		return nil, fmt.Errorf("writing symlink metadata: %w", err)
 	}
 
-	return &ArchiveResult{UUID: uuid, Hash: "", Size: 0, IsSymlink: true, SymlinkTarget: target}, nil
+	p.identity = info
+	return &ArchiveResult{UUID: p.UUID, Hash: "", Size: 0, IsSymlink: true, SymlinkTarget: target}, nil
 }
 
-func archiveFile(path string, archiveDir string, uuid string) (*ArchiveResult, error) {
-	hash, err := hashFile(path)
+func archiveFile(p *Plan) (*ArchiveResult, error) {
+	hash, err := hashFile(p.Source)
 	if err != nil {
 		return nil, fmt.Errorf("hashing file: %w", err)
 	}
 
-	info, err := os.Lstat(path)
+	// Taken after the hash, so the size and mtime it carries are the ones that
+	// went with the bytes that were read. [verifySource] compares against them.
+	info, err := os.Lstat(p.Source)
 	if err != nil {
 		return nil, err
 	}
 	size := info.Size()
 
-	dst := filepath.Join(archiveDir, uuid)
+	dst := filepath.Join(p.ArchiveDir, p.UUID)
 
 	// A hard link, not a rename: the archive entry and the original are the
 	// same inode until the caller has recorded the deletion and calls
 	// [RemoveSource]. It costs one directory entry and no content copy, and it
 	// is what lets a failed record undo itself with the source untouched.
-	if err := os.Link(path, dst); err != nil {
+	linked := true
+	if err := linkFile(p.Source, dst); err != nil {
 		if !linkRefused(err) {
 			return nil, fmt.Errorf("linking file into archive: %w", err)
 		}
@@ -202,18 +320,29 @@ func archiveFile(path string, archiveDir string, uuid string) (*ArchiveResult, e
 		// and verifying the copy against the hash reaches the same state at the
 		// cost of reading the file twice, which is what the cross-device path
 		// has always done.
-		if err := copyAndVerify(path, dst, hash); err != nil {
+		if err := copyAndVerify(p.Source, dst, hash); err != nil {
 			return nil, err
 		}
+		linked = false
 	}
 
-	return &ArchiveResult{UUID: uuid, Hash: hash, Size: size}, nil
+	p.identity = info
+	p.hash = hash
+	p.linked = linked
+	return &ArchiveResult{UUID: p.UUID, Hash: hash, Size: size}, nil
 }
 
-func archiveDirectory(path string, archiveDir string, uuid string) (*ArchiveResult, error) {
+func archiveDirectory(p *Plan) (*ArchiveResult, error) {
+	path, archiveDir, uuid := p.Source, p.ArchiveDir, p.UUID
+
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+
 	// Walk tree to compute total size.
 	var totalSize int64
-	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -247,6 +376,7 @@ func archiveDirectory(path string, archiveDir string, uuid string) (*ArchiveResu
 	// The tree itself stays until the caller has recorded the entry; see
 	// [Execute]. It used to go here, which is why a failing record left a
 	// compressed tree nobody could name and no directory to go back to.
+	p.identity = info
 	return &ArchiveResult{UUID: uuid, Hash: hash, Size: totalSize, IsDirectory: true}, nil
 }
 

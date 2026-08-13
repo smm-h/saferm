@@ -1,0 +1,343 @@
+package archive
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"syscall"
+	"testing"
+	"time"
+)
+
+// The window between Execute and RemoveSource.
+//
+// Those two calls are deliberately separate so the caller can record the
+// deletion in between, and that recording is a SQLite write: on a contended
+// archive it retries for tens of seconds before it either succeeds or gives up.
+// The source path is live for all of it, and removing it afterwards by name
+// alone gets two things wrong.
+//
+// The path can be REPLACED -- renamed over, or removed and recreated -- and
+// os.Remove would then destroy a file nothing ever archived while the archive
+// holds the original. And a regular file's archive entry is a hard link, so a
+// write THROUGH the path rewrites the archived bytes: the hash that was
+// recorded describes content that no longer exists, and removing the source
+// would leave that record standing over a blob it does not match, silently and
+// permanently.
+//
+// These tests reproduce both without any timing: the window is opened by hand,
+// which is what the two halves being separate calls makes possible.
+
+// linkedFilePlan archives a regular file as a hard link and returns the plan
+// with the window open: the entry exists, the source is still there.
+func linkedFilePlan(t *testing.T, dir, name, content string) *Plan {
+	t.Helper()
+
+	src := filepath.Join(dir, name)
+	if err := os.WriteFile(src, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), false)
+	if err != nil {
+		t.Fatalf("NewPlan: %v", err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !plan.linked {
+		t.Fatalf("the file was copied, not linked; this test is about the linked case")
+	}
+	return plan
+}
+
+// A file removed and recreated at the same path is a different inode. The
+// archive holds the original; the name leads somewhere else.
+func TestRemoveSource_RefusesAReplacedFile(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "the archived bytes")
+
+	if err := os.Remove(plan.Source); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(plan.Source, []byte("a completely different file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RemoveSource(plan)
+	if !errors.Is(err, ErrSourceReplaced) {
+		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	}
+
+	got, readErr := os.ReadFile(plan.Source)
+	if readErr != nil {
+		t.Fatalf("the replacement was destroyed by a removal that went by name: %v", readErr)
+	}
+	if string(got) != "a completely different file" {
+		t.Errorf("the replacement's content changed: %q", got)
+	}
+	archived, err := os.ReadFile(plan.Dest)
+	if err != nil {
+		t.Fatalf("reading the archive entry: %v", err)
+	}
+	if string(archived) != "the archived bytes" {
+		t.Errorf("the archive entry no longer holds the original: %q", archived)
+	}
+}
+
+// A rename over the path is the same replacement by another route, and it is
+// the one an editor's atomic save performs.
+func TestRemoveSource_RefusesAFileRenamedOver(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "the archived bytes")
+
+	other := filepath.Join(dir, "other.txt")
+	if err := os.WriteFile(other, []byte("saved over the top"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(other, plan.Source); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrSourceReplaced) {
+		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	}
+	if got, err := os.ReadFile(plan.Source); err != nil || string(got) != "saved over the top" {
+		t.Fatalf("the renamed-in file was destroyed: content=%q err=%v", got, err)
+	}
+}
+
+// A write through the path reaches the archived bytes, because they are the
+// same inode. The record's hash is stale the moment it happens.
+func TestRemoveSource_RefusesALinkedFileWrittenThrough(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "the archived bytes")
+
+	if err := os.WriteFile(plan.Source, []byte("rewritten while the insert was in flight"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RemoveSource(plan)
+	if !errors.Is(err, ErrArchivedContentChanged) {
+		t.Fatalf("expected ErrArchivedContentChanged, got %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); err != nil {
+		t.Errorf("the source was removed despite the mismatch: %v", err)
+	}
+}
+
+// Same length, so only the mtime distinguishes it. Chtimes sets a plainly
+// different one rather than relying on the clock's granularity between two
+// writes in the same microsecond.
+func TestRemoveSource_RefusesASameSizedRewrite(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "aaaaaaaa")
+
+	if err := os.WriteFile(plan.Source, []byte("bbbbbbbb"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(plan.Source, later, later); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrArchivedContentChanged) {
+		t.Fatalf("expected ErrArchivedContentChanged, got %v", err)
+	}
+}
+
+// The other half of the content check: a changed mtime over identical bytes is
+// not a reason to refuse, or every `touch` during a slow insert would abort a
+// delete. The re-hash is what tells the two apart.
+func TestRemoveSource_AcceptsATouchThatLeftTheContentAlone(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "unchanged bytes")
+
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(plan.Source, later, later); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); err != nil {
+		t.Fatalf("a touched but unmodified file must still be removable: %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); !os.IsNotExist(err) {
+		t.Errorf("the source survived a successful RemoveSource (err=%v)", err)
+	}
+}
+
+// The archive entry itself can be replaced, and then it is not the file that is
+// about to be destroyed either.
+func TestRemoveSource_RefusesWhenTheArchiveEntryIsNoLongerTheSource(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "the archived bytes")
+
+	if err := os.Remove(plan.Dest); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(plan.Dest, []byte("not the original"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrSourceReplaced) {
+		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); err != nil {
+		t.Errorf("the source was removed with no archived copy of it: %v", err)
+	}
+}
+
+// When the link was refused and the entry is an independent copy, a write
+// through the path does not reach the archived bytes: the record stays true and
+// the blob stays right, but the path now holds newer content that nothing
+// archived, so it still must not be removed.
+func TestRemoveSource_RefusesACopiedSourceThatDiverged(t *testing.T) {
+	dir := t.TempDir()
+	refuseLinks(t, syscall.EXDEV)
+
+	src := filepath.Join(dir, "target.txt")
+	if err := os.WriteFile(src, []byte("the archived bytes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if plan.linked {
+		t.Fatalf("the file was linked; this test is about the copy fallback")
+	}
+
+	if err := os.WriteFile(src, []byte("newer content the archive never saw"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrSourceDiverged) {
+		t.Fatalf("expected ErrSourceDiverged, got %v", err)
+	}
+	if _, err := os.Lstat(src); err != nil {
+		t.Errorf("the source was removed although the archive holds older content: %v", err)
+	}
+	archived, err := os.ReadFile(plan.Dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(archived) != "the archived bytes" {
+		t.Errorf("the copy was disturbed: %q", archived)
+	}
+}
+
+// A directory has no content the archive shares -- the .tar.zst is a snapshot --
+// so identity is the whole question for it: the tree that is recursively
+// removed must be the tree that was compressed.
+func TestRemoveSource_RefusesAReplacedDirectory(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "tree")
+	if err := os.MkdirAll(filepath.Join(src, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "nested", "f.txt"), []byte("archived"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if err := os.RemoveAll(src); err != nil {
+		t.Fatal(err)
+	}
+	survivor := filepath.Join(src, "unrelated.txt")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(survivor, []byte("belongs to whoever made this one"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrSourceReplaced) {
+		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	}
+	if _, err := os.Stat(survivor); err != nil {
+		t.Fatalf("the recursive removal destroyed a tree nothing archived: %v", err)
+	}
+}
+
+func TestRemoveSource_RefusesAReplacedSymlink(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "link")
+	if err := os.Symlink("/etc/hostname", src); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if err := os.Remove(src); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/etc/hosts", src); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrSourceReplaced) {
+		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	}
+	target, err := os.Readlink(src)
+	if err != nil {
+		t.Fatalf("the replacement symlink was destroyed: %v", err)
+	}
+	if target != "/etc/hosts" {
+		t.Errorf("the surviving symlink points at %q", target)
+	}
+}
+
+// A source that vanished is not a removal that quietly succeeded: it is
+// reported, so the caller can say which record holds the only remaining copy.
+func TestRemoveSource_ReportsAVanishedSource(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "content")
+
+	if err := os.Remove(plan.Source); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RemoveSource(plan)
+	if err == nil {
+		t.Fatal("a source that is already gone must be reported, not passed over")
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the error must say the path is gone, got: %v", err)
+	}
+}
+
+// Fail closed: with nothing recorded there is nothing to check the path
+// against, so the irreversible half refuses rather than trusting the name.
+func TestRemoveSource_RefusesAPlanThatWasNeverExecuted(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "target.txt")
+	if err := os.WriteFile(src, []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrNotExecuted) {
+		t.Fatalf("expected ErrNotExecuted, got %v", err)
+	}
+	if _, err := os.Lstat(src); err != nil {
+		t.Errorf("an unexecuted plan removed the source anyway: %v", err)
+	}
+}
