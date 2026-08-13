@@ -1393,9 +1393,76 @@
           "anchor": "captureorigin"
         }
       ]
+    },
+    {
+      "path": "machine-surface.md",
+      "title": "Machine surface",
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "Machine surface",
+          "anchor": "machine-surface"
+        },
+        {
+          "level": 2,
+          "text": "Machine mode",
+          "anchor": "machine-mode"
+        },
+        {
+          "level": 2,
+          "text": "The envelope",
+          "anchor": "the-envelope"
+        },
+        {
+          "level": 2,
+          "text": "The four consumer verbs",
+          "anchor": "the-four-consumer-verbs"
+        },
+        {
+          "level": 3,
+          "text": "delete",
+          "anchor": "delete"
+        },
+        {
+          "level": 3,
+          "text": "undelete",
+          "anchor": "undelete"
+        },
+        {
+          "level": 3,
+          "text": "list",
+          "anchor": "list"
+        },
+        {
+          "level": 3,
+          "text": "info",
+          "anchor": "info"
+        },
+        {
+          "level": 2,
+          "text": "capabilities",
+          "anchor": "capabilities"
+        },
+        {
+          "level": 3,
+          "text": "The contract",
+          "anchor": "the-contract"
+        },
+        {
+          "level": 2,
+          "text": "Where the declaration lives",
+          "anchor": "where-the-declaration-lives"
+        },
+        {
+          "level": 2,
+          "text": "Effect classification",
+          "anchor": "effect-classification"
+        }
+      ]
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-13T18:40:39.678873+00:00",
+  "last_gen": "2026-08-13T21:34:40.951933+00:00",
   "theme": "minimal"
 }
