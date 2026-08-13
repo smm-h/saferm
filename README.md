@@ -112,7 +112,7 @@ Either way the identifiers of everything already archived are on stdout before t
 
 ## Driving saferm from a program
 
-`--json` puts saferm in machine mode, where stdout carries exactly one document -- the envelope -- and everything saferm would have printed rides inside it. `delete`, `undelete`, `list` and `info` each answer with a structured payload: the records a delete wrote (both identifiers, path and size, plus the invocation's group id), where a restore put the content, the rows of a listing, the full record with its status, origin and group. `purge` deliberately has no payload.
+`--json` puts saferm in machine mode, where stdout carries exactly one document -- the envelope -- and everything saferm would have printed rides inside it. `delete`, `undelete`, `list` and `info` each answer with a structured payload: the records a delete wrote (both identifiers, path and size, plus the invocation's group id) and every path it could not archive with the reason, where a restore put the content, the rows of a listing, the full record with its status, origin and group. `purge` deliberately has no payload.
 
 ```
 $ saferm --json capabilities
