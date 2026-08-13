@@ -592,6 +592,59 @@ func TestUndelete_NonEmptyDestinationDirectoryNeedsTheChoice(t *testing.T) {
 	}
 }
 
+// And the stated answer goes through: a non-empty destination directory is
+// REPLACED, not merged into.
+//
+// The distinction is the whole reason the conflict mode exists for trees. The
+// overwrite removes the destination outright before extracting, so what was
+// standing there is gone -- including files the archived tree never held, which
+// a merge would have left behind looking like part of the restored tree.
+func TestUndelete_NonEmptyDestinationDirectoryOverwriteReplacesIt(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	tree := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, tree, "inner.txt", "archived\n")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "directory overwrite test", tree)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, ".tar.zst")
+
+	occupied := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, occupied, "someone-elses.txt", "replace me\n")
+
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid); code != 0 {
+		t.Fatalf("an overwriting tree restore failed (exit %d): %q", code, stderr)
+	}
+
+	got, err := os.ReadFile(filepath.Join(tree, "inner.txt"))
+	if err != nil {
+		t.Fatalf("the archived tree was not restored: %v", err)
+	}
+	if string(got) != "archived\n" {
+		t.Errorf("restored content mismatch: got %q", got)
+	}
+	// CreateTempDir seeds file1.txt and file2.txt, so the archived tree's own
+	// members are back as well and the check is not resting on one file.
+	if _, err := os.Stat(filepath.Join(tree, "file1.txt")); err != nil {
+		t.Errorf("the rest of the archived tree must be back too: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(tree, "someone-elses.txt")); !os.IsNotExist(err) {
+		t.Errorf("an overwrite replaces the destination rather than merging into it, got: %v", err)
+	}
+	if _, err := os.Lstat(entry); !os.IsNotExist(err) {
+		t.Errorf("a successful restore must consume the archived copy, got: %v", err)
+	}
+
+	infoOut, _, _ := runSaferm(t, homeDir, "info", uuid)
+	if !strings.Contains(infoOut, "restored at") {
+		t.Errorf("the record must be stamped as restored, got: %q", infoOut)
+	}
+}
+
 // The empty-directory rule belongs to trees only. An empty directory standing
 // where a FILE was archived is still a conflict: a file cannot be renamed over
 // a directory, and removing it is a decision the caller has to state.
