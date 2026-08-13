@@ -1,6 +1,6 @@
 ---
 title: Machine surface
-description: "How a program drives saferm: the --json envelope, the payload each consumer verb answers with, and the capabilities probe that replaces version checks."
+description: "How a program drives saferm: the --json envelope, the payload each consumer verb answers with (and when it is null), and the capabilities probe."
 ---
 
 # Machine surface
@@ -43,7 +43,9 @@ The **exit code is still the verdict**. A payload is what a successful run produ
 
 ## The four consumer verbs
 
-`delete`, `undelete`, `list` and `info` each declare a payload schema and supply their value in both modes -- the payload is not a machine-mode feature, it is simply invisible outside it. What the envelope's table already says is the exact rule: **a payload is what a run that reached its answer produced**. A run that failed before it had one carries `payload: null` and says why in the exit code and the diagnostics -- a `--meta` value that is not `key=value` never gets past argument handling (exit 2), an identifier that names no record never resolves one to answer about (exit 3). `delete` is the one verb whose answer exists before the run is over, and it holds there too: an aborted batch names everything it archived above the failure. `purge` deliberately declares none -- it is the one irreversible operation and the one that asks for consent, and nothing should be driving it from a parsed document.
+`delete`, `undelete`, `list` and `info` each declare a payload schema and supply their value in both modes -- the payload is not a machine-mode feature, it is simply invisible outside machine mode. `purge` deliberately declares none: it is the one irreversible operation and the one that asks for consent, and nothing should be driving it from a parsed document.
+
+What the envelope's table states is the exact rule, and it is not "every run": **a payload is what a run that reached its answer produced.** A run that failed before it had one carries `payload: null` and says why in the exit code and the diagnostics -- a `--meta` value that is not `key=value` never gets past argument handling (exit 2), and an identifier naming no record never resolves one to answer about (exit 3). `delete` is the verb whose answer exists before the run is over, and the rule holds there too: an aborted batch names everything it archived above the failure.
 
 ### delete
 
