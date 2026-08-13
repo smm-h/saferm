@@ -1,5 +1,25 @@
 {
   "commands": {
+    "capabilities": {
+      "effect": "read_only",
+      "help": "Name the features this saferm ships, for a program deciding how to drive it",
+      "name": "capabilities",
+      "payload_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "features"
+        ],
+        "type": "object"
+      }
+    },
     "delete": {
       "args": [
         {
@@ -76,7 +96,47 @@
         }
       ],
       "help": "Move files to the saferm archive with metadata tracking",
-      "name": "delete"
+      "name": "delete",
+      "payload_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "archived": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "integer"
+                },
+                "uuid": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "uuid",
+                "path",
+                "size"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "group_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "archived"
+        ],
+        "type": "object"
+      }
     },
     "info": {
       "args": [
@@ -87,7 +147,120 @@
       ],
       "effect": "read_only",
       "help": "Display full metadata and context for an archived deletion",
-      "name": "info"
+      "name": "info",
+      "payload_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "deleted_at": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "group_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hash": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "file",
+              "directory",
+              "symlink"
+            ],
+            "type": "string"
+          },
+          "origin_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origin_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "original_name": {
+            "type": "string"
+          },
+          "original_path": {
+            "type": "string"
+          },
+          "purged_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "restored_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "restored_to": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "restorable",
+              "restored",
+              "purged",
+              "restored-then-purged",
+              "entry-missing"
+            ],
+            "type": "string"
+          },
+          "symlink_target": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "uuid",
+          "original_path",
+          "original_name",
+          "size",
+          "hash",
+          "kind",
+          "symlink_target",
+          "deleted_at",
+          "status",
+          "description",
+          "command",
+          "restored_at",
+          "restored_to",
+          "purged_at",
+          "origin_name",
+          "origin_version",
+          "group_id"
+        ],
+        "type": "object"
+      }
     },
     "list": {
       "effect": "read_only",
@@ -107,7 +280,56 @@
         }
       ],
       "help": "Show all items currently held in the saferm archive",
-      "name": "list"
+      "name": "list",
+      "payload_schema": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted_at": {
+              "type": "string"
+            },
+            "id": {
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "file",
+                "directory",
+                "symlink"
+              ],
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "size": {
+              "type": "integer"
+            },
+            "status": {
+              "enum": [
+                "archived",
+                "restored",
+                "purged"
+              ],
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "uuid",
+            "path",
+            "size",
+            "kind",
+            "deleted_at",
+            "status"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      }
     },
     "purge": {
       "args": [
@@ -191,7 +413,44 @@
         }
       ],
       "help": "Restore a previously archived file back to its original path",
-      "name": "undelete"
+      "name": "undelete",
+      "payload_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "file",
+              "directory",
+              "symlink"
+            ],
+            "type": "string"
+          },
+          "original_path": {
+            "type": "string"
+          },
+          "overwrote": {
+            "type": "boolean"
+          },
+          "restored_to": {
+            "type": "string"
+          },
+          "uuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "uuid",
+          "original_path",
+          "restored_to",
+          "kind",
+          "overwrote"
+        ],
+        "type": "object"
+      }
     }
   },
   "config": true,
