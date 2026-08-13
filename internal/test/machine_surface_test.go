@@ -427,6 +427,175 @@ func TestMachineSurface_ListOfNothingIsAnEmptyArray(t *testing.T) {
 	}
 }
 
+// infoPayload is the record `info` prints, as a machine reads it. The nullable
+// members are pointers on purpose: the difference between "no tool claimed this
+// deletion" and "a tool named the empty string" is the whole content of the
+// origin columns.
+type infoPayload struct {
+	ID            int64   `json:"id"`
+	UUID          string  `json:"uuid"`
+	OriginalPath  string  `json:"original_path"`
+	OriginalName  string  `json:"original_name"`
+	Size          int64   `json:"size"`
+	Hash          string  `json:"hash"`
+	Kind          string  `json:"kind"`
+	SymlinkTarget *string `json:"symlink_target"`
+	DeletedAt     string  `json:"deleted_at"`
+	Status        string  `json:"status"`
+	Description   string  `json:"description"`
+	Command       string  `json:"command"`
+	RestoredAt    *string `json:"restored_at"`
+	RestoredTo    *string `json:"restored_to"`
+	PurgedAt      *string `json:"purged_at"`
+	OriginName    *string `json:"origin_name"`
+	OriginVersion *string `json:"origin_version"`
+	GroupID       *string `json:"group_id"`
+}
+
+func infoPayloadOf(t *testing.T, env envelope) infoPayload {
+	t.Helper()
+	var payload infoPayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("info's payload does not parse (%v): %s", err, env.Payload)
+	}
+	return payload
+}
+
+// `info`'s payload is the record, including the three things the human page
+// states in prose or not at all: the derived status, the group identifier, and
+// where a restored record's content went.
+func TestMachineSurface_InfoCarriesTheRecord(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+	elsewhere := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "inspected.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort",
+		"--description", "info payload test", "--command", "rm inspected.txt", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	env, stderr, code := runSafermJSON(t, homeDir, "info", uuid)
+	if code != 0 {
+		t.Fatalf("info failed (exit %d): %q", code, stderr)
+	}
+	payload := infoPayloadOf(t, env)
+
+	if payload.UUID != uuid || payload.OriginalPath != file {
+		t.Errorf("the payload must name the record it inspected, got: %s", env.Payload)
+	}
+	if payload.OriginalName != "inspected.txt" {
+		t.Errorf("original_name = %q", payload.OriginalName)
+	}
+	if payload.Kind != "file" || payload.Hash == "" {
+		t.Errorf("kind = %q, hash = %q", payload.Kind, payload.Hash)
+	}
+	if payload.Status != "restorable" {
+		t.Errorf("status = %q, want restorable", payload.Status)
+	}
+	if payload.Description != "info payload test" || payload.Command != "rm inspected.txt" {
+		t.Errorf("description = %q, command = %q", payload.Description, payload.Command)
+	}
+	if _, err := time.Parse(time.RFC3339, payload.DeletedAt); err != nil {
+		t.Errorf("deleted_at must be a timestamp, got %q (%v)", payload.DeletedAt, err)
+	}
+	if payload.GroupID == nil || *payload.GroupID == "" {
+		t.Error("the record carries the group identifier its invocation stamped on it")
+	}
+	// Nothing traced this deletion, and null is how the payload says so -- not
+	// an empty string, which nothing could read as either answer.
+	if payload.OriginName != nil || payload.OriginVersion != nil {
+		t.Errorf("an untraced deletion claims no origin, got %v / %v", payload.OriginName, payload.OriginVersion)
+	}
+	if payload.RestoredAt != nil || payload.RestoredTo != nil || payload.PurgedAt != nil {
+		t.Errorf("a restorable record has no lifecycle timestamps, got: %s", env.Payload)
+	}
+	if payload.SymlinkTarget != nil {
+		t.Errorf("a file record names no symlink target, got %v", payload.SymlinkTarget)
+	}
+
+	// After a restore to somewhere else, the payload says both that it was
+	// restored and where the content actually went.
+	dest := filepath.Join(elsewhere, "moved.txt")
+	if _, stderr, code := runSaferm(t, homeDir, "undelete", "--destination", dest, uuid); code != 0 {
+		t.Fatalf("undelete failed (exit %d): %q", code, stderr)
+	}
+	env, _, _ = runSafermJSON(t, homeDir, "info", uuid)
+	payload = infoPayloadOf(t, env)
+	if payload.Status != "restored" {
+		t.Errorf("status = %q, want restored", payload.Status)
+	}
+	if payload.RestoredTo == nil || *payload.RestoredTo != dest {
+		t.Errorf("restored_to = %v, want %q", payload.RestoredTo, dest)
+	}
+	if payload.RestoredAt == nil {
+		t.Error("a restored record carries the time it was restored")
+	}
+}
+
+// The status member is a closed set of words, not the human line's prose: a
+// consumer branches on it, and "the archived copy is gone though nothing
+// restored or purged it" is a sentence, not a state name.
+func TestMachineSurface_InfoStatusIsAClosedSet(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "states.txt", "content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "status states", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	// The row names nothing: the archived copy went without a restore or a
+	// purge, which is a state saferm produces itself.
+	if err := os.Remove(archiveEntry(homeDir, uuid, "")); err != nil {
+		t.Fatal(err)
+	}
+	env, _, _ := runSafermJSON(t, homeDir, "info", uuid)
+	if got := infoPayloadOf(t, env).Status; got != "entry-missing" {
+		t.Errorf("status = %q, want entry-missing", got)
+	}
+
+	// And a purged row says purged.
+	if _, stderr, code := runSaferm(t, homeDir, "--approve-consequential", "purge", uuid); code != 0 {
+		t.Fatalf("purge failed (exit %d): %q", code, stderr)
+	}
+	env, _, _ = runSafermJSON(t, homeDir, "info", uuid)
+	if got := infoPayloadOf(t, env).Status; got != "purged" {
+		t.Errorf("status = %q, want purged", got)
+	}
+}
+
+// A traced deletion's origin reaches the payload, which is the machine-readable
+// half of "which tool ran this".
+func TestMachineSurface_InfoCarriesTheOrigin(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	parentID := mintID(msTraced, "0000000000000042")
+	writeTraceStore(t, homeDir, "2026-08-13T04", traceEntryLine(parentID, "", "claudewheel", "0.42.0"))
+
+	file := testutil.CreateTempFile(t, workDir, "traced.txt", "content\n")
+	stdout, stderr, code := runSafermTraced(t, homeDir, parentID,
+		"delete", "--on-error", "abort", "--description", "origin payload test", file)
+	if code != 0 {
+		t.Fatalf("traced delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	env, _, _ := runSafermJSON(t, homeDir, "info", uuid)
+	payload := infoPayloadOf(t, env)
+	if payload.OriginName == nil || *payload.OriginName != "claudewheel" {
+		t.Errorf("origin_name = %v, want claudewheel", payload.OriginName)
+	}
+	if payload.OriginVersion == nil || *payload.OriginVersion != "0.42.0" {
+		t.Errorf("origin_version = %v, want 0.42.0", payload.OriginVersion)
+	}
+}
+
 // A machine-mode run under --quiet still emits the complete envelope: the
 // document is not written through the writers --quiet suppresses, so quiet has
 // no mechanism by which to reach it.
