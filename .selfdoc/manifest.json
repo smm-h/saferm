@@ -799,6 +799,16 @@
         },
         {
           "level": 3,
+          "text": "`AnomalyOversizedField`",
+          "anchor": "anomalyoversizedfield"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyAnomaliesDropped`",
+          "anchor": "anomalyanomaliesdropped"
+        },
+        {
+          "level": 3,
           "text": "`Entry`",
           "anchor": "entry"
         },
@@ -1199,6 +1209,16 @@
         },
         {
           "level": 3,
+          "text": "`AnomalyOversizedField`",
+          "anchor": "anomalyoversizedfield"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyAnomaliesDropped`",
+          "anchor": "anomalyanomaliesdropped"
+        },
+        {
+          "level": 3,
           "text": "`Entry`",
           "anchor": "entry"
         },
@@ -1231,5 +1251,5 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-13T06:21:14.212631+00:00"
+  "last_gen": "2026-08-13T09:51:49.318206+00:00"
 }
