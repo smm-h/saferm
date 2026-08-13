@@ -161,11 +161,26 @@
       "effect": "mutating",
       "flags": [
         {
-          "default": false,
-          "help": "Overwrite any existing file at the restoration destination",
-          "name": "force-overwrite",
+          "choices": [
+            "overwrite",
+            "abort"
+          ],
+          "help": "What to do when something already exists at the restoration destination: overwrite (check the archived copy against the record, then replace what is there) or abort (refuse and change nothing). Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default",
+          "name": "on-conflict",
+          "type": "str"
+        },
+        {
+          "default": true,
+          "help": "Run git add to stage the restored path in the git index",
+          "name": "update-git-index",
           "negatable": true,
           "type": "bool"
+        },
+        {
+          "default": "",
+          "help": "Restore to this path instead of the record's original one. Where the content actually went is written to the record, so `info` names it afterwards",
+          "name": "destination",
+          "type": "str"
         }
       ],
       "grants": [
@@ -292,7 +307,7 @@
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
           },
-          "help": "Open the config file for manual editing in $EDITOR (creates if missing)",
+          "help": "Open this application's config file in the editor named by $EDITOR, falling back to vi. The parent directory and an empty config file are created first if they do not exist, so the editor always opens something. Launching the editor counts as a mutation: under --dry-run the command records the editor invocation and opens nothing.",
           "interactive": true,
           "name": "edit"
         },
@@ -301,7 +316,7 @@
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
           },
-          "help": "Generate a template config file with documented fields and defaults",
+          "help": "Create a starter config file listing every flag and config field the application declares, each commented with its help text, type and default value, so the file documents itself. The format follows whichever of TOML or JSON the application was built for. Refuses with an error if a config file already exists rather than overwriting it; the created path is printed on success.",
           "name": "init"
         },
         "path": {
@@ -309,7 +324,7 @@
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
           },
-          "help": "Print the absolute path to the config file for this application",
+          "help": "Print the absolute path to this application's config file and nothing else, so the value can be piped straight into another command. The path is $XDG_CONFIG_HOME/\u003capp\u003e/config.\u003ctoml|json\u003e (falling back to ~/.config), or the explicit override the application was built with. Printing it does not create the file, and reports the same path whether or not one exists yet.",
           "name": "path"
         },
         "set": {
@@ -344,19 +359,10 @@
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
           },
-          "help": "Set a persistent config value that overrides the default for a flag",
+          "help": "Write a persistent value into the config file so it overrides a flag's declared default on every later run. The value is coerced to the flag's own type and rejected if it does not fit: repeatable flags take a comma-separated list (backslash-escape a literal comma) and are checked for duplicates, dict flags take a JSON object. Use --default to drop a key back to its default, and --clear to empty a repeatable flag.",
           "name": "set"
         },
         "show": {
-          "constraints": [
-            {
-              "flags": [
-                "plain",
-                "json"
-              ],
-              "type": "mutex"
-            }
-          ],
           "effect": "read_only",
           "flags": [
             {
@@ -365,20 +371,16 @@
               "name": "plain",
               "negatable": true,
               "type": "bool"
-            },
-            {
-              "default": false,
-              "help": "Display config values as a JSON object with source metadata",
-              "name": "json",
-              "negatable": true,
-              "type": "bool"
             }
           ],
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
           },
-          "help": "Show all config values with their sources (config file, env, or default)",
-          "name": "show"
+          "help": "Show every flag and config field with its effective value and where that value came from, resolved through the precedence chain environment variable, then config file, then declared default. Declared infrastructure roots, handshake and connection environment variables are listed too. Choose --plain for an aligned human-readable table; the framework-owned --json yields the same information as a machine-readable object carrying each entry's type, default and help text.",
+          "name": "show",
+          "payload_schema": {
+            "type": "object"
+          }
         }
       },
       "help": "Manage persistent configuration values stored in the config file",
@@ -397,5 +399,5 @@
   "name": "saferm",
   "project_id": "github.com/smm-h/saferm",
   "schema_version": 1,
-  "version": "0.8.1"
+  "version": "(devel)"
 }

@@ -120,17 +120,51 @@ When `--update-git-index` is true (the default) and the file resides in a git re
 
 ## Restoration (undelete)
 
-Restoration reverses the archival process, moving content from the archive back to its original location on disk. It does not mirror archival, which links rather than moves: a restore is a single move that leaves nothing behind in the archive. Files are renamed out of the archive with a cross-device copy fallback, directories are extracted from their compressed archive, and symlinks are recreated from stored metadata. Conflict detection prevents accidental overwrites at the destination path:
+Restoration reverses the archival process, moving content from the archive back to its original location on disk. It does not mirror archival, which links rather than moves: a restore **always consumes** the archived copy. There is no keep mode and no per-restore flag for one — keeping a copy in the archive after restoring it is the parking workflow saferm exists to prevent, and a restored file that is wanted in the archive again is simply deleted again. A record already restored has nothing left to restore, and `undelete` says so in the record's own vocabulary rather than failing at the archive layer.
 
-- **Regular files**: `os.Rename` from archive to original path, with cross-device copy fallback
-- **Directories**: extract the `.tar.zst` archive into the original path, stripping the top-level directory entry so contents land directly at the destination
-- **Symlinks**: recreate the symlink via `os.Symlink` using the stored target, then remove the `.symlink` metadata file
+`undelete --destination <path>` restores somewhere other than the record's original path. The path is resolved to an absolute one and written to the record's `restored_to` column, so `info` names where the content actually went.
 
-The `Restore` function checks for conflicts at the destination. Without `--force-overwrite`, an existing file at the destination path causes `ErrConflict`. After successful restoration, the database record is updated with `restored_at` and `restored_to` timestamps.
+### The step list
 
-If the destination is inside a git repository, `git add` is run to stage the restored file.
+A restore is one list of steps built from one `RestorePlan`, walked by both modes: in `--dry-run` every step is recorded on the effects handle, otherwise the handle performs the steps it can and the archive package performs the rest. The effects handle's closed method set covers removing an occupied destination, making the parent directory, renaming a file out of the archive and dropping a consumed entry; it has no primitive for recreating a symlink or extracting a tar+zstd tree, so those two are described on the handle and performed beside it. Building the list once is what keeps the preview and the real restore from drifting apart — the real path used to bypass the handle entirely, with only the dry branch minting anything.
 
-:-: ref path="internal/archive" target="Restore"
+- **Regular files**: `Rename` from the archive to the destination, with a cross-device copy fallback that removes the entry only once the copy is complete
+- **Directories**: extract the `.tar.zst` into the destination (stripping the top-level directory entry so contents land directly there), then remove the container
+- **Symlinks**: recreate the link via `os.Symlink` from the recorded target, then remove the `.symlink` entry
+
+The ordering carries one invariant: **the archived copy is consumed last**. A file's move out of the archive is itself the consumption and cannot half-happen; every other kind writes the destination first and drops the entry only once that has worked. Any failure therefore leaves the entry in place and the record restorable.
+
+### Conflicts and the empty-destination rule
+
+`--on-conflict` is required exactly when something is standing at the destination, with no default and two values: `overwrite` replaces what is there, `abort` refuses and changes nothing. Omitting it when the destination is occupied is an argument error (exit `2`) naming both values; `abort` is a stated refusal and exits `7` (`ExitConflict`). There is no keep-both or backup mode.
+
+An **empty destination directory is not a conflict for a tree**: it is that tree's own original place, emptied, and extracting into it replaces nothing. The rule is for directory records only — an empty directory standing where a *file* was archived is still occupied, because a file cannot be renamed over a directory and removing it is a decision the caller has to state.
+
+### Verification before an overwrite
+
+An overwrite reads the archived copy through once **before** the destination is touched. Restoration used to remove the destination first and read the archive afterwards, so a corrupted or truncated copy cost the caller whatever was standing there.
+
+The recorded hash means three different things, and verification defines all three:
+
+| Kind | What the record holds | What verification proves |
+| --- | --- | --- |
+| Regular file | SHA-256 of the file's content, and the entry *is* that file | Exact: a byte that rotted in the archive is found |
+| Directory | SHA-256 of the `.tar.zst` **container** | The container arrived intact. There is no per-member digest anywhere in the archive, so nothing here can promise anything about individual extracted members |
+| Symlink | Nothing — a symlink has no content and its recorded hash is empty by construction | The entry still names the target the record names. A hash comparison would fail on every symlink ever archived |
+
+A file or tree whose record carries no hash at all is `ErrUnverifiable` rather than a pass: the caller asked to destroy a destination on the strength of a check nothing can make.
+
+Verification is proportional. A restore into an absent or empty destination gets **no** verify pass — a corrupt copy simply fails the restore, which destroys nothing and keeps the copy for a retry.
+
+### Partial extraction
+
+A tree extraction that fails partway leaves a half tree at the destination, and that half tree is **taken back**: the destination held nothing but bytes the extraction had just written there (it was absent, or empty, or removed by a verified overwrite), and the content is still in the archive because the entry is consumed only on success. Directories the extraction created are removed with `os.Remove` in reverse order, so a directory that is somehow not empty holds something the extraction did not write and is reported as stuck rather than destroyed; a destination directory the extraction *found* rather than created survives. The failure names what had been extracted before it, and states that the record is still restorable.
+
+### Git index
+
+If the destination is inside a git repository and `--update-git-index` is true (the default), `git add` stages the restored path. The switch mirrors the delete side's, so a programmatic caller can turn the index side effects off on both halves of the round trip.
+
+:-: ref path="internal/archive" target="VerifyEntry"
 
 ## Purge (permanent destruction)
 

@@ -40,6 +40,8 @@ Bring it back:
 saferm undelete old-config.yaml
 ```
 
+A restore consumes the archived copy -- it is moved back out, not copied -- and it never overwrites anything by accident. If something is already standing at the destination, `--on-conflict` is required and has no default: `overwrite` checks the archived copy against the record before replacing what is there, `abort` refuses and changes nothing. `--destination <path>` restores somewhere else and writes that path to the record, so `info` names where the content went.
+
 ## Install
 
 | Method | Command |
