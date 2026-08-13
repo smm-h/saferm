@@ -302,6 +302,56 @@ func TestUndelete_CorruptDirectoryArchive_RefusesBeforeTouchingTheDestination(t 
 	}
 }
 
+// Verification is not a real-mode step: a dry run of the same overwrite reads
+// the archived copy and refuses in exactly the same way, with the same exit
+// code.
+//
+// A preview that skipped the check would answer "this would work" for a restore
+// that cannot, which is the one thing a preview must never say -- and the check
+// costs a preview nothing it would not cost the run it previews, because both
+// read the copy once and neither touches the destination until it has passed.
+func TestUndelete_DryRunOverwrite_RefusesACorruptArchiveToo(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "previewed.txt", "the archived content\n")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "dry-run verify test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, "")
+	if err := os.WriteFile(entry, []byte("rotted bytes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	testutil.CreateTempFile(t, workDir, "previewed.txt", "do not lose me\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "--dry-run", "undelete", "--on-conflict", "overwrite", uuid)
+	if code != 6 {
+		t.Fatalf("a previewed overwrite from a corrupt archive must refuse with exit 6, got %d: %q", code, stderr)
+	}
+	if !strings.Contains(stderr, "refusing to overwrite") {
+		t.Errorf("the refusal must say it did not touch the destination, got: %q", stderr)
+	}
+
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("reading the destination after the refusal: %v", err)
+	}
+	if string(got) != "do not lose me\n" {
+		t.Errorf("a previewed restore touched the destination: got %q", got)
+	}
+	if _, err := os.Stat(entry); err != nil {
+		t.Errorf("a previewed restore consumed the archived copy: %v", err)
+	}
+	infoOut, _, _ := runSaferm(t, homeDir, "info", uuid)
+	if !strings.Contains(infoOut, "restorable") {
+		t.Errorf("a previewed restore must leave the record restorable, got: %q", infoOut)
+	}
+}
+
 // A symlink was never hashed. Its entry is the recorded target written out, so
 // verification is an equality against the record -- and it must not fail
 // spuriously on the ordinary case, which is the whole reason the three kinds
