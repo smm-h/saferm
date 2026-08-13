@@ -204,6 +204,65 @@ func TestRollbackExtraction_LeavesAPreExistingDestination(t *testing.T) {
 	}
 }
 
+// A directory the extraction created but that now holds something the
+// extraction did not write is STUCK: it is reported rather than destroyed, and
+// what is standing in it survives.
+//
+// The rollback removes directories with os.Remove, never os.RemoveAll, exactly
+// so this case can happen: a concurrent writer that dropped a file into the
+// half-extracted tree owns that file, and undoing someone else's restore is not
+// a licence to destroy it. The caller turns the returned list into the "could
+// not be removed again" half of its failure message, so a rollback that
+// silently swallowed the stuck path would leave the caller claiming a clean
+// undo over a destination that still holds a tree.
+func TestRollbackExtraction_ReportsADirectoryHoldingAForeignFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	archiveDir := filepath.Join(tmpDir, "archive")
+	if err := os.MkdirAll(archiveDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	uuid := NewUUID()
+	entry := filepath.Join(archiveDir, uuid+".tar.zst")
+	corruptTarZst(t, entry, "tree")
+
+	dest := filepath.Join(tmpDir, "tree")
+	p := NewRestorePlan(uuid, archiveDir, dest, true, "")
+
+	created, err := ExtractTree(p)
+	if err == nil {
+		t.Fatal("extracting a corrupt archive must fail")
+	}
+	member := filepath.Join(dest, "first.txt")
+	if _, statErr := os.Stat(member); statErr != nil {
+		t.Fatalf("the extraction should have written %s before it failed: %v", member, statErr)
+	}
+
+	// Someone else writes into the half-extracted tree before the rollback runs.
+	foreign := filepath.Join(dest, "not-ours.txt")
+	if writeErr := os.WriteFile(foreign, []byte("mine\n"), 0o644); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+
+	stuck := RollbackExtraction(created)
+	if len(stuck) != 1 || stuck[0] != dest {
+		t.Fatalf("the directory holding a foreign file must be reported as stuck, got: %v", stuck)
+	}
+
+	got, readErr := os.ReadFile(foreign)
+	if readErr != nil {
+		t.Fatalf("the foreign file must survive the rollback: %v", readErr)
+	}
+	if string(got) != "mine\n" {
+		t.Errorf("the foreign file was rewritten by the rollback: got %q", got)
+	}
+	if _, statErr := os.Lstat(member); !os.IsNotExist(statErr) {
+		t.Errorf("the extraction's own member must still be removed, got: %v", statErr)
+	}
+	if _, statErr := os.Stat(entry); statErr != nil {
+		t.Errorf("the rollback must not touch the archived copy: %v", statErr)
+	}
+}
+
 // CopyOut is the cross-device half of a file restore: it copies the archived
 // copy to the destination and consumes it only once the copy is there.
 func TestCopyOut_ConsumesTheEntryOnlyAfterTheCopy(t *testing.T) {
