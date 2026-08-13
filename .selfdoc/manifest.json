@@ -59,6 +59,16 @@
         },
         {
           "level": 3,
+          "text": "Origin and ancestry",
+          "anchor": "origin-and-ancestry"
+        },
+        {
+          "level": 3,
+          "text": "`Collect`",
+          "anchor": "collect-1"
+        },
+        {
+          "level": 3,
           "text": "4. Removal of the original",
           "anchor": "4-removal-of-the-original"
         },
@@ -593,6 +603,11 @@
           "anchor": "restore"
         },
         {
+          "level": 3,
+          "text": "`NewUUID`",
+          "anchor": "newuuid"
+        },
+        {
           "level": 2,
           "text": "`internal/db`",
           "anchor": "internaldb"
@@ -606,6 +621,16 @@
           "level": 3,
           "text": "`ErrNotFound`",
           "anchor": "errnotfound"
+        },
+        {
+          "level": 3,
+          "text": "`ErrOriginVersionWithoutName`",
+          "anchor": "erroriginversionwithoutname"
+        },
+        {
+          "level": 3,
+          "text": "`ErrOriginEmpty`",
+          "anchor": "erroriginempty"
         },
         {
           "level": 3,
@@ -736,6 +761,71 @@
           "level": 3,
           "text": "`Collect`",
           "anchor": "collect"
+        },
+        {
+          "level": 2,
+          "text": "`internal/trace`",
+          "anchor": "internaltrace"
+        },
+        {
+          "level": 3,
+          "text": "`ParentEnv`",
+          "anchor": "parentenv"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyMalformedParentValue`",
+          "anchor": "anomalymalformedparentvalue"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyDanglingParent`",
+          "anchor": "anomalydanglingparent"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyMalformedEntry`",
+          "anchor": "anomalymalformedentry"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyStoreUnreadable`",
+          "anchor": "anomalystoreunreadable"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyChainCycle`",
+          "anchor": "anomalychaincycle"
+        },
+        {
+          "level": 3,
+          "text": "`Entry`",
+          "anchor": "entry"
+        },
+        {
+          "level": 3,
+          "text": "`Anomaly`",
+          "anchor": "anomaly"
+        },
+        {
+          "level": 3,
+          "text": "`Capture`",
+          "anchor": "capture"
+        },
+        {
+          "level": 3,
+          "text": "`Collect`",
+          "anchor": "collect-1"
+        },
+        {
+          "level": 3,
+          "text": "`StoreDir`",
+          "anchor": "storedir"
+        },
+        {
+          "level": 3,
+          "text": "`Capture.Origin`",
+          "anchor": "captureorigin"
         }
       ]
     },
@@ -863,6 +953,11 @@
           "level": 3,
           "text": "`Restore`",
           "anchor": "restore"
+        },
+        {
+          "level": 3,
+          "text": "`NewUUID`",
+          "anchor": "newuuid"
         }
       ]
     },
@@ -890,6 +985,16 @@
           "level": 3,
           "text": "`ErrNotFound`",
           "anchor": "errnotfound"
+        },
+        {
+          "level": 3,
+          "text": "`ErrOriginVersionWithoutName`",
+          "anchor": "erroriginversionwithoutname"
+        },
+        {
+          "level": 3,
+          "text": "`ErrOriginEmpty`",
+          "anchor": "erroriginempty"
         },
         {
           "level": 3,
@@ -1046,8 +1151,85 @@
           "anchor": "collect"
         }
       ]
+    },
+    {
+      "path": "internal-trace.md",
+      "title": "internal/trace",
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "internal/trace",
+          "anchor": "internaltrace"
+        },
+        {
+          "level": 2,
+          "text": "`internal/trace`",
+          "anchor": "internaltrace"
+        },
+        {
+          "level": 3,
+          "text": "`ParentEnv`",
+          "anchor": "parentenv"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyMalformedParentValue`",
+          "anchor": "anomalymalformedparentvalue"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyDanglingParent`",
+          "anchor": "anomalydanglingparent"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyMalformedEntry`",
+          "anchor": "anomalymalformedentry"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyStoreUnreadable`",
+          "anchor": "anomalystoreunreadable"
+        },
+        {
+          "level": 3,
+          "text": "`AnomalyChainCycle`",
+          "anchor": "anomalychaincycle"
+        },
+        {
+          "level": 3,
+          "text": "`Entry`",
+          "anchor": "entry"
+        },
+        {
+          "level": 3,
+          "text": "`Anomaly`",
+          "anchor": "anomaly"
+        },
+        {
+          "level": 3,
+          "text": "`Capture`",
+          "anchor": "capture"
+        },
+        {
+          "level": 3,
+          "text": "`Collect`",
+          "anchor": "collect"
+        },
+        {
+          "level": 3,
+          "text": "`StoreDir`",
+          "anchor": "storedir"
+        },
+        {
+          "level": 3,
+          "text": "`Capture.Origin`",
+          "anchor": "captureorigin"
+        }
+      ]
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-13T05:12:40.999030+00:00"
+  "last_gen": "2026-08-13T06:21:14.212631+00:00"
 }
