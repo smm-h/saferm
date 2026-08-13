@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/smm-h/saferm/internal/db"
@@ -143,19 +144,21 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 
 	if dryRun {
 		// Display what would be purged in tabular format.
-		fmt.Printf("%-6s %-40s %-10s %-16s\n", "ID", "Path", "Size", "Age")
-		fmt.Printf("%-6s %-40s %-10s %-16s\n", "------", "----------------------------------------", "----------", "----------------")
+		var table strings.Builder
+		fmt.Fprintf(&table, "%-6s %-40s %-10s %-16s\n", "ID", "Path", "Size", "Age")
+		fmt.Fprintf(&table, "%-6s %-40s %-10s %-16s\n", "------", "----------------------------------------", "----------", "----------------")
 		var totalSize int64
 		for _, rec := range records {
 			path := rec.OriginalPath
 			if len(path) > 40 {
 				path = "..." + path[len(path)-37:]
 			}
-			fmt.Printf("%-6d %-40s %-10s %-16s\n",
+			fmt.Fprintf(&table, "%-6d %-40s %-10s %-16s\n",
 				rec.ID, path, humanSize(rec.Size), humanAge(rec.DeletedAt))
 			totalSize += rec.Size
 		}
-		fmt.Printf("\nWould purge %d item(s), freeing ~%s\n", len(records), humanSize(totalSize))
+		fmt.Fprintf(&table, "\nWould purge %d item(s), freeing ~%s\n", len(records), humanSize(totalSize))
+		emit(ctx, "%s", table.String())
 		// Fall through: the loop below mints each archive-file removal on the
 		// effects handle, which records it under --dry-run instead of doing it,
 		// so the would-do log names every file that would be destroyed.
@@ -175,11 +178,13 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 	// suppress it. Under --dry-run the table above has already listed the same
 	// records, so this does not repeat it.
 	if !dryRun {
-		fmt.Printf("Permanently deleting %d item(s):\n", len(records))
+		var listing strings.Builder
+		fmt.Fprintf(&listing, "Permanently deleting %d item(s):\n", len(records))
 		for _, rec := range records {
-			fmt.Printf("  [%d] %s (%s, %s)\n",
+			fmt.Fprintf(&listing, "  [%d] %s (%s, %s)\n",
 				rec.ID, rec.OriginalPath, humanSize(rec.Size), humanAge(rec.DeletedAt))
 		}
+		emit(ctx, "%s", listing.String())
 	}
 
 	purged := 0

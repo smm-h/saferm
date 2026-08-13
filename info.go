@@ -93,64 +93,68 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 		fileType = "directory"
 	}
 
-	fmt.Printf("ID:            %d\n", rec.ID)
-	fmt.Printf("UUID:          %s\n", rec.UUID)
-	fmt.Printf("Original Path: %s\n", rec.OriginalPath)
-	fmt.Printf("Original Name: %s\n", rec.OriginalName)
-	fmt.Printf("Size:          %s (%d bytes)\n", humanSize(rec.Size), rec.Size)
-	fmt.Printf("Hash:          %s\n", rec.Hash)
-	fmt.Printf("Type:          %s\n", fileType)
+	// The whole record is built first and emitted once, so machine mode carries
+	// it as a single diagnostic rather than one per field.
+	var out strings.Builder
+	fmt.Fprintf(&out, "ID:            %d\n", rec.ID)
+	fmt.Fprintf(&out, "UUID:          %s\n", rec.UUID)
+	fmt.Fprintf(&out, "Original Path: %s\n", rec.OriginalPath)
+	fmt.Fprintf(&out, "Original Name: %s\n", rec.OriginalName)
+	fmt.Fprintf(&out, "Size:          %s (%d bytes)\n", humanSize(rec.Size), rec.Size)
+	fmt.Fprintf(&out, "Hash:          %s\n", rec.Hash)
+	fmt.Fprintf(&out, "Type:          %s\n", fileType)
 	if rec.SymlinkTarget != nil {
-		fmt.Printf("Target:        %s\n", *rec.SymlinkTarget)
+		fmt.Fprintf(&out, "Target:        %s\n", *rec.SymlinkTarget)
 	}
-	fmt.Printf("Deleted At:    %s\n", rec.DeletedAt.Format(time.RFC3339))
-	fmt.Printf("Status:        %s\n", recordStatus(rec, archiveDir))
-	fmt.Printf("Description:   %s\n", rec.Description)
+	fmt.Fprintf(&out, "Deleted At:    %s\n", rec.DeletedAt.Format(time.RFC3339))
+	fmt.Fprintf(&out, "Status:        %s\n", recordStatus(rec, archiveDir))
+	fmt.Fprintf(&out, "Description:   %s\n", rec.Description)
 	if rec.Command != "" {
-		fmt.Printf("Command:       %s\n", rec.Command)
+		fmt.Fprintf(&out, "Command:       %s\n", rec.Command)
 	}
 
 	if rec.RestoredAt != nil {
-		fmt.Printf("Restored At:   %s\n", rec.RestoredAt.Format(time.RFC3339))
+		fmt.Fprintf(&out, "Restored At:   %s\n", rec.RestoredAt.Format(time.RFC3339))
 	}
 	if rec.RestoredTo != nil {
-		fmt.Printf("Restored To:   %s\n", *rec.RestoredTo)
+		fmt.Fprintf(&out, "Restored To:   %s\n", *rec.RestoredTo)
 	}
 	if rec.PurgedAt != nil {
-		fmt.Printf("Purged At:     %s\n", rec.PurgedAt.Format(time.RFC3339))
+		fmt.Fprintf(&out, "Purged At:     %s\n", rec.PurgedAt.Format(time.RFC3339))
 	}
 
 	// Parse and display metadata
 	if rec.Metadata != "" {
 		var m meta.Metadata
 		if err := json.Unmarshal([]byte(rec.Metadata), &m); err == nil {
-			fmt.Println("\nMetadata:")
+			fmt.Fprintln(&out, "\nMetadata:")
 			if m.GitBranch != "" {
-				fmt.Printf("  Git Branch:  %s\n", m.GitBranch)
+				fmt.Fprintf(&out, "  Git Branch:  %s\n", m.GitBranch)
 			}
 			if m.GitHEAD != "" {
-				fmt.Printf("  Git HEAD:    %s\n", m.GitHEAD)
+				fmt.Fprintf(&out, "  Git HEAD:    %s\n", m.GitHEAD)
 			}
 			if m.GitRoot != "" {
-				fmt.Printf("  Git Root:    %s\n", m.GitRoot)
+				fmt.Fprintf(&out, "  Git Root:    %s\n", m.GitRoot)
 			}
 			if m.PPID != 0 {
-				fmt.Printf("  Parent PID:  %d\n", m.PPID)
+				fmt.Fprintf(&out, "  Parent PID:  %d\n", m.PPID)
 			}
 			if m.ParentCmd != "" {
-				fmt.Printf("  Parent Cmd:  %s\n", m.ParentCmd)
+				fmt.Fprintf(&out, "  Parent Cmd:  %s\n", m.ParentCmd)
 			}
 			if len(m.Custom) > 0 {
-				fmt.Println("  Custom:")
+				fmt.Fprintln(&out, "  Custom:")
 				for k, v := range m.Custom {
-					fmt.Printf("    %s = %s\n", k, v)
+					fmt.Fprintf(&out, "    %s = %s\n", k, v)
 				}
 			}
 			if len(m.Env) > 0 {
-				fmt.Printf("  Environment: %d variables captured\n", len(m.Env))
+				fmt.Fprintf(&out, "  Environment: %d variables captured\n", len(m.Env))
 			}
 		}
 	}
+	emit(ctx, "%s", out.String())
 
 	return strictcli.Exit(ExitSuccess)
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/smm-h/saferm/internal/db"
 	"github.com/smm-h/strictcli/go/strictcli"
@@ -32,7 +33,7 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 	// No database file means nothing has ever been deleted on this machine,
 	// which is a list of length zero, not a failure.
 	if database == nil {
-		fmt.Println("No archived items found.")
+		emit(ctx, "No archived items found.\n")
 		return strictcli.Exit(ExitSuccess)
 	}
 	defer database.Close()
@@ -60,21 +61,17 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 	}
 
 	if len(records) == 0 {
-		fmt.Println("No archived items found.")
+		emit(ctx, "No archived items found.\n")
 		return strictcli.Exit(ExitSuccess)
 	}
 
-	fmt.Printf("%-6s %-40s %-10s %-16s %s\n", "ID", "Path", "Size", "Age", "Status")
-	fmt.Printf("%-6s %-40s %-10s %-16s %s\n", "------", "----------------------------------------", "----------", "----------------", "--------")
+	// The whole table is built first and emitted once: in machine mode it rides
+	// the envelope as a single diagnostic rather than one per row.
+	var table strings.Builder
+	fmt.Fprintf(&table, "%-6s %-40s %-10s %-16s %s\n", "ID", "Path", "Size", "Age", "Status")
+	fmt.Fprintf(&table, "%-6s %-40s %-10s %-16s %s\n", "------", "----------------------------------------", "----------", "----------------", "--------")
 
 	for _, rec := range records {
-		status := "archived"
-		if rec.PurgedAt != nil {
-			status = "purged"
-		} else if rec.RestoredAt != nil {
-			status = "restored"
-		}
-
 		path := rec.OriginalPath
 
 		// Append type indicator for non-regular files.
@@ -91,14 +88,28 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 		}
 		path += typeIndicator
 
-		fmt.Printf("%-6d %-40s %-10s %-16s %s\n",
+		fmt.Fprintf(&table, "%-6d %-40s %-10s %-16s %s\n",
 			rec.ID,
 			path,
 			humanSize(rec.Size),
 			humanAge(rec.DeletedAt),
-			status,
+			listStatus(rec),
 		)
 	}
+	emit(ctx, "%s", table.String())
 
 	return strictcli.Exit(ExitSuccess)
+}
+
+// listStatus is the lifecycle word `list` shows for a record, and the one the
+// machine payload carries. One function, so the column and the payload can
+// never disagree about what a row's state is.
+func listStatus(rec *db.DeletionRecord) string {
+	switch {
+	case rec.PurgedAt != nil:
+		return "purged"
+	case rec.RestoredAt != nil:
+		return "restored"
+	}
+	return "archived"
 }

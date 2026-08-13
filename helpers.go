@@ -19,16 +19,44 @@ import (
 // what a caller can lose without losing information -- the counted summaries,
 // the per-item --verbose progress, "Nothing to purge.", the restore
 // confirmation. It is NOT for the outputs that ARE the command (`list` and
-// `info`, and the dry-run previews), and it is not for stderr, which --quiet
-// never touches. Routing every chatter line through one helper is what keeps
-// that boundary from drifting one print at a time.
+// `info`, and the dry-run previews -- those go through [emit]), and it is not
+// for stderr, which --quiet never touches. Routing every chatter line through
+// one helper is what keeps that boundary from drifting one print at a time.
 //
 // --quiet dominates --verbose, matching the framework's own Context.Debug.
+//
+// It writes through the context writer rather than to the process's stdout, so
+// machine mode carries the line in the envelope's diagnostics instead of
+// printing it beside the envelope. In human mode the writer IS stdout and the
+// bytes are what they always were.
 func say(ctx *strictcli.Context, format string, a ...interface{}) {
-	if ctx.Quiet() {
+	ctx.Info(oneLine(format, a...))
+}
+
+// emit prints output that IS the command's answer: `list`'s and `info`'s
+// tables, `purge`'s listing of what it is about to destroy, its dry-run table.
+// Unlike [say] it is never suppressed -- --quiet silences chatter, never the
+// thing the caller asked for.
+//
+// Machine mode is the one branch: there the envelope is the sole stdout
+// document, so the text rides it as a diagnostic instead of being printed
+// beside it. That is an explicit mode the caller selected with --json, not a
+// degradation -- in human mode the bytes are exactly what they were.
+//
+// Callers build a whole table in one string and emit it once, so machine mode
+// carries one diagnostic per answer rather than one per row.
+func emit(ctx *strictcli.Context, format string, a ...interface{}) {
+	if ctx.JSON() {
+		ctx.Info(oneLine(format, a...))
 		return
 	}
 	fmt.Printf(format, a...)
+}
+
+// oneLine formats a message and strips the trailing newline saferm's formats
+// carry, because the context writer supplies its own.
+func oneLine(format string, a ...interface{}) string {
+	return strings.TrimSuffix(fmt.Sprintf(format, a...), "\n")
 }
 
 // ensureDirectories creates the base dir, archive dir, and db dir (parent of
