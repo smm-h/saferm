@@ -33,6 +33,11 @@ import (
 //     can recover the file. That is saferm's whole purpose inverted, which is
 //     precisely what the confirm protocol exists to interrupt.
 //   - info -- read_only. It reads one record and prints its metadata.
+//   - capabilities -- read_only. It reads nothing at all: the answer is a
+//     declaration compiled into the binary. It is the probe a program runs
+//     before it has decided to use saferm, so read_only is not merely true of
+//     it -- the framework's own enforcement is what guarantees a probe cannot
+//     create saferm's state directory on a machine that never ran saferm.
 //
 // The `config` group is registered by the framework (WithConfig), not by
 // saferm, and its five commands are pinned here for the same reason as the
@@ -42,16 +47,17 @@ var classification = map[string]struct {
 	effect        string
 	consequential bool
 }{
-	"delete":      {strictcli.EffectMutating, false},
-	"undelete":    {strictcli.EffectMutating, false},
-	"list":        {strictcli.EffectReadOnly, false},
-	"purge":       {strictcli.EffectMutating, true},
-	"info":        {strictcli.EffectReadOnly, false},
-	"config.show": {strictcli.EffectReadOnly, false},
-	"config.set":  {strictcli.EffectMutating, false},
-	"config.path": {strictcli.EffectReadOnly, false},
-	"config.edit": {strictcli.EffectMutating, false},
-	"config.init": {strictcli.EffectMutating, false},
+	"delete":       {strictcli.EffectMutating, false},
+	"undelete":     {strictcli.EffectMutating, false},
+	"list":         {strictcli.EffectReadOnly, false},
+	"purge":        {strictcli.EffectMutating, true},
+	"info":         {strictcli.EffectReadOnly, false},
+	"capabilities": {strictcli.EffectReadOnly, false},
+	"config.show":  {strictcli.EffectReadOnly, false},
+	"config.set":   {strictcli.EffectMutating, false},
+	"config.path":  {strictcli.EffectReadOnly, false},
+	"config.edit":  {strictcli.EffectMutating, false},
+	"config.init":  {strictcli.EffectMutating, false},
 }
 
 // collectCommands flattens the app's command tree into dotted paths.

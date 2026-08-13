@@ -596,6 +596,75 @@ func TestMachineSurface_InfoCarriesTheOrigin(t *testing.T) {
 	}
 }
 
+// The features `capabilities` names, pinned here as a consumer reads them.
+//
+// A consumer probes the verb and treats a missing verb or a missing feature
+// exactly like saferm being absent, so this list is an interface: adding a name
+// is how a new feature becomes negotiable, and removing one is a breaking
+// change to every caller that asks for it. Nothing here is a version number --
+// a locally built saferm reports a Go pseudo-version no semver parser accepts,
+// so a version comparison is not a probe anyone can rely on.
+var pinnedFeatures = []string{
+	"git-index-switches",
+	"group-id",
+	"machine-payloads",
+	"on-conflict-modes",
+	"on-error-modes",
+	"restore-destination",
+	"trace-origin",
+	"uuid-handles",
+}
+
+func TestMachineSurface_CapabilitiesNamesTheFeaturesShipped(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+
+	env, stderr, code := runSafermJSON(t, homeDir, "capabilities")
+	if code != 0 {
+		t.Fatalf("capabilities failed (exit %d): %q", code, stderr)
+	}
+
+	var payload struct {
+		Features []string `json:"features"`
+	}
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("capabilities' payload does not parse (%v): %s", err, env.Payload)
+	}
+	if len(payload.Features) != len(pinnedFeatures) {
+		t.Fatalf("features = %v, want %v", payload.Features, pinnedFeatures)
+	}
+	for i, want := range pinnedFeatures {
+		if payload.Features[i] != want {
+			t.Errorf("features[%d] = %q, want %q", i, payload.Features[i], want)
+		}
+	}
+	for _, f := range payload.Features {
+		if strings.ContainsAny(f, "0123456789") {
+			t.Errorf("a feature name is not a version: %q", f)
+		}
+	}
+}
+
+// The probe must answer on a machine that has never deleted anything, and must
+// not create saferm's state directory to do it: a consumer asks what this
+// saferm can do before it decides to use it at all.
+func TestMachineSurface_CapabilitiesNeedsNoArchive(t *testing.T) {
+	homeDir := t.TempDir()
+	testutil.Isolate(t)
+
+	stdout, stderr, code := runSaferm(t, homeDir, "capabilities")
+	if code != 0 {
+		t.Fatalf("capabilities failed on a machine with no archive (exit %d): %q", code, stderr)
+	}
+	for _, want := range pinnedFeatures {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("the human output must name %q, got: %q", want, stdout)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(homeDir, ".saferm")); !os.IsNotExist(err) {
+		t.Errorf("the probe created saferm's state directory: %v", err)
+	}
+}
+
 // A machine-mode run under --quiet still emits the complete envelope: the
 // document is not written through the writers --quiet suppresses, so quiet has
 // no mechanism by which to reach it.
