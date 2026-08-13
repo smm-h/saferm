@@ -166,7 +166,10 @@ func TestRemoveSource_AcceptsATouchThatLeftTheContentAlone(t *testing.T) {
 }
 
 // The archive entry itself can be replaced, and then it is not the file that is
-// about to be destroyed either.
+// about to be destroyed either. It is its own error: the source is still what
+// it was, so saying "the source path no longer names the file that was
+// archived" would name the wrong half of the pair -- and the record does NOT
+// hold the archived content here, which is what the caller has to be told.
 func TestRemoveSource_RefusesWhenTheArchiveEntryIsNoLongerTheSource(t *testing.T) {
 	dir := t.TempDir()
 	plan := linkedFilePlan(t, dir, "target.txt", "the archived bytes")
@@ -178,8 +181,8 @@ func TestRemoveSource_RefusesWhenTheArchiveEntryIsNoLongerTheSource(t *testing.T
 		t.Fatal(err)
 	}
 
-	if err := RemoveSource(plan); !errors.Is(err, ErrSourceReplaced) {
-		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	if err := RemoveSource(plan); !errors.Is(err, ErrArchiveEntryReplaced) {
+		t.Fatalf("expected ErrArchiveEntryReplaced, got %v", err)
 	}
 	if _, err := os.Lstat(plan.Source); err != nil {
 		t.Errorf("the source was removed with no archived copy of it: %v", err)
@@ -299,6 +302,168 @@ func TestRemoveSource_RefusesAReplacedSymlink(t *testing.T) {
 	}
 	if target != "/etc/hosts" {
 		t.Errorf("the surviving symlink points at %q", target)
+	}
+}
+
+// The other half of the same question, and the one the identity check alone
+// never asked: the ARCHIVED COPY has to still be there. The row is inserted
+// before the source is removed, so a concurrent `saferm purge --all` can
+// legitimately select that row and destroy its blob while the archival is
+// still inside its window. Removing the source afterwards would leave no copy
+// of the content anywhere -- the one outcome saferm exists to make impossible.
+// Every kind is checked, because every kind can have its entry removed.
+
+// directoryPlan archives a small tree and returns the plan with the window
+// open: the .tar.zst exists, the tree is still there.
+func directoryPlan(t *testing.T, dir, name string) *Plan {
+	t.Helper()
+
+	src := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Join(src, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "nested", "f.txt"), []byte("archived"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), true)
+	if err != nil {
+		t.Fatalf("NewPlan: %v", err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	return plan
+}
+
+// symlinkPlan archives a symlink and returns the plan with the window open.
+func symlinkPlan(t *testing.T, dir, name, target string) *Plan {
+	t.Helper()
+
+	src := filepath.Join(dir, name)
+	if err := os.Symlink(target, src); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), false)
+	if err != nil {
+		t.Fatalf("NewPlan: %v", err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	return plan
+}
+
+// The linked file's entry: the identity check covered this one already, but it
+// belongs beside the other three so all four kinds are pinned in one place.
+func TestRemoveSource_RefusesWhenALinkedEntryIsGone(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "the archived bytes")
+
+	if err := os.Remove(plan.Dest); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrArchiveEntryMissing) {
+		t.Fatalf("expected ErrArchiveEntryMissing, got %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); err != nil {
+		t.Errorf("the source was destroyed with no archived copy of it: %v", err)
+	}
+}
+
+// The copy fallback's entry is an independent file, and nothing else on the
+// machine holds those bytes once it is gone.
+func TestRemoveSource_RefusesWhenACopiedEntryIsGone(t *testing.T) {
+	dir := t.TempDir()
+	refuseLinks(t, syscall.EXDEV)
+
+	src := filepath.Join(dir, "target.txt")
+	if err := os.WriteFile(src, []byte("the archived bytes"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if plan.linked {
+		t.Fatalf("the file was linked; this test is about the copy fallback")
+	}
+
+	if err := os.Remove(plan.Dest); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrArchiveEntryMissing) {
+		t.Fatalf("expected ErrArchiveEntryMissing, got %v", err)
+	}
+	got, readErr := os.ReadFile(src)
+	if readErr != nil {
+		t.Fatalf("the source was destroyed although the archive no longer holds it: %v", readErr)
+	}
+	if string(got) != "the archived bytes" {
+		t.Errorf("the source's content changed: %q", got)
+	}
+}
+
+// The .tar.zst is the only copy of a tree, and RemoveAll is the least
+// recoverable removal saferm performs.
+func TestRemoveSource_RefusesWhenADirectoryEntryIsGone(t *testing.T) {
+	dir := t.TempDir()
+	plan := directoryPlan(t, dir, "tree")
+
+	if err := os.Remove(plan.Dest); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrArchiveEntryMissing) {
+		t.Fatalf("expected ErrArchiveEntryMissing, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(plan.Source, "nested", "f.txt")); err != nil {
+		t.Errorf("the tree was destroyed with no archived copy of it: %v", err)
+	}
+}
+
+// A symlink's entry is the .symlink metadata file, and it is the only record of
+// the target outside the database.
+func TestRemoveSource_RefusesWhenASymlinkEntryIsGone(t *testing.T) {
+	dir := t.TempDir()
+	plan := symlinkPlan(t, dir, "link", "/etc/hostname")
+
+	if err := os.Remove(plan.Dest); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrArchiveEntryMissing) {
+		t.Fatalf("expected ErrArchiveEntryMissing, got %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); err != nil {
+		t.Errorf("the symlink was destroyed with no archived copy of it: %v", err)
+	}
+}
+
+// The entry check is an Lstat, not a Stat, and the difference is a real hole:
+// a Stat follows a symlink, so an entry replaced by a link back at the source
+// would satisfy SameFile and let the removal proceed -- destroying the source
+// and leaving the "archive entry" a dangling link.
+func TestRemoveSource_RefusesAnEntryReplacedByALinkBackAtTheSource(t *testing.T) {
+	dir := t.TempDir()
+	plan := linkedFilePlan(t, dir, "target.txt", "the archived bytes")
+
+	if err := os.Remove(plan.Dest); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(plan.Source, plan.Dest); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrArchiveEntryReplaced) {
+		t.Fatalf("expected ErrArchiveEntryReplaced, got %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); err != nil {
+		t.Errorf("the source was destroyed although the entry is only a link to it: %v", err)
 	}
 }
 

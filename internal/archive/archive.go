@@ -28,6 +28,8 @@ var (
 	// recording the deletion. See [RemoveSource] for why that window is wide
 	// enough to matter and what each of these means for the record.
 	ErrSourceReplaced         = errors.New("the source path no longer names the file that was archived")
+	ErrArchiveEntryMissing    = errors.New("the archived copy is gone, so nothing holds the content the removal would destroy")
+	ErrArchiveEntryReplaced   = errors.New("the archive entry is no longer the file that was archived")
 	ErrSourceDiverged         = errors.New("the source changed after it was hashed, and the archive holds an independent copy of the older content")
 	ErrArchivedContentChanged = errors.New("the source was written through while its archive entry was a link to it, so the recorded hash no longer describes the archived bytes")
 	ErrNotExecuted            = errors.New("the plan was never executed, so there is nothing to check the source against")
@@ -154,11 +156,12 @@ func Execute(p *Plan) (*ArchiveResult, error) {
 // RemoveSource removes the original an executed [Plan] archived. It is the
 // second half of an archival and runs only once the entry is recorded.
 //
-// It removes by identity, not by name. Between [Execute] and this call sits the
-// caller's database insert, and that is not an instant: a contended SQLite
-// write retries for tens of seconds, and the path is a live filesystem path the
-// whole time. Two things can happen to it, and removing whatever the name
-// happens to resolve to gets both wrong:
+// It removes by identity, not by name, and only once it has seen the archived
+// copy. Between [Execute] and this call sits the caller's database insert, and
+// that is not an instant: a contended SQLite write retries for tens of seconds,
+// and both the source path and the archive entry are live filesystem paths the
+// whole time. Three things can happen in there, and removing whatever the name
+// happens to resolve to gets all three wrong:
 //
 //   - The path can be REPLACED -- renamed over, or removed and recreated. The
 //     archive holds the original; the name now leads somewhere else, and
@@ -167,13 +170,17 @@ func Execute(p *Plan) (*ArchiveResult, error) {
 //     path mutates the archived bytes. The recorded hash then describes content
 //     that no longer exists anywhere, and removing the source would leave that
 //     record standing over a blob it does not match.
+//   - The ENTRY can go, or stop being the archived thing. The row is inserted
+//     before this runs, so a concurrent purge can select it and destroy its
+//     blob perfectly legitimately; removing the source afterwards leaves no
+//     copy of the content anywhere at all.
 //
-// So the source is re-checked first and the removal is refused on any
-// mismatch, with [ErrSourceReplaced], [ErrSourceDiverged] or
-// [ErrArchivedContentChanged] naming which of the three the caller is holding.
-// Nothing is undone here: refusing to remove is the whole of the remedy this
-// half can apply, and what to do about the record is the recording caller's
-// decision.
+// So both sides are re-checked first and the removal is refused on any
+// mismatch, with [ErrSourceReplaced], [ErrSourceDiverged],
+// [ErrArchivedContentChanged], [ErrArchiveEntryMissing] or
+// [ErrArchiveEntryReplaced] naming which one the caller is holding. Nothing is
+// undone here: refusing to remove is the whole of the remedy this half can
+// apply, and what to do about the record is the recording caller's decision.
 func RemoveSource(p *Plan) error {
 	if err := verifySource(p); err != nil {
 		return err
@@ -184,15 +191,32 @@ func RemoveSource(p *Plan) error {
 	return os.Remove(p.Source)
 }
 
-// verifySource reports whether p.Source is still the thing [Execute] archived.
+// verifySource reports whether the source is still the thing [Execute]
+// archived AND the archived copy is still there to hold it.
 //
-// Identity is checked for every kind, by dev/ino: a directory or a symlink has
-// no content of its own that the archive shares, so being the same inode is the
-// whole question for them. A regular file is also checked for content, and
-// cheaply -- the size and mtime as of the hash against the current stat, and a
-// re-hash only when those differ, rather than re-reading every archived file on
-// every delete. A write that restores both size and mtime is not detected; that
-// is the one hole left open deliberately, and it costs a full re-read to close.
+// Both halves are checked for every kind, because the removal is irreversible
+// for every kind and either half alone lets it through wrongly:
+//
+//   - The SOURCE's identity, by dev/ino. A directory or a symlink has no
+//     content of its own that the archive shares, so being the same inode is
+//     most of the question for them; a regular file is also checked for
+//     content, and cheaply -- the size and mtime as of the hash against the
+//     current stat, and a re-hash only when those differ, rather than
+//     re-reading every archived file on every delete. A write that restores
+//     both size and mtime is not detected; that is the one hole left open
+//     deliberately, and it costs a full re-read to close.
+//   - The ENTRY's existence. The record is inserted before this runs, which is
+//     what makes the archived copy findable -- and findable by a concurrent
+//     `saferm purge --all` too, which will legitimately select that row and
+//     destroy its blob while this archival is still waiting on its own insert.
+//     Nothing else on the machine holds a copied file's bytes, a tree's
+//     .tar.zst or a symlink's recorded target, so removing the source with the
+//     entry gone destroys the content outright.
+//
+// The entry check is an Lstat, not a Stat, and the difference is the whole
+// point for the linked case: a Stat follows a symlink, so an entry replaced by
+// a link back at the source would satisfy os.SameFile and let the removal
+// proceed -- destroying the source and leaving the "archive entry" dangling.
 func verifySource(p *Plan) error {
 	if p.identity == nil {
 		return ErrNotExecuted
@@ -205,6 +229,12 @@ func verifySource(p *Plan) error {
 	if !os.SameFile(cur, p.identity) {
 		return fmt.Errorf("%s: %w", p.Source, ErrSourceReplaced)
 	}
+
+	entry, err := os.Lstat(p.Dest)
+	if err != nil {
+		return fmt.Errorf("%s: %w (%v)", p.Dest, ErrArchiveEntryMissing, err)
+	}
+
 	if p.Kind != KindFile {
 		return nil
 	}
@@ -214,12 +244,8 @@ func verifySource(p *Plan) error {
 		// source are one inode: whatever else moved, these two must still be
 		// the same file, or the archive is not holding what is about to be
 		// destroyed.
-		dstInfo, err := os.Stat(p.Dest)
-		if err != nil {
-			return fmt.Errorf("re-checking the archive entry %s: %w", p.Dest, err)
-		}
-		if !os.SameFile(cur, dstInfo) {
-			return fmt.Errorf("the archive entry %s is no longer the same file as %s: %w", p.Dest, p.Source, ErrSourceReplaced)
+		if !os.SameFile(cur, entry) {
+			return fmt.Errorf("the archive entry %s is no longer the same file as %s: %w", p.Dest, p.Source, ErrArchiveEntryReplaced)
 		}
 	}
 

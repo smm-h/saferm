@@ -339,7 +339,14 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 // this failure they are no longer the same thing and only saying one of them
 // would be a half-truth.
 //
-// The middle branch is the only one that undoes anything. A file's archive
+// Two of the branches are about the ENTRY rather than the source: it can be
+// destroyed by a concurrent purge that selected the row this delete had just
+// inserted, or replaced by something saferm never archived. Neither removes
+// anything -- there is nothing to take back in the first case and nothing
+// saferm owns in the second -- and neither claims the record holds the archived
+// content, because in both it does not.
+//
+// The ErrArchivedContentChanged branch is the only one that undoes anything. A file's archive
 // entry is a hard link, so a write through the original path rewrites the
 // archived bytes too: the row says one hash and the blob has another, and no
 // re-reading fixes that, because the content the row describes is gone from the
@@ -363,6 +370,25 @@ func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid st
 
 	case errors.Is(err, archive.ErrSourceReplaced), errors.Is(err, archive.ErrSourceDiverged):
 		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s holds the content that was archived, and %s now holds something else -- neither was destroyed\n",
+			absPath, err, id, uuid, absPath)
+		return ExitArchive
+
+	case errors.Is(err, archive.ErrArchiveEntryMissing):
+		// The row was committed and then its blob went -- a concurrent purge
+		// selecting the row saferm had just inserted does exactly this. There is
+		// nothing to discard and nothing to undo: the row names nothing, and the
+		// path the caller asked to delete is now the only copy of its content.
+		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s was committed before the entry disappeared, so that row names nothing and %s is the only copy of its content left -- purge the row and run the delete again\n",
+			absPath, err, id, uuid, absPath)
+		return ExitArchive
+
+	case errors.Is(err, archive.ErrArchiveEntryReplaced):
+		// The entry is still a file, but not the one that was archived, so
+		// saferm did not put it there and does not remove it: discarding it
+		// would destroy something whose origin is unknown. The row is left
+		// standing over it and is worth nothing, which is what the message
+		// says rather than claiming the record holds the archived content.
+		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s names an archive entry that is no longer what was archived, so that row names nothing saferm can vouch for -- the entry was left alone because saferm did not put it there, and %s was not destroyed\n",
 			absPath, err, id, uuid, absPath)
 		return ExitArchive
 

@@ -1,10 +1,14 @@
 package test
 
 import (
+	"bufio"
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -78,6 +82,104 @@ func startDeleteInWindow(t *testing.T, home string, args ...string) *inFlightDel
 			t.Fatal("the archival never wrote an entry, so the window never opened")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+
+	return &inFlightDelete{entry: entry, release: release, done: done, t: t}
+}
+
+// startDeleteInsideTheInsert is startDeleteInWindow's stronger signal, for the
+// tests that cannot act on the entry the moment it appears.
+//
+// A directory's .tar.zst is CREATED empty and filled afterwards, and Execute
+// reads it back to hash it once it is closed. A test that removed it as soon as
+// the name existed would be racing the compression rather than the insert, and
+// would provoke "hashing archive: no such file" instead of the window it means
+// to open. So this one waits for the process to REPORT its first contention
+// retry (`--verbose` prints one on stderr), which cannot happen until Execute
+// has returned and the insert is in flight. The wait costs one busy_timeout --
+// five seconds -- which is why the cheap signal stays the default.
+func startDeleteInsideTheInsert(t *testing.T, home string, args ...string) *inFlightDelete {
+	t.Helper()
+
+	before := make(map[string]bool)
+	for _, name := range archiveEntries(t, home) {
+		before[name] = true
+	}
+
+	release := holdArchiveWriteLock(t, home)
+
+	cmd := exec.Command(safermBinary, append([]string{"--verbose"}, args...)...)
+	env := filterEnv(os.Environ(), "SAFERM_")
+	cmd.Env = append(env, "SAFERM_HOME="+filepath.Join(home, ".saferm"))
+
+	var outBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		release()
+		t.Fatalf("piping the delete's stderr: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		release()
+		t.Fatalf("starting the delete: %v", err)
+	}
+
+	// The retry notice, read as it is printed. Everything the process says is
+	// kept, so the outcome carries the whole of stderr as the buffered runs do.
+	var mu sync.Mutex
+	var errBuf strings.Builder
+	retrying := make(chan struct{})
+	go func() {
+		var once sync.Once
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			mu.Lock()
+			errBuf.WriteString(line + "\n")
+			mu.Unlock()
+			if strings.Contains(line, "database is locked by another process") {
+				once.Do(func() { close(retrying) })
+			}
+		}
+	}()
+
+	done := make(chan deleteOutcome, 1)
+	go func() {
+		waitErr := cmd.Wait()
+		code := 0
+		if exitErr, ok := waitErr.(*exec.ExitError); ok {
+			code = exitErr.ExitCode()
+		} else if waitErr != nil {
+			code = -1
+		}
+		mu.Lock()
+		stderr := errBuf.String()
+		mu.Unlock()
+		done <- deleteOutcome{outBuf.String(), stderr, code}
+	}()
+
+	select {
+	case <-retrying:
+	case out := <-done:
+		release()
+		t.Fatalf("the delete finished without ever reaching its insert: stderr=%s", out.stderr)
+	case <-time.After(60 * time.Second):
+		release()
+		<-done
+		t.Fatal("the delete never reported a contention retry, so the window never opened")
+	}
+
+	var entry string
+	for _, name := range archiveEntries(t, home) {
+		if !before[name] {
+			entry = name
+			break
+		}
+	}
+	if entry == "" {
+		release()
+		<-done
+		t.Fatal("the insert is in flight but no archive entry was written")
 	}
 
 	return &inFlightDelete{entry: entry, release: release, done: done, t: t}
@@ -193,6 +295,107 @@ func TestDelete_AFileReplacedDuringTheInsertIsNotRemoved(t *testing.T) {
 	}
 	if string(archived) != "the archived original\n" {
 		t.Errorf("the archive entry holds %q, not the original", archived)
+	}
+}
+
+// The other thing that can happen inside the window, and the one the identity
+// checks never asked about: the ARCHIVED COPY can go. The row is inserted
+// before the source is removed, so a concurrent `saferm purge --all` can select
+// that row and destroy its blob legitimately while the archival is still
+// waiting on its own insert. Removing the source then would leave no copy of
+// the content anywhere. Every kind is covered, because every kind's entry is a
+// file some other process can remove.
+
+// windowStarter is either of the two ways to stop a delete inside its window.
+type windowStarter func(t *testing.T, home string, args ...string) *inFlightDelete
+
+// entryVanishes runs a delete of target, removes the archive entry from inside
+// the window, and returns what the command said about it.
+func entryVanishes(t *testing.T, home string, start windowStarter, args ...string) (deleteOutcome, string) {
+	t.Helper()
+
+	inFlight := start(t, home, args...)
+	entryPath := filepath.Join(home, ".saferm", "archive", inFlight.entry)
+	if err := os.Remove(entryPath); err != nil {
+		t.Fatalf("removing the archive entry inside the window: %v", err)
+	}
+	return inFlight.finish(), entryPath
+}
+
+// assertEntryVanishedReport pins what the caller is told: the entry that is
+// gone, by name, and the fact that the committed row now names nothing.
+func assertEntryVanishedReport(t *testing.T, out deleteOutcome, entryPath string) {
+	t.Helper()
+
+	if out.code == 0 {
+		t.Fatalf("a delete whose archived copy vanished must not exit 0; stderr=%s", out.stderr)
+	}
+	if !strings.Contains(out.stderr, entryPath) {
+		t.Errorf("the failure must name the entry that is gone (%s), got: %s", entryPath, out.stderr)
+	}
+	if !strings.Contains(out.stderr, "names nothing") {
+		t.Errorf("the failure must say the committed row names no archived copy, got: %s", out.stderr)
+	}
+	if !recordIdentifiers.MatchString(out.stderr) {
+		t.Errorf("the failure must name the record it committed, got: %s", out.stderr)
+	}
+}
+
+func TestDelete_AFileWhoseEntryVanishesDuringTheInsertIsNotRemoved(t *testing.T) {
+	home := testutil.SetupTestEnv(t)
+	work := t.TempDir()
+	seedArchive(t, home, work, "seed.txt")
+
+	target := testutil.CreateTempFile(t, work, "lonely.txt", "the only copy\n")
+	out, entryPath := entryVanishes(t, home, startDeleteInWindow, "delete", "--on-error", "abort", "--description", "entry purged mid-archival", target)
+	assertEntryVanishedReport(t, out, entryPath)
+
+	content, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("the source was destroyed with no archived copy of it: %v", err)
+	}
+	if string(content) != "the only copy\n" {
+		t.Errorf("the source's content changed: %q", content)
+	}
+}
+
+func TestDelete_ADirectoryWhoseEntryVanishesDuringTheInsertIsNotRemoved(t *testing.T) {
+	home := testutil.SetupTestEnv(t)
+	work := t.TempDir()
+	seedArchive(t, home, work, "seed.txt")
+
+	tree := testutil.CreateTempDir(t, work, "tree")
+	inner := testutil.CreateTempFile(t, tree, "inner.txt", "the only copy\n")
+	out, entryPath := entryVanishes(t, home, startDeleteInsideTheInsert, "delete", "--on-error", "abort", "-r", "--description", "tar purged mid-archival", tree)
+	assertEntryVanishedReport(t, out, entryPath)
+
+	content, err := os.ReadFile(inner)
+	if err != nil {
+		t.Fatalf("the tree was destroyed with no archived copy of it: %v", err)
+	}
+	if string(content) != "the only copy\n" {
+		t.Errorf("the tree's content changed: %q", content)
+	}
+}
+
+func TestDelete_ASymlinkWhoseEntryVanishesDuringTheInsertIsNotRemoved(t *testing.T) {
+	home := testutil.SetupTestEnv(t)
+	work := t.TempDir()
+	seedArchive(t, home, work, "seed.txt")
+
+	link := filepath.Join(work, "link")
+	if err := os.Symlink("/etc/hostname", link); err != nil {
+		t.Fatalf("creating the symlink: %v", err)
+	}
+	out, entryPath := entryVanishes(t, home, startDeleteInWindow, "delete", "--on-error", "abort", "--description", "metadata purged mid-archival", link)
+	assertEntryVanishedReport(t, out, entryPath)
+
+	target, err := os.Readlink(link)
+	if err != nil {
+		t.Fatalf("the symlink was destroyed with no archived copy of it: %v", err)
+	}
+	if target != "/etc/hostname" {
+		t.Errorf("the surviving symlink points at %q", target)
 	}
 }
 
