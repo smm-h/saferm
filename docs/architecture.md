@@ -45,7 +45,7 @@ The `archive.Archive` function stats the target path and determines its type. Di
 
 ### 2. Archival
 
-The archival strategy depends on the target type. Regular files are moved atomically when possible and copied with integrity verification when the archive sits on a different filesystem. Directories are compressed into tar archives with zstandard compression. Symlinks store only their target path, since they carry no content of their own:
+The archival strategy depends on the target type. Regular files are hard-linked into the archive, and copied with integrity verification where the link is refused. Directories are compressed into tar archives with zstandard compression. Symlinks store only their target path, since they carry no content of their own:
 
 **Regular files.** The file is hashed (SHA-256, streaming), then hard-linked into the archive with `os.Link`: no content is copied and the archive entry and the original are the same inode until the original's name is removed. If the link is refused -- `EXDEV` across filesystems, `EPERM` from Linux's `protected_hardlinks` or a filesystem that rejects links, `EOPNOTSUPP`/`ENOSYS` where hard links do not exist, `EMLINK` at the inode's link limit -- the fallback path copies the file and verifies the copy's hash against the pre-computed one. Any other error is reported as itself. The archived file is stored as `<uuid>` (no extension) in the archive directory.
 
@@ -73,7 +73,18 @@ The metadata JSON blob, produced by `meta.Collect`, includes:
 
 :-: ref path="internal/meta" target="Collect"
 
-### 4. Git index update
+### 4. Removal of the original
+
+`archive.RemoveSource` removes what was archived -- by identity, not by name. The database insert sits between the archival and this removal, and a contended SQLite write retries for tens of seconds while the source path stays live, so the path is re-checked against what `archive.Execute` recorded before anything is destroyed:
+
+- **Identity**, for every kind: the path must still resolve to the same inode (`os.SameFile` against the `os.FileInfo` taken at archival). A path that was renamed over or removed and recreated in the meantime is a different file, and removing it would destroy something nothing archived.
+- **Content**, for regular files: the archive entry is a hard link, so a write through the original path rewrites the archived bytes and leaves the recorded hash describing content that no longer exists. The size and mtime as of the hash are compared against the current stat, and the file is re-hashed only when they differ, so a plain `touch` is not mistaken for a rewrite.
+
+A mismatch refuses the removal and exits `6` (`ExitArchive`). Where the record is still truthful -- a replaced path, or a diverged source whose entry is an independent copy -- nothing is undone, and the failure names both what the record holds and what the path holds now. Where it is not -- a hard-linked file written through, whose recorded hash no longer matches the blob -- the archive entry is discarded, which drops one of two names for the inode and leaves the file in place with its current content, and the caller is told the row now names nothing and to run the delete again.
+
+:-: ref path="internal/archive" target="RemoveSource"
+
+### 5. Git index update
 
 When `--update-git-index` is true (the default) and the file resides in a git repository, saferm runs `git rm --cached` to stage the removal in the git index. This keeps the git working tree consistent with the filesystem without requiring a separate `git rm` step. The check uses `git ls-files --error-unmatch` to determine whether the file is tracked; untracked files are silently skipped.
 
