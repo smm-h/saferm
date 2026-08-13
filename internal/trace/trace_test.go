@@ -543,6 +543,51 @@ func TestCollect_OversizedParentIDIsCapped(t *testing.T) {
 	}
 }
 
+// A partition is read whole, so its size is the reader's memory cost -- twice
+// over, since the bytes are turned into a string. The specification's own worst
+// case is the 8 MB roll threshold plus one hour of writes, so a file past
+// maxPartitionBytes is not a partition this reader will load: it is recorded and
+// skipped, rather than half-parsed into a chain nobody can trust.
+func TestCollect_OversizedPartitionIsSkipped(t *testing.T) {
+	leaf := encodeULID(msHour07, "0000000000000003")
+	store := writeStore(t, map[string]string{
+		"2026-08-13T04.jsonl": line(leaf, "", "safegit", "0.25.0"),
+	})
+
+	// Sparse: the file reports its size without occupying it.
+	oversized := filepath.Join(store, "2026-08-13T09.jsonl")
+	f, err := os.Create(oversized)
+	if err != nil {
+		t.Fatalf("creating the oversized partition: %v", err)
+	}
+	if err := f.Truncate(maxPartitionBytes + 1); err != nil {
+		f.Close()
+		t.Fatalf("sizing the oversized partition: %v", err)
+	}
+	f.Close()
+
+	// An identifier in the oversized file's range: the search lands there first,
+	// then walks back into the file that can be read.
+	c := collectFrom(store, encodeULID(msHour09, "0000000000000009"))
+	if !hasAnomaly(c, AnomalyStoreUnreadable, oversized) {
+		t.Fatalf("the oversized partition was not recorded: %+v", c.Anomalies)
+	}
+	for _, a := range c.Anomalies {
+		if a.Kind == AnomalyStoreUnreadable && a.Value == oversized &&
+			!strings.Contains(a.Detail, fmt.Sprint(maxPartitionBytes)) {
+			t.Errorf("the anomaly does not name the ceiling it hit: %q", a.Detail)
+		}
+		if a.Kind == AnomalyMalformedEntry {
+			t.Errorf("the oversized partition was parsed anyway: %+v", a)
+		}
+	}
+
+	// The readable partitions are unaffected.
+	if c := collectFrom(store, leaf); len(c.Chain) != 1 {
+		t.Errorf("the readable partition did not resolve: %+v", c)
+	}
+}
+
 func hasAnomaly(c *Capture, kind, value string) bool {
 	for _, a := range c.Anomalies {
 		if a.Kind == kind && a.Value == value {

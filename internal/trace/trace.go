@@ -72,6 +72,14 @@ const maxAnomalyValueBytes = 1024
 // database row.
 const maxEntryFieldBytes = 1024
 
+// maxPartitionBytes is the largest partition this reader will load. A partition
+// is read whole, so its size is the read's memory cost twice over -- once as
+// bytes, once as the string they are turned into. The specification's own worst
+// case is the 8 MB roll threshold plus one hour of writes, so 64 MB is eight
+// times what a conforming store produces and anything past it is a file to
+// record and skip rather than to half-parse into a chain nobody can trust.
+const maxPartitionBytes = 64 << 20
+
 // maxAnomalies caps how many anomalies one capture records. A partition of
 // malformed lines produces one anomaly per line -- thousands of them, each up to
 // maxAnomalyValueBytes, in every record the invocation writes -- and the point of
@@ -379,6 +387,37 @@ func (r *reader) read(label string, c *Capture) map[string]*Entry {
 	r.files[label] = entries
 
 	path := filepath.Join(r.store, label+".jsonl")
+
+	// What is on disk under a partition's name is whatever someone put there, and
+	// the name is all a reader has to go on. Both checks below are made before
+	// anything is opened:
+	//
+	//   - a FIFO named like a partition blocks in open(2) until someone writes to
+	//     it, and nothing here is interruptible or timed out, so reading one
+	//     would hang the deletion outright;
+	//   - a partition is read whole, so an oversized one is an unbounded
+	//     allocation.
+	//
+	// Both are recorded and skipped, under the same philosophy as a torn line:
+	// what was seen is written down, and the deletion proceeds.
+	info, err := os.Stat(path)
+	if err != nil {
+		c.record(AnomalyStoreUnreadable, "a trace partition could not be read: "+err.Error(), path)
+		return entries
+	}
+	if !info.Mode().IsRegular() {
+		c.record(AnomalyStoreUnreadable,
+			"a store file named like a partition is not a regular file ("+info.Mode().String()+
+				"), so it was not read", path)
+		return entries
+	}
+	if info.Size() > maxPartitionBytes {
+		c.record(AnomalyStoreUnreadable,
+			fmt.Sprintf("a trace partition is %d bytes, past the %d this reader will load, so it was not read",
+				info.Size(), maxPartitionBytes), path)
+		return entries
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		c.record(AnomalyStoreUnreadable, "a trace partition could not be read: "+err.Error(), path)
