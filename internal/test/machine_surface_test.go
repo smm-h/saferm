@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -196,6 +197,127 @@ func TestMachineSurface_DeletePreviewClaimsNoRecords(t *testing.T) {
 	}
 	if _, err := os.Lstat(file); err != nil {
 		t.Errorf("a previewed delete archived %s for real: %v", file, err)
+	}
+}
+
+// undeletePayload is what `undelete` answers with: which record was restored,
+// and where the content actually went.
+type undeletePayload struct {
+	ID           int64  `json:"id"`
+	UUID         string `json:"uuid"`
+	OriginalPath string `json:"original_path"`
+	RestoredTo   string `json:"restored_to"`
+	Kind         string `json:"kind"`
+	Overwrote    bool   `json:"overwrote"`
+}
+
+// `undelete`'s payload answers "what went where", which the human line says in
+// prose and an alternate destination makes non-obvious: the record came from
+// one path and the content is now at another.
+func TestMachineSurface_UndeleteNamesWhatWentWhere(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+	elsewhere := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "restored.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "undelete payload test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	dest := filepath.Join(elsewhere, "moved.txt")
+
+	env, stderr, code := runSafermJSON(t, homeDir, "undelete", "--destination", dest, uuid)
+	if code != 0 {
+		t.Fatalf("undelete failed (exit %d): %q", code, stderr)
+	}
+
+	var payload undeletePayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("undelete's payload does not parse (%v): %s", err, env.Payload)
+	}
+	if payload.UUID != uuid {
+		t.Errorf("uuid = %q, want %q", payload.UUID, uuid)
+	}
+	if payload.OriginalPath != file {
+		t.Errorf("original_path = %q, want %q", payload.OriginalPath, file)
+	}
+	if payload.RestoredTo != dest {
+		t.Errorf("restored_to = %q, want %q", payload.RestoredTo, dest)
+	}
+	if payload.Kind != "file" {
+		t.Errorf("kind = %q, want file", payload.Kind)
+	}
+	if payload.Overwrote {
+		t.Error("nothing was standing at the destination, so nothing was overwritten")
+	}
+	if payload.ID <= 0 {
+		t.Errorf("id = %d, want the record's database id", payload.ID)
+	}
+}
+
+// The same answer in preview form: a previewed restore says where the content
+// would go and restores nothing. The envelope's dry_run flag is what tells the
+// two apart, which is why the payload does not need a second word for it.
+func TestMachineSurface_UndeletePreviewNamesTheDestination(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	tree := testutil.CreateTempDir(t, workDir, "tree")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "undelete preview payload", tree)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	env, stderr, code := runSafermJSON(t, homeDir, "--dry-run", "undelete", uuid)
+	if code != 0 {
+		t.Fatalf("previewed undelete failed (exit %d): %q", code, stderr)
+	}
+	if !env.DryRun {
+		t.Error("the envelope must report the run as a preview")
+	}
+
+	var payload undeletePayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("undelete's payload does not parse (%v): %s", err, env.Payload)
+	}
+	if payload.RestoredTo != tree {
+		t.Errorf("restored_to = %q, want %q", payload.RestoredTo, tree)
+	}
+	if payload.Kind != "directory" {
+		t.Errorf("kind = %q, want directory", payload.Kind)
+	}
+	if _, err := os.Lstat(tree); !os.IsNotExist(err) {
+		t.Errorf("a previewed restore recreated %s for real: %v", tree, err)
+	}
+}
+
+// An overwriting restore says so on the payload: the destination held something
+// else and the restore destroyed it, which is the one thing a consumer cannot
+// read back off the filesystem afterwards.
+func TestMachineSurface_UndeleteReportsAnOverwrite(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "occupied.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "overwrite payload test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	testutil.CreateTempFile(t, workDir, "occupied.txt", "replace me\n")
+
+	env, stderr, code := runSafermJSON(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid)
+	if code != 0 {
+		t.Fatalf("overwriting undelete failed (exit %d): %q", code, stderr)
+	}
+	var payload undeletePayload
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("undelete's payload does not parse (%v): %s", err, env.Payload)
+	}
+	if !payload.Overwrote {
+		t.Errorf("the payload must record that the restore replaced something, got: %s", env.Payload)
 	}
 }
 

@@ -148,6 +148,29 @@ func openArchiveDBIfPresent(ctx *strictcli.Context, dbPath string) (*db.DB, erro
 	return db.Open(dbPath, retryNotifier(ctx))
 }
 
+// The three shapes saferm archives, spelled once. They are the words `info`
+// has always printed for a record's type, and the closed set the machine
+// surface's `kind` enum declares -- a fourth shape would be a new feature, not
+// a new value.
+const (
+	kindFile      = "file"
+	kindDirectory = "directory"
+	kindSymlink   = "symlink"
+)
+
+// recordKind names a record's archived shape. The symlink test comes first
+// because a symlink to a directory carries both markers, and what saferm
+// archived is the link.
+func recordKind(rec *db.DeletionRecord) string {
+	switch {
+	case rec.SymlinkTarget != nil:
+		return kindSymlink
+	case rec.IsDirectory:
+		return kindDirectory
+	}
+	return kindFile
+}
+
 // archiveEntryPath is where a record's archived content lives, by the naming
 // the three kinds use: `<uuid>` for a file, `<uuid>.tar.zst` for a tree,
 // `<uuid>.symlink` for a symlink. Spelled once, because `purge` destroys that

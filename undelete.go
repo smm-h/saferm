@@ -18,9 +18,48 @@ const (
 	onConflictAbort     = "abort"
 )
 
+// undeletePayload is `undelete`'s machine payload: which record was restored,
+// and where the content actually went.
+//
+// `restored_to` is the whole point of it. The human line says "Restored <from>
+// to <to>" only when the two differ, and a consumer that named an alternate
+// destination should not have to parse that sentence to learn where its content
+// is. `overwrote` says whether something was standing at the destination and
+// was destroyed, which is the one fact nothing on the filesystem records
+// afterwards.
+//
+// It is supplied in both modes: under --dry-run it names where the content
+// WOULD go, and the envelope's own dry_run flag is what tells the two apart.
+type undeletePayload struct {
+	ID           int64  `json:"id"`
+	UUID         string `json:"uuid"`
+	OriginalPath string `json:"original_path"`
+	RestoredTo   string `json:"restored_to"`
+	Kind         string `json:"kind"`
+	Overwrote    bool   `json:"overwrote"`
+}
+
+// undeletePayloadSchema declares the payload above over the framework's closed
+// subset. `kind` is an enum because the three archived shapes are the three
+// saferm has and a fourth would be a new feature, not a new value.
+var undeletePayloadSchema = map[string]interface{}{
+	"type": "object",
+	"properties": map[string]interface{}{
+		"id":            map[string]interface{}{"type": "integer"},
+		"uuid":          map[string]interface{}{"type": "string"},
+		"original_path": map[string]interface{}{"type": "string"},
+		"restored_to":   map[string]interface{}{"type": "string"},
+		"kind":          map[string]interface{}{"type": "string", "enum": []interface{}{kindFile, kindDirectory, kindSymlink}},
+		"overwrote":     map[string]interface{}{"type": "boolean"},
+	},
+	"required":             []interface{}{"id", "uuid", "original_path", "restored_to", "kind", "overwrote"},
+	"additionalProperties": false,
+}
+
 func registerUndeleteCmd(app *strictcli.App) {
 	app.Command("undelete", "Restore a previously archived file back to its original path", handleUndelete,
 		strictcli.WithEffect(strictcli.EffectMutating),
+		strictcli.PayloadSchema(undeletePayloadSchema),
 		strictcli.WithGrants(strictcli.Grant{
 			Name:   "git-index",
 			Reason: "a restored file is staged so the working tree and the index agree again",
@@ -184,6 +223,17 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 			dest, err, rec.ID)
 		return strictcli.Exit(ExitArchive)
 	}
+
+	// Supplied here, once, for both modes: the restore has happened (or, in dry
+	// mode, has been recorded), and everything the payload names is settled.
+	ctx.Payload(undeletePayload{
+		ID:           rec.ID,
+		UUID:         rec.UUID,
+		OriginalPath: rec.OriginalPath,
+		RestoredTo:   dest,
+		Kind:         recordKind(rec),
+		Overwrote:    overwrite,
+	})
 
 	if ctx.DryRun() {
 		say(ctx, "Would restore %s\n", describeDestination(rec.OriginalPath, dest))

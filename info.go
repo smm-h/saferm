@@ -86,12 +86,7 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 		return strictcli.Exit(code)
 	}
 
-	fileType := "file"
-	if rec.SymlinkTarget != nil {
-		fileType = "symlink"
-	} else if rec.IsDirectory {
-		fileType = "directory"
-	}
+	fileType := recordKind(rec)
 
 	// The whole record is built first and emitted once, so machine mode carries
 	// it as a single diagnostic rather than one per field.
