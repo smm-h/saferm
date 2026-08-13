@@ -1,8 +1,8 @@
 {
   "_hash_version": 3,
   "en/architecture.md": {
-    "content": "1a370d928466491a49cb9052aa9987d7dfda72949c4266e53081c94c5ee887e6",
-    "description": "3c91a7ea4c78d471e6d19aa9886bdb98f1382e6eecf234000ee5b72679e24ba1",
+    "content": "ec755c98190b3c2ee00579a17e2f312a5ece99dafbdf93e0d775dd5b66474db4",
+    "description": "2ea4e023ea4cf7bfa6afb59580c3ccbcf8593fa74f1368118a97074c7f87f4fa",
     "source_docstring": "747d4043d22bde48e47ac7c298f0ec38040ee076042f7c6b9391a9f98b023dc7"
   },
   "en/cli-config.md": {
@@ -51,8 +51,8 @@
     "seed_hash": "69b33c4c200853afacbde3b4578f326f00d27767a14f974e03e2ee916f28855f"
   },
   "en/index.md": {
-    "content": "273484bb342e0e8023717c50e613be54cd8cfdd1e5a0c2d8e3fed1e3f1fc99a0",
-    "description": "0802097e2bbec002564026abfea939420b1c8fea6431cda14e6c50a28c51f57b",
+    "content": "3d9727bcb0123568feed7e8f9ca97683379b0c14a908590a3d3d133d80ebbef0",
+    "description": "531383680214405210ccda04d2eee11f2abc8636efc921e8f4961d64948e5df7",
     "source_docstring": "6223a43e4d26bd5d8a72119dadc0922e18cd9f3f4b6e8b5aabf501d1f9a4f453"
   },
   "en/internal-archive.md": {
@@ -77,7 +77,7 @@
   },
   "en/internal-trace.md": {
     "content": "78fee8afcbb62f8d9a4331659524ca7db3ae42bae497b1bef15e8189d70065ab",
-    "description": "01511717888f5ec248b1341b0cf74a750b9f0313e6844670701bccf494aff5d1",
+    "description": "3025febf20fea8123b796184423c15e5f47c4438afedbb4155615d4f2abb4998",
     "source_docstring": "3cb6e29e2594e8bc8852c8076dbb0f3318670a4ada52097bb423a8ba55d61a42"
   }
 }
