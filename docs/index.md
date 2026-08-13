@@ -1,6 +1,6 @@
 ---
 title: saferm
-description: "saferm is an AI-first safe rm replacement that archives files instead of deleting them, capturing metadata and which tool invoked the deletion."
+description: "saferm is an AI-first safe rm replacement that archives files instead of deleting them, capturing metadata, with a JSON surface programs can drive."
 ---
 
 # saferm
@@ -10,6 +10,7 @@ AI-first safe rm replacement. Archives files instead of deleting them.
 ## CLI Reference
 
 - [All commands and options](cli-index.md)
+- [Machine surface](machine-surface.md) -- the `--json` envelope, each verb's payload, and the `capabilities` probe
 
 ## Packages
 
