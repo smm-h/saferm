@@ -2,6 +2,7 @@ package main
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/smm-h/strictcli/go/strictcli"
@@ -109,6 +110,53 @@ func TestCommandClassificationIsPinned(t *testing.T) {
 		if _, ok := cmds[name]; !ok {
 			t.Errorf("classification pins %q but no such command is registered", name)
 		}
+	}
+}
+
+// machineSurface pins which of saferm's own commands answer a machine, and
+// therefore what a consumer may parse. Membership IS the surface: a command
+// with a declared payload schema publishes that schema through --dump-schema
+// and through the MCP tool descriptor, and one without it answers --json with a
+// null payload.
+//
+//   - delete, undelete, list, info -- the four consumer verbs. Each declares a
+//     payload schema and supplies its value unconditionally.
+//   - capabilities -- the probe itself, which is only useful to a machine.
+//   - purge -- deliberately OUTSIDE. It is the one irreversible operation and
+//     the one that asks for consent; nothing should be driving it from a
+//     parsed document, and a payload would be the first step toward something
+//     that does.
+//
+// The framework's own `config` commands are not saferm's to declare and are
+// excluded from this pin -- `config show` carries a framework-owned schema.
+var machineSurface = map[string]bool{
+	"delete":       true,
+	"undelete":     true,
+	"list":         true,
+	"info":         true,
+	"capabilities": true,
+	"purge":        false,
+}
+
+func TestMachineSurfaceMembershipIsPinned(t *testing.T) {
+	hygiene.Isolate(t, hygiene.Preserve(hygiene.GoPath, hygiene.GoModCache, hygiene.GoCache))
+
+	cmds := collectCommands(newApp())
+	for name, wantSchema := range machineSurface {
+		cmd, ok := cmds[name]
+		if !ok {
+			t.Errorf("the machine surface pins %q but no such command is registered", name)
+			continue
+		}
+		if got := cmd.PayloadSchema != nil; got != wantSchema {
+			t.Errorf("command %q declares a payload schema = %v, pinned %v", name, got, wantSchema)
+		}
+	}
+	for name := range cmds {
+		if _, pinned := machineSurface[name]; pinned || strings.HasPrefix(name, "config.") {
+			continue
+		}
+		t.Errorf("command %q is registered but the machine surface does not say whether it answers a machine", name)
 	}
 }
 
