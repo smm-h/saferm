@@ -86,6 +86,8 @@ Three properties a caller can rely on:
 
 Under `--dry-run` the payload names where the content *would* go; the envelope's `dry_run` flag is what tells the two apart.
 
+**A payload here does not imply exit 0.** `undelete` supplies its answer the moment the content has moved, which is before the record is marked restored -- so a database write that fails after that point exits **5** (or **8** under contention) with the payload still on the envelope. That is the truthful report of a genuinely split state: the content really is at `restored_to`, and the row really does not say so. It is also why the general rule holds verb by verb rather than only in the envelope table -- **the exit code is the verdict**, and a consumer that reads a non-null payload as success would call that run a clean restore.
+
 ### list
 
 ```json
