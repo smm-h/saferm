@@ -309,7 +309,7 @@ func TestUndelete_ConflictError(t *testing.T) {
 	stdout, _, _ := runSaferm(t, homeDir, "list")
 	id := parseFirstID(t, stdout)
 
-	// Undelete without --force-overwrite should fail.
+	// Undelete with no conflict mode should fail.
 	_, stderr, code := runSaferm(t, homeDir, "undelete", id)
 	if code == 0 {
 		t.Fatal("undelete should fail when file exists at destination")
@@ -328,7 +328,7 @@ func TestUndelete_ConflictError(t *testing.T) {
 	}
 }
 
-func TestUndelete_ForceOverwrite(t *testing.T) {
+func TestUndelete_OverwriteById(t *testing.T) {
 	homeDir := testutil.SetupTestEnv(t)
 	workDir := t.TempDir()
 
@@ -347,10 +347,10 @@ func TestUndelete_ForceOverwrite(t *testing.T) {
 	stdout, _, _ := runSaferm(t, homeDir, "list")
 	id := parseFirstID(t, stdout)
 
-	// Undelete with --force-overwrite should succeed.
-	stdout, stderr, code := runSaferm(t, homeDir, "undelete", "--force-overwrite", id)
+	// Undelete with --on-conflict overwrite should succeed.
+	stdout, stderr, code := runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", id)
 	if code != 0 {
-		t.Fatalf("undelete --force-overwrite failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
+		t.Fatalf("undelete --on-conflict overwrite failed (exit %d): stdout=%q stderr=%q", code, stdout, stderr)
 	}
 
 	// Verify original content is restored.

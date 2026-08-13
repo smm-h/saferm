@@ -11,6 +11,13 @@ import (
 	"github.com/smm-h/strictcli/go/strictcli"
 )
 
+// The two answers `undelete` accepts for a destination that is already
+// occupied, spelled once.
+const (
+	onConflictOverwrite = "overwrite"
+	onConflictAbort     = "abort"
+)
+
 func registerUndeleteCmd(app *strictcli.App) {
 	app.Command("undelete", "Restore a previously archived file back to its original path", handleUndelete,
 		strictcli.WithEffect(strictcli.EffectMutating),
@@ -20,7 +27,16 @@ func registerUndeleteCmd(app *strictcli.App) {
 			Kind:   strictcli.ProcMutate,
 		}),
 		strictcli.WithFlags(
-			strictcli.BoolFlag("force-overwrite", "Overwrite any existing file at the restoration destination", strictcli.Default(false)),
+			// No default, and required exactly when the situation arises. A
+			// destination that is already occupied has two defensible answers
+			// -- replace what is there, or refuse and change nothing -- and they
+			// suit opposite callers, so saferm refuses to choose one silently.
+			// There is deliberately no third mode that keeps both copies: a
+			// restore consumes the archived copy, and parking a second one
+			// beside the destination is the workflow saferm exists to prevent.
+			strictcli.StringFlag("on-conflict",
+				"What to do when something already exists at the restoration destination: overwrite (check the archived copy against the record, then replace what is there) or abort (refuse and change nothing). Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default",
+				strictcli.Default(nil), strictcli.Choices(onConflictOverwrite, onConflictAbort)),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("target", "Record UUID, numeric database ID, or original file path of the item to restore ("+identifierOrderHelp+", anything else is a path)"),
@@ -29,7 +45,13 @@ func registerUndeleteCmd(app *strictcli.App) {
 }
 
 func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
-	forceOverwrite := kwargs["force_overwrite"].(bool)
+	// Absent unless the caller answered: the flag is optional at parse time and
+	// required by the destination's state, which nothing can know before the
+	// record is resolved.
+	onConflict := ""
+	if v, ok := kwargs["on_conflict"].(string); ok {
+		onConflict = v
+	}
 	target := kwargs["target"].(string)
 
 	archiveDir := kwargs["archive_dir"].(string)
@@ -101,13 +123,25 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 		return strictcli.Exit(ExitArchive)
 	}
 
+	occupied, err := destinationOccupied(dest, rec.IsDirectory)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: reading the destination %s: %s\n", dest, err)
+		return strictcli.Exit(ExitGeneral)
+	}
 	overwrite := false
-	if _, err := os.Lstat(dest); err == nil {
-		if !forceOverwrite {
-			fmt.Fprintf(os.Stderr, "error: %s already exists (use --force-overwrite to overwrite)\n", dest)
+	if occupied {
+		switch onConflict {
+		case onConflictOverwrite:
+			overwrite = true
+		case onConflictAbort:
+			fmt.Fprintf(os.Stderr, "error: %s already exists and --on-conflict %s refused the restore; nothing was touched and the archived copy was kept\n",
+				dest, onConflictAbort)
 			return strictcli.Exit(ExitConflict)
+		default:
+			fmt.Fprintf(os.Stderr, "error: %s already exists; pass --on-conflict %s to replace it or --on-conflict %s to refuse\n",
+				dest, onConflictOverwrite, onConflictAbort)
+			return strictcli.Exit(ExitUsage)
 		}
-		overwrite = true
 	}
 
 	// Verification is proportional: it runs when, and only when, the restore is
@@ -150,6 +184,36 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 
 	say(ctx, "Restored %s\n", dest)
 	return strictcli.Exit(ExitSuccess)
+}
+
+// destinationOccupied reports whether something is standing where the restore
+// wants to go, which is what makes the conflict mode required.
+//
+// The one exception is the empty-destination rule: an EMPTY directory where a
+// tree was archived is that tree's own place, emptied, and extracting into it
+// replaces nothing. Requiring an answer there would make the commonest
+// directory restore -- the tree is gone, its directory is not -- need a flag to
+// say "replace nothing".
+//
+// The rule is for trees only. An empty directory standing where a FILE was
+// archived is still occupied: a file cannot be renamed over a directory, and
+// removing that directory is a decision the caller has to state.
+func destinationOccupied(dest string, isDirectory bool) (bool, error) {
+	info, err := os.Lstat(dest)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !isDirectory || !info.IsDir() {
+		return true, nil
+	}
+	entries, err := os.ReadDir(dest)
+	if err != nil {
+		return false, err
+	}
+	return len(entries) > 0, nil
 }
 
 // restoreStep is one mutation a restore performs, described once for both

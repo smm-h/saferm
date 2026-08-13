@@ -24,7 +24,8 @@ import (
 //     from a script or an agent.
 //   - undelete -- mutating, NOT consequential. It is delete's inverse. It
 //     writes to the restoration path but refuses to clobber an existing file
-//     without --force-overwrite, so nothing is lost by running it.
+//     without an explicit --on-conflict overwrite, so nothing is lost by
+//     running it.
 //   - list -- read_only. It queries the database and prints a table. A
 //     read_only command cannot be consequential at all.
 //   - purge -- mutating AND consequential. The one saferm operation with no way

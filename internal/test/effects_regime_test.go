@@ -54,7 +54,7 @@ func TestDeleteNeedsNoConsent(t *testing.T) {
 }
 
 // TestUndeleteNeedsNoConsent: `undelete` restores a file to its original path
-// and refuses to clobber an existing one without --force-overwrite, so it is
+// and refuses to clobber an existing one without --on-conflict overwrite, so it is
 // recoverable by construction and never prompts either.
 func TestUndeleteNeedsNoConsent(t *testing.T) {
 	home := testutil.SetupTestEnv(t)

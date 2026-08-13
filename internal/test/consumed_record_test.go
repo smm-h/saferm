@@ -15,7 +15,7 @@ import (
 //
 // Both tests below reach the same consumed record by two different routes and
 // used to produce two different confusing answers: a raw archive-layer stat
-// failure when the destination was gone, and a "use --force-overwrite" hint
+// failure when the destination was gone, and an "--on-conflict overwrite" hint
 // when it was still there -- a hint that could not have helped, since the blob
 // the overwrite would have restored from no longer exists.
 
@@ -86,7 +86,7 @@ func TestUndelete_AlreadyRestored_DestinationPresent_ReportsStatus(t *testing.T)
 	if !strings.Contains(stderr, "already restored") {
 		t.Fatalf("expected an already-restored status in stderr, got: %q", stderr)
 	}
-	if strings.Contains(stderr, "--force-overwrite") {
+	if strings.Contains(stderr, "--on-conflict") {
 		t.Fatalf("a consumed record must not be advertised as overwritable: %q", stderr)
 	}
 }

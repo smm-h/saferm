@@ -237,7 +237,7 @@ func TestUndelete_CorruptFileArchive_RefusesBeforeTouchingTheDestination(t *test
 	// be replaced.
 	testutil.CreateTempFile(t, workDir, "verified.txt", "do not lose me\n")
 
-	_, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid)
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid)
 	if code == 0 {
 		t.Fatalf("overwriting from a corrupt archive must fail; stderr=%q", stderr)
 	}
@@ -282,7 +282,7 @@ func TestUndelete_CorruptDirectoryArchive_RefusesBeforeTouchingTheDestination(t 
 	replacement := testutil.CreateTempDir(t, workDir, "tree")
 	testutil.CreateTempFile(t, replacement, "mine.txt", "do not lose me\n")
 
-	_, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid)
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid)
 	if code == 0 {
 		t.Fatalf("overwriting from a corrupt container must fail; stderr=%q", stderr)
 	}
@@ -327,7 +327,7 @@ func TestUndelete_SymlinkEntryDiverged_RefusesBeforeTouchingTheDestination(t *te
 
 	// The untouched entry verifies: an ordinary overwrite of a symlink goes
 	// through, and no hash is involved anywhere.
-	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid); code != 0 {
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid); code != 0 {
 		t.Fatalf("overwriting with an intact symlink entry must succeed, got %d: %q", code, stderr)
 	}
 	if _, err := os.Readlink(link); err != nil {
@@ -362,7 +362,7 @@ func TestUndelete_SymlinkEntryRewritten_RefusesBeforeTouchingTheDestination(t *t
 
 	testutil.CreateTempFile(t, workDir, "link.txt", "do not lose me\n")
 
-	_, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid)
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid)
 	if code == 0 {
 		t.Fatalf("overwriting from a diverged symlink entry must fail; stderr=%q", stderr)
 	}
@@ -375,5 +375,201 @@ func TestUndelete_SymlinkEntryRewritten_RefusesBeforeTouchingTheDestination(t *t
 	}
 	if _, err := os.Stat(entry); err != nil {
 		t.Errorf("a refused restore must keep the archived entry: %v", err)
+	}
+}
+
+// The conflict mode follows the delete side's --on-error: a destination that
+// already exists has two defensible answers, they suit opposite callers, and
+// saferm refuses to pick one silently. It is required exactly when the
+// situation arises, so an ordinary restore into an absent destination stays a
+// bare `saferm undelete <target>`.
+func TestUndelete_ConflictModeIsRequiredWhenTheDestinationExists(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "occupied.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "conflict mode test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	testutil.CreateTempFile(t, workDir, "occupied.txt", "standing here\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", uuid)
+	if code != 2 {
+		t.Fatalf("an omitted conflict mode is an argument error (exit 2), got %d: %q", code, stderr)
+	}
+	if !strings.Contains(stderr, "--on-conflict") {
+		t.Errorf("the error must name the flag it needs, got: %q", stderr)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil || string(got) != "standing here\n" {
+		t.Errorf("the destination must be untouched: got %q (%v)", got, err)
+	}
+}
+
+// abort is the explicit refusal, and it is a conflict rather than an argument
+// error: the caller said what to do and saferm did it.
+func TestUndelete_OnConflictAbortRefuses(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "occupied.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "abort test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, "")
+	testutil.CreateTempFile(t, workDir, "occupied.txt", "standing here\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "abort", uuid)
+	if code != 7 {
+		t.Fatalf("an aborted restore exits 7 (conflict), got %d: %q", code, stderr)
+	}
+	if !strings.Contains(stderr, "already exists") {
+		t.Errorf("the refusal must name the conflict, got: %q", stderr)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil || string(got) != "standing here\n" {
+		t.Errorf("the destination must be untouched: got %q (%v)", got, err)
+	}
+	if _, err := os.Stat(entry); err != nil {
+		t.Errorf("a refused restore must keep the archived copy: %v", err)
+	}
+}
+
+// overwrite is the destructive answer, and it is the one behind verification.
+func TestUndelete_OnConflictOverwriteReplaces(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "occupied.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "overwrite test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	testutil.CreateTempFile(t, workDir, "occupied.txt", "replace me\n")
+
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid); code != 0 {
+		t.Fatalf("an overwriting restore failed (exit %d): %q", code, stderr)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "archived content\n" {
+		t.Errorf("the archived content must be back: got %q", got)
+	}
+}
+
+// The retired boolean went with the mode that replaced it: two spellings for
+// one decision is exactly what an agent learns wrong, and a parse error says so
+// at once.
+func TestUndelete_ForceOverwriteFlagIsRetired(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+
+	_, stderr, code := runSaferm(t, homeDir, "undelete", "--force-overwrite", "1")
+	if code == 0 {
+		t.Fatal("--force-overwrite must be a parse error, got exit 0")
+	}
+	if !strings.Contains(stderr, "force-overwrite") {
+		t.Errorf("the parse error must name the retired flag, got: %q", stderr)
+	}
+}
+
+// An EMPTY destination directory is not a conflict for a tree: it is the
+// tree's own original place, emptied. Requiring a conflict mode there would
+// make the commonest directory restore need a flag to say "replace nothing".
+func TestUndelete_EmptyDestinationDirectoryNeedsNoChoice(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	tree := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, tree, "inner.txt", "archived\n")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "empty destination test", tree)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	if err := os.Mkdir(tree, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", uuid); code != 0 {
+		t.Fatalf("restoring into an empty destination must need no flag, got %d: %q", code, stderr)
+	}
+	got, err := os.ReadFile(filepath.Join(tree, "inner.txt"))
+	if err != nil {
+		t.Fatalf("the tree was not restored: %v", err)
+	}
+	if string(got) != "archived\n" {
+		t.Errorf("restored content mismatch: got %q", got)
+	}
+}
+
+// A destination directory that holds anything is a conflict again: the
+// extraction would merge the tree into someone else's directory.
+func TestUndelete_NonEmptyDestinationDirectoryNeedsTheChoice(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	tree := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, tree, "inner.txt", "archived\n")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "non-empty destination test", tree)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	occupied := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, occupied, "someone-elses.txt", "mine\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", uuid)
+	if code != 2 {
+		t.Fatalf("a non-empty destination directory must demand the choice (exit 2), got %d: %q", code, stderr)
+	}
+	if _, err := os.Stat(filepath.Join(occupied, "someone-elses.txt")); err != nil {
+		t.Errorf("the destination must be untouched: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(occupied, "inner.txt")); err == nil {
+		t.Error("nothing may have been extracted into the occupied destination")
+	}
+}
+
+// The empty-directory rule belongs to trees only. An empty directory standing
+// where a FILE was archived is still a conflict: a file cannot be renamed over
+// a directory, and removing it is a decision the caller has to state.
+func TestUndelete_EmptyDestinationDirectoryIsAConflictForAFile(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "shadowed.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "shadowed file test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	if err := os.Mkdir(file, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", uuid)
+	if code != 2 {
+		t.Fatalf("an empty directory over a file record must demand the choice (exit 2), got %d: %q", code, stderr)
+	}
+
+	// And the stated overwrite goes through, directory and all.
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--on-conflict", "overwrite", uuid); code != 0 {
+		t.Fatalf("the stated overwrite failed (exit %d): %q", code, stderr)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil || string(got) != "archived content\n" {
+		t.Errorf("the file must be back: got %q (%v)", got, err)
 	}
 }
