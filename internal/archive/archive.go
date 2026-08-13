@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 )
@@ -32,6 +33,7 @@ var (
 	ErrArchiveEntryReplaced   = errors.New("the archive entry is no longer the file that was archived")
 	ErrSourceDiverged         = errors.New("the source changed after it was hashed, and the archive holds an independent copy of the older content")
 	ErrArchivedContentChanged = errors.New("the source was written through while its archive entry was a link to it, so the recorded hash no longer describes the archived bytes")
+	ErrDirectoryChanged       = errors.New("the tree changed after it was archived, so the archive does not hold everything the removal would destroy")
 	ErrNotExecuted            = errors.New("the plan was never executed, so there is nothing to check the source against")
 )
 
@@ -87,6 +89,21 @@ type Plan struct {
 	identity os.FileInfo
 	hash     string
 	linked   bool
+
+	// What went into the tar, for a directory: every path the archiving walk
+	// wrote, with the size and mtime it had when it was written. A tree's
+	// identity is one inode and says nothing about its contents, so this is the
+	// only thing that can tell [RemoveSource] whether the archive covers what
+	// the recursive removal is about to destroy.
+	members map[string]member
+}
+
+// member is one path as it went into a directory's tar: enough to notice, on
+// the way back, that the tree no longer holds only what was archived.
+type member struct {
+	size    int64
+	modTime time.Time
+	regular bool
 }
 
 // NewPlan inspects path and resolves where archiving it would put it. It
@@ -235,6 +252,9 @@ func verifySource(p *Plan) error {
 		return fmt.Errorf("%s: %w (%v)", p.Dest, ErrArchiveEntryMissing, err)
 	}
 
+	if p.Kind == KindDirectory {
+		return verifyTreeUnchanged(p)
+	}
 	if p.Kind != KindFile {
 		return nil
 	}
@@ -264,6 +284,69 @@ func verifySource(p *Plan) error {
 		return fmt.Errorf("%s: %w", p.Source, ErrArchivedContentChanged)
 	}
 	return fmt.Errorf("%s: %w", p.Source, ErrSourceDiverged)
+}
+
+// verifyTreeUnchanged reports whether the tree still holds only what the tar
+// holds. A directory's identity check is its top-level inode and covers none of
+// this: a file written INTO the tree after the tar was closed is in no archive
+// anywhere, and os.RemoveAll destroys it along with everything else.
+//
+// So the tree is walked once more against the member list the archiving walk
+// recorded, and two findings refuse the removal: a path the tar does not have
+// at all, and a regular file whose size or mtime no longer matches what went
+// into it -- the same cheap comparison the single-file case makes before it
+// re-hashes, minus the re-hash, because re-reading a whole tree to catch a
+// same-size same-mtime rewrite would cost a second full pass over it.
+//
+// A path the tar has and the tree no longer does is NOT a refusal: the archive
+// then holds more than the tree, which is the state a completed archival aims
+// for anyway.
+//
+// The residual window is real and deliberate: a write landing between this walk
+// and the os.RemoveAll that follows it is not seen. That gap is microseconds
+// wide, against the tens of seconds the database insert can hold open, and
+// closing it would need something the filesystem does not offer.
+func verifyTreeUnchanged(p *Plan) error {
+	var unarchived []string
+	err := filepath.WalkDir(p.Source, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		recorded, ok := p.members[path]
+		if !ok {
+			unarchived = append(unarchived, path)
+			return nil
+		}
+		if !recorded.regular {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if info.Size() != recorded.size || !info.ModTime().Equal(recorded.modTime) {
+			unarchived = append(unarchived, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("re-walking %s before removing it: %w", p.Source, err)
+	}
+	if len(unarchived) > 0 {
+		return fmt.Errorf("%s: %w: %s", p.Source, ErrDirectoryChanged, namePaths(unarchived))
+	}
+	return nil
+}
+
+// namePaths renders the paths a refusal is about. All of them up to a handful,
+// because the caller has to go and look at them, and a count after that so a
+// tree that changed wholesale does not print itself into the terminal.
+func namePaths(paths []string) string {
+	const shown = 5
+	if len(paths) <= shown {
+		return strings.Join(paths, ", ")
+	}
+	return fmt.Sprintf("%s (and %d more)", strings.Join(paths[:shown], ", "), len(paths)-shown)
 }
 
 // DiscardBlob removes the archive entry [Execute] wrote, undoing it. The source
@@ -368,7 +451,8 @@ func archiveDirectory(p *Plan) (*ArchiveResult, error) {
 
 	dst := filepath.Join(archiveDir, uuid+".tar.zst")
 
-	if err := createTarZst(path, dst); err != nil {
+	members, err := createTarZst(path, dst)
+	if err != nil {
 		// Clean up partial archive on failure.
 		os.Remove(dst)
 		return nil, fmt.Errorf("creating tar.zst: %w", err)
@@ -384,6 +468,7 @@ func archiveDirectory(p *Plan) (*ArchiveResult, error) {
 	// [Execute]. It used to go here, which is why a failing record left a
 	// compressed tree nobody could name and no directory to go back to.
 	p.identity = info
+	p.members = members
 	return &ArchiveResult{UUID: uuid, Hash: hash, Size: totalSize, IsDirectory: true}, nil
 }
 
@@ -532,17 +617,22 @@ func copyAndVerify(src, dst string, expectedHash string) error {
 	return nil
 }
 
-// createTarZst creates a .tar.zst archive of srcDir at dstPath.
-func createTarZst(srcDir string, dstPath string) error {
+// createTarZst creates a .tar.zst archive of srcDir at dstPath, and returns
+// what it put in it: every walked path, with the size and mtime it had as it
+// was written. That list is the only description of a tree's contents the
+// archival produces, and [verifyTreeUnchanged] is what reads it.
+func createTarZst(srcDir string, dstPath string) (map[string]member, error) {
+	members := make(map[string]member)
+
 	outFile, err := os.Create(dstPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer outFile.Close()
 
 	zstWriter, err := zstd.NewWriter(outFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer zstWriter.Close()
 
@@ -571,6 +661,13 @@ func createTarZst(srcDir string, dstPath string) error {
 		if err != nil {
 			return err
 		}
+
+		// Recorded before the content is written, not after: a file that is
+		// rewritten WHILE it is being copied gets a member whose size and mtime
+		// are the pre-copy ones, so the check on the way back refuses. Recording
+		// afterwards would instead make the refusal disappear for exactly the
+		// case that needs it.
+		members[path] = member{size: info.Size(), modTime: info.ModTime(), regular: info.Mode().IsRegular()}
 
 		// Handle symlinks.
 		if d.Type()&os.ModeSymlink != 0 {
@@ -612,17 +709,20 @@ func createTarZst(srcDir string, dstPath string) error {
 		return err
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Close in reverse order.
 	if err := tarWriter.Close(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := zstWriter.Close(); err != nil {
-		return err
+		return nil, err
 	}
-	return outFile.Close()
+	if err := outFile.Close(); err != nil {
+		return nil, err
+	}
+	return members, nil
 }
 
 // extractTarZst extracts a .tar.zst archive into dstDir.

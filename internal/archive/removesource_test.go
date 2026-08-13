@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -464,6 +465,128 @@ func TestRemoveSource_RefusesAnEntryReplacedByALinkBackAtTheSource(t *testing.T)
 	}
 	if _, err := os.Lstat(plan.Source); err != nil {
 		t.Errorf("the source was destroyed although the entry is only a link to it: %v", err)
+	}
+}
+
+// A directory's identity is the top-level inode, and that alone says nothing
+// about what is INSIDE the tree. The .tar.zst is a snapshot taken at Execute;
+// anything written into the tree afterwards is in no archive at all, and
+// RemoveAll destroys it. So the tree is re-walked against what actually went
+// into the tar, and any file the archive does not hold refuses the removal.
+
+// A file created inside the tree during the window is the audit's case: the tar
+// was closed before it existed, and removing the tree would take it with it.
+func TestRemoveSource_RefusesADirectoryThatGrewAfterItWasArchived(t *testing.T) {
+	dir := t.TempDir()
+	plan := directoryPlan(t, dir, "tree")
+
+	newcomer := filepath.Join(plan.Source, "nested", "written-during-the-insert.txt")
+	if err := os.WriteFile(newcomer, []byte("in no archive anywhere"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RemoveSource(plan)
+	if !errors.Is(err, ErrDirectoryChanged) {
+		t.Fatalf("expected ErrDirectoryChanged, got %v", err)
+	}
+	if !strings.Contains(err.Error(), newcomer) {
+		t.Errorf("the refusal must name the path the archive does not hold, got: %v", err)
+	}
+	if _, statErr := os.Stat(newcomer); statErr != nil {
+		t.Errorf("the file that was in no archive was destroyed anyway: %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(plan.Source, "nested", "f.txt")); statErr != nil {
+		t.Errorf("the rest of the tree was destroyed: %v", statErr)
+	}
+}
+
+// A whole subtree created during the window, which is the same case one level
+// down: the walk reaches it, and neither the directory nor its file is in the
+// tar.
+func TestRemoveSource_RefusesADirectoryWithANewSubtree(t *testing.T) {
+	dir := t.TempDir()
+	plan := directoryPlan(t, dir, "tree")
+
+	sub := filepath.Join(plan.Source, "late")
+	if err := os.MkdirAll(sub, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "g.txt"), []byte("also unarchived"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrDirectoryChanged) {
+		t.Fatalf("expected ErrDirectoryChanged, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(sub, "g.txt")); err != nil {
+		t.Errorf("the unarchived subtree was destroyed: %v", err)
+	}
+}
+
+// A file rewritten in place during the window: the name is in the tar, the
+// bytes in it are not. Size and mtime are what tell it apart, the same cheap
+// check the regular-file case uses before it re-hashes.
+func TestRemoveSource_RefusesADirectoryWhoseFileWasRewritten(t *testing.T) {
+	dir := t.TempDir()
+	plan := directoryPlan(t, dir, "tree")
+
+	rewritten := filepath.Join(plan.Source, "nested", "f.txt")
+	if err := os.WriteFile(rewritten, []byte("content the tar never saw"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(rewritten, later, later); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RemoveSource(plan)
+	if !errors.Is(err, ErrDirectoryChanged) {
+		t.Fatalf("expected ErrDirectoryChanged, got %v", err)
+	}
+	if !strings.Contains(err.Error(), rewritten) {
+		t.Errorf("the refusal must name the file whose bytes are not in the archive, got: %v", err)
+	}
+	got, readErr := os.ReadFile(rewritten)
+	if readErr != nil {
+		t.Fatalf("the rewritten file was destroyed: %v", readErr)
+	}
+	if string(got) != "content the tar never saw" {
+		t.Errorf("the rewritten file's content changed: %q", got)
+	}
+}
+
+// The other direction is not a refusal: a file DELETED during the window means
+// the archive holds more than the tree does, which is the state a completed
+// archival is aiming for anyway. Refusing here would abort a delete because
+// somebody else's cleanup got there first.
+func TestRemoveSource_AcceptsADirectoryThatOnlyLostContent(t *testing.T) {
+	dir := t.TempDir()
+	plan := directoryPlan(t, dir, "tree")
+
+	if err := os.Remove(filepath.Join(plan.Source, "nested", "f.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := RemoveSource(plan); err != nil {
+		t.Fatalf("a tree the archive fully covers must still be removable: %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); !os.IsNotExist(err) {
+		t.Errorf("the tree survived a successful RemoveSource (err=%v)", err)
+	}
+}
+
+// An untouched tree is removed, which is the whole point of the walk being a
+// comparison rather than a timestamp: the archival itself does not make the
+// tree look changed.
+func TestRemoveSource_RemovesAnUnchangedDirectory(t *testing.T) {
+	dir := t.TempDir()
+	plan := directoryPlan(t, dir, "tree")
+
+	if err := RemoveSource(plan); err != nil {
+		t.Fatalf("an unchanged tree must be removable: %v", err)
+	}
+	if _, err := os.Lstat(plan.Source); !os.IsNotExist(err) {
+		t.Errorf("the tree survived a successful RemoveSource (err=%v)", err)
 	}
 }
 

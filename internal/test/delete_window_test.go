@@ -399,6 +399,57 @@ func TestDelete_ASymlinkWhoseEntryVanishesDuringTheInsertIsNotRemoved(t *testing
 	}
 }
 
+// A tree can also GROW while the insert is in flight, and its identity check
+// sees none of it: the top-level inode is unchanged, so the recursive removal
+// used to proceed and destroy a file that was written after the tar was closed
+// and is therefore in no archive at all. The tree is re-walked against what
+// went into the tar instead, and the delete refuses -- the whole tree stays,
+// the incomplete archive is discarded, and the row that was already committed
+// names nothing, exactly as it does for a file written through mid-archival.
+func TestDelete_ADirectoryThatGrowsDuringTheInsertIsNotRemoved(t *testing.T) {
+	home := testutil.SetupTestEnv(t)
+	work := t.TempDir()
+	seedArchive(t, home, work, "seed.txt")
+
+	tree := testutil.CreateTempDir(t, work, "tree")
+	archived := testutil.CreateTempFile(t, tree, "inner.txt", "was in the tar\n")
+	inFlight := startDeleteInsideTheInsert(t, home, "delete", "--on-error", "abort", "-r", "--description", "tree grew mid-archival", tree)
+
+	newcomer := filepath.Join(tree, "written-during-the-insert.txt")
+	const unarchived = "written after the tar was closed\n"
+	if err := os.WriteFile(newcomer, []byte(unarchived), 0644); err != nil {
+		t.Fatalf("writing into the tree inside the window: %v", err)
+	}
+	out := inFlight.finish()
+
+	if out.code == 0 {
+		t.Fatalf("a delete whose tree grew under it must not exit 0; stderr=%s", out.stderr)
+	}
+	if !strings.Contains(out.stderr, newcomer) {
+		t.Errorf("the failure must name the path the archive does not hold (%s), got: %s", newcomer, out.stderr)
+	}
+	if !strings.Contains(out.stderr, "names nothing") {
+		t.Errorf("the failure must say the committed row names no archived copy, got: %s", out.stderr)
+	}
+
+	content, err := os.ReadFile(newcomer)
+	if err != nil {
+		t.Fatalf("the file that was in no archive was destroyed anyway: %v", err)
+	}
+	if string(content) != unarchived {
+		t.Errorf("the new file's content changed: %q", content)
+	}
+	if _, err := os.Stat(archived); err != nil {
+		t.Errorf("the rest of the tree was destroyed: %v", err)
+	}
+
+	// The incomplete archive is discarded: keeping it would leave a .tar.zst
+	// that is missing part of the tree its row claims to hold.
+	if _, err := os.Stat(filepath.Join(home, ".saferm", "archive", inFlight.entry)); !os.IsNotExist(err) {
+		t.Errorf("the incomplete archive entry was kept (err=%v)", err)
+	}
+}
+
 // recordIdentifiers matches the `record [<id>] <uuid>` phrase every
 // source-removal failure carries. Both identifiers are in it because both are
 // handles the caller can act on, and after this failure the archived copy is

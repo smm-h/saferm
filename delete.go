@@ -368,6 +368,20 @@ func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid st
 			absPath, err, id, uuid)
 		return ExitArchive
 
+	case errors.Is(err, archive.ErrDirectoryChanged):
+		// The tree grew or was written into after the tar was closed, so the
+		// archive does not cover what os.RemoveAll would destroy. Same remedy as
+		// a file written through: the tree is left whole -- including the part
+		// nothing archived -- and the incomplete archive is discarded rather
+		// than left standing under a row that claims to hold the whole tree.
+		if derr := archive.DiscardBlob(plan); derr != nil {
+			fmt.Fprintf(os.Stderr, "error: removing the archive entry %s, which does not hold all of %s: %s; it is an incomplete copy under record [%d] %s\n",
+				plan.Dest, absPath, derr, id, uuid)
+		}
+		fmt.Fprintf(os.Stderr, "error: %s changed while it was being archived: %s; the tree was left whole, the incomplete archive was discarded, and record [%d] %s now names nothing -- purge it and run the delete again\n",
+			absPath, err, id, uuid)
+		return ExitArchive
+
 	case errors.Is(err, archive.ErrSourceReplaced), errors.Is(err, archive.ErrSourceDiverged):
 		fmt.Fprintf(os.Stderr, "error: not removing %s: %s; record [%d] %s holds the content that was archived, and %s now holds something else -- neither was destroyed\n",
 			absPath, err, id, uuid, absPath)
