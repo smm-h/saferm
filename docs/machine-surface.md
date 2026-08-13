@@ -30,14 +30,16 @@ In machine mode **stdout carries exactly one document**: the envelope, serialize
 | `app` | string | `saferm`. |
 | `app_version` | string | The version of the binary that ran. |
 | `command` | string \| null | The command that ran (`list`, `config.show`). `null` when the run ended before a command resolved -- a parse error, an unknown command. |
-| `exit_code` | integer | The process's exit status. The same numbers the [exit-code table](../#exit-codes) documents. |
+| `exit_code` | integer | The process's exit status -- the same codes saferm returns outside machine mode. |
 | `payload` | any \| null | The verb's own answer, described below. `null` for a verb that declares no payload, and for a run that failed before producing one. |
 | `dry_run` | boolean | Whether the run was a preview. |
 | `preview` | array | The structured effects the run recorded: every path it wrote, moved or removed. Populated in both modes. |
 | `preview_error` | object \| null | Why a preview stopped early, when it did. |
 | `diagnostics` | array | Every line the run would have printed, in order, as `{"level", "message"}`. |
 
-The **exit code is still the verdict**. A payload is what a successful run produced; a failure is reported by the exit code and by the diagnostics, and saferm's exit codes mean exactly what they mean outside machine mode.
+The **exit code is still the verdict**. A payload is what a successful run produced; a failure is reported by the exit code and by the diagnostics, and saferm's exit codes mean exactly what they mean outside machine mode:
+
+:-: table-exit-codes
 
 ## The four consumer verbs
 
