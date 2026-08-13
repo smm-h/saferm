@@ -46,6 +46,18 @@ const (
 	// conforming writer produces can contain one, since an entry's parent is
 	// always older than itself.
 	AnomalyChainCycle = "chain-cycle"
+
+	// AnomalyOversizedField: a string an entry contributes to the embedded chain
+	// was longer than a chain entry may carry, and was truncated. The line was
+	// conforming -- nothing in the entry rules bounds a value's length -- so this
+	// is the consumer stating what it kept, not a complaint about the writer.
+	AnomalyOversizedField = "oversized-entry-field"
+
+	// AnomalyAnomaliesDropped: the capture saw more anomalies than one record may
+	// carry. Synthetic, always last, and present only when something was dropped:
+	// it names how many, so a truncated anomaly list can never read as a complete
+	// one.
+	AnomalyAnomaliesDropped = "anomalies-dropped"
 )
 
 // maxAnomalyValueBytes caps what a single anomaly copies out of the store. A
@@ -53,6 +65,19 @@ const (
 // capture is written into a database row, so the value is the head of what was
 // seen rather than all of it.
 const maxAnomalyValueBytes = 1024
+
+// maxEntryFieldBytes caps every unbounded string an entry contributes to the
+// embedded chain, under the same discipline as an anomaly value: a conforming
+// line may carry a five-megabyte app name, and the chain is copied into a
+// database row.
+const maxEntryFieldBytes = 1024
+
+// maxAnomalies caps how many anomalies one capture records. A partition of
+// malformed lines produces one anomaly per line -- thousands of them, each up to
+// maxAnomalyValueBytes, in every record the invocation writes -- and the point of
+// the list is to say WHAT went wrong, which the first few already do. What is
+// dropped is stated rather than silently missing: see finish.
+const maxAnomalies = 32
 
 // partitionRe matches a partition filename. Readers ignore every other file in
 // the store directory; the write-failure marker is such a file.
@@ -102,6 +127,10 @@ type Capture struct {
 	ChainIDs  []string  `json:"chain_ids,omitempty"`
 	Chain     []Entry   `json:"chain,omitempty"`
 	Anomalies []Anomaly `json:"anomalies,omitempty"`
+
+	// dropped counts the anomalies the cap refused. It is never serialized: what
+	// reaches the record is the synthetic anomaly finish appends.
+	dropped int
 }
 
 // Collect resolves the ancestry of the running process from the store.
@@ -140,6 +169,7 @@ func collectFrom(store, value string) *Capture {
 		return nil
 	}
 	c := &Capture{ParentID: value}
+	defer c.finish()
 	if _, ok := ulidTimestamp(value); !ok {
 		c.record(AnomalyMalformedParentValue,
 			ParentEnv+" is not a canonical identifier under the strict ULID profile", value)
@@ -197,11 +227,60 @@ func (c *Capture) Origin() (name, version *string) {
 }
 
 func (c *Capture) record(kind, detail, value string) {
+	if len(c.Anomalies) >= maxAnomalies {
+		c.dropped++
+		return
+	}
 	if len(value) > maxAnomalyValueBytes {
 		value = value[:maxAnomalyValueBytes]
 		detail += fmt.Sprintf(" (value truncated to the first %d bytes)", maxAnomalyValueBytes)
 	}
 	c.Anomalies = append(c.Anomalies, Anomaly{Kind: kind, Detail: detail, Value: value})
+}
+
+// finish appends the one anomaly the cap owes: a count of everything it refused.
+// A capture that dropped nothing gains nothing, so a full-looking list of
+// maxAnomalies entries with no dropped-anomaly line really is complete.
+func (c *Capture) finish() {
+	if c.dropped == 0 {
+		return
+	}
+	c.Anomalies = append(c.Anomalies, Anomaly{
+		Kind: AnomalyAnomaliesDropped,
+		Detail: fmt.Sprintf(
+			"%d further anomalies were seen and not recorded; this capture keeps the first %d",
+			c.dropped, maxAnomalies),
+	})
+}
+
+// capField truncates one unbounded entry string to maxEntryFieldBytes, recording
+// what it kept. Every string an entry contributes to the chain goes through it
+// except the identifier itself, which the strict profile already bounds at 26
+// characters.
+func (c *Capture) capField(field, label, id string, value *string) {
+	if value == nil || len(*value) <= maxEntryFieldBytes {
+		return
+	}
+	// Cloned rather than sliced: a slice of a five-megabyte value keeps the whole
+	// value alive for as long as the chain does.
+	head := strings.Clone((*value)[:maxEntryFieldBytes])
+	*value = head
+	c.record(AnomalyOversizedField,
+		fmt.Sprintf("an entry's %s in %s.jsonl was longer than %d bytes and was truncated to it; entry %s",
+			field, label, maxEntryFieldBytes, id),
+		head)
+}
+
+// capEntry bounds what one entry can put into the embedded chain. A conforming
+// line has no length limit on any of its string values, and the chain is copied
+// verbatim into every record the invocation writes.
+func (c *Capture) capEntry(e *Entry, label string) {
+	c.capField("app", label, e.ID, &e.App)
+	c.capField("version", label, e.ID, &e.Version)
+	c.capField("effect", label, e.ID, &e.Effect)
+	c.capField("spawned_at", label, e.ID, &e.SpawnedAt)
+	c.capField("command", label, e.ID, e.Command)
+	c.capField("parent_id", label, e.ID, e.ParentID)
 }
 
 // reader resolves identifiers against a store, parsing each partition it needs
@@ -314,6 +393,7 @@ func (r *reader) read(label string, c *Capture) map[string]*Entry {
 			c.record(AnomalyMalformedEntry, "a line in "+label+".jsonl is not a conforming entry: "+err.Error(), raw)
 			continue
 		}
+		c.capEntry(entry, label)
 		entries[entry.ID] = entry
 	}
 	return entries

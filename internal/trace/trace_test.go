@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -360,6 +361,185 @@ func TestCollect_IgnoresNonPartitionFiles(t *testing.T) {
 	}
 	if len(c.Chain) != 1 {
 		t.Fatalf("chain holds %d entries, want 1", len(c.Chain))
+	}
+}
+
+// An anomaly copies at most maxAnomalyValueBytes out of the store, and says so.
+// A torn line has no length limit and the capture is written into a database
+// row, so an uncapped value is a partition-sized blob per record.
+func TestCollect_AnomalyValuesAreTruncated(t *testing.T) {
+	leaf := encodeULID(msHour04, "0000000000000003")
+	torn := `{"id":"` + strings.Repeat("x", 5000) // never closed: not a conforming entry
+
+	store := writeStore(t, map[string]string{
+		"2026-08-13T04.jsonl": torn + "\n" + line(leaf, "", "safegit", "0.25.0"),
+	})
+
+	c := collectFrom(store, leaf)
+	var seen bool
+	for _, a := range c.Anomalies {
+		if a.Kind != AnomalyMalformedEntry {
+			continue
+		}
+		seen = true
+		if len(a.Value) != maxAnomalyValueBytes {
+			t.Errorf("the recorded value is %d bytes, want the first %d", len(a.Value), maxAnomalyValueBytes)
+		}
+		if !strings.Contains(a.Detail, "truncated") {
+			t.Errorf("a truncated value was recorded without saying so: %q", a.Detail)
+		}
+	}
+	if !seen {
+		t.Fatalf("the torn line was not recorded: %+v", c.Anomalies)
+	}
+
+	// The same cap governs the variable's own value, which is recorded verbatim.
+	polluted := strings.Repeat("p", 4096)
+	c = collectFrom(store, polluted)
+	if len(c.Anomalies) != 1 || c.Anomalies[0].Kind != AnomalyMalformedParentValue {
+		t.Fatalf("the polluted variable produced anomalies %+v", c.Anomalies)
+	}
+	if len(c.Anomalies[0].Value) != maxAnomalyValueBytes {
+		t.Errorf("the recorded variable is %d bytes, want the first %d",
+			len(c.Anomalies[0].Value), maxAnomalyValueBytes)
+	}
+}
+
+// A partition of malformed lines produces one anomaly per line. Uncapped, that
+// is a multi-megabyte blob written into every record of the invocation, so the
+// capture keeps the first maxAnomalies and states how many it dropped.
+func TestCollect_AnomalyCountIsCapped(t *testing.T) {
+	const malformed = 200
+	leaf := encodeULID(msHour04, "0000000000000003")
+
+	var content strings.Builder
+	for i := 0; i < malformed; i++ {
+		content.WriteString("{not an entry at all}\n")
+	}
+	content.WriteString(line(leaf, "", "safegit", "0.25.0"))
+
+	store := writeStore(t, map[string]string{"2026-08-13T04.jsonl": content.String()})
+
+	c := collectFrom(store, leaf)
+	if len(c.Chain) != 1 {
+		t.Fatalf("the well-formed entry did not resolve: %+v", c.Chain)
+	}
+	if len(c.Anomalies) != maxAnomalies+1 {
+		t.Fatalf("the capture holds %d anomalies, want %d kept plus the dropped-count line",
+			len(c.Anomalies), maxAnomalies)
+	}
+	last := c.Anomalies[len(c.Anomalies)-1]
+	if last.Kind != AnomalyAnomaliesDropped {
+		t.Fatalf("the last anomaly is %q, want the dropped-count line", last.Kind)
+	}
+	if !strings.Contains(last.Detail, fmt.Sprint(malformed-maxAnomalies)) {
+		t.Errorf("the dropped-count line does not name how many were dropped: %q", last.Detail)
+	}
+	for _, a := range c.Anomalies[:maxAnomalies] {
+		if a.Kind != AnomalyMalformedEntry {
+			t.Errorf("a kept anomaly is %q, want the malformed lines that were seen first", a.Kind)
+		}
+	}
+
+	// Nothing was dropped: no synthetic line at all, so a full list reads as
+	// complete.
+	clean := writeStore(t, map[string]string{
+		"2026-08-13T04.jsonl": line(leaf, "", "safegit", "0.25.0"),
+	})
+	if c := collectFrom(clean, leaf); len(c.Anomalies) != 0 {
+		t.Errorf("a clean capture recorded anomalies: %+v", c.Anomalies)
+	}
+}
+
+// Nothing in the entry rules bounds a value's length: a conforming line may
+// carry a five-megabyte app, and the chain is copied into every record. Each
+// unbounded field is capped, and the capping is recorded.
+func TestCollect_OversizedEntryFieldsAreCapped(t *testing.T) {
+	huge := strings.Repeat("A", 5*1024*1024)
+	leaf := encodeULID(msHour07, "0000000000000003")
+	root := encodeULID(msHour04, "0000000000000001")
+
+	// The leaf carries an oversized app and command; the root an oversized
+	// version. parent_id is a string like any other until it is walked.
+	leafLine := `{"id":"` + leaf + `","parent_id":"` + root + `","app":"` + huge +
+		`","version":"0.25.0","command":"` + huge + `","dry_run":false,` +
+		`"machine_mode":false,"quiet":false,"verbose":true,"approve_consequential":true,` +
+		`"effect":"mutating","pid":48213,"spawned_at":"2026-08-13T04:17:52.913Z"}` + "\n"
+
+	store := writeStore(t, map[string]string{
+		"2026-08-13T04.jsonl": leafLine + line(root, "", "claudewheel", huge),
+	})
+
+	c := collectFrom(store, leaf)
+	if len(c.Chain) != 2 {
+		t.Fatalf("chain holds %d entries, want 2: %+v", len(c.Chain), c.Anomalies)
+	}
+	if len(c.Chain[0].App) != maxEntryFieldBytes {
+		t.Errorf("the embedded app is %d bytes, want the first %d", len(c.Chain[0].App), maxEntryFieldBytes)
+	}
+	if c.Chain[0].Command == nil || len(*c.Chain[0].Command) != maxEntryFieldBytes {
+		t.Errorf("the embedded command was not capped: %v", c.Chain[0].Command)
+	}
+	if len(c.Chain[1].Version) != maxEntryFieldBytes {
+		t.Errorf("the embedded version is %d bytes, want the first %d", len(c.Chain[1].Version), maxEntryFieldBytes)
+	}
+
+	// The origin the record keeps is the capped name, not a five-megabyte one.
+	if name, _ := c.Origin(); name == nil || len(*name) != maxEntryFieldBytes {
+		t.Errorf("the origin name was not capped: %v", name)
+	}
+
+	fields := map[string]bool{}
+	for _, a := range c.Anomalies {
+		if a.Kind != AnomalyOversizedField {
+			t.Errorf("unexpected anomaly %+v", a)
+			continue
+		}
+		if len(a.Value) != maxAnomalyValueBytes {
+			t.Errorf("the anomaly value is %d bytes, want the first %d", len(a.Value), maxAnomalyValueBytes)
+		}
+		for _, field := range []string{"app", "command", "version"} {
+			if strings.Contains(a.Detail, "an entry's "+field+" ") {
+				fields[field] = true
+			}
+		}
+	}
+	for _, field := range []string{"app", "command", "version"} {
+		if !fields[field] {
+			t.Errorf("the oversized %s was not recorded: %+v", field, c.Anomalies)
+		}
+	}
+}
+
+// An oversized parent_id is capped like every other string, and the capped value
+// is then not a canonical identifier -- so the chain stops with the malformed
+// entry recorded rather than embedding megabytes of it.
+func TestCollect_OversizedParentIDIsCapped(t *testing.T) {
+	huge := strings.Repeat("A", 5*1024*1024)
+	leaf := encodeULID(msHour04, "0000000000000003")
+	leafLine := `{"id":"` + leaf + `","parent_id":"` + huge +
+		`","app":"safegit","version":"0.25.0","command":"push","dry_run":false,` +
+		`"machine_mode":false,"quiet":false,"verbose":true,"approve_consequential":true,` +
+		`"effect":"mutating","pid":48213,"spawned_at":"2026-08-13T04:17:52.913Z"}` + "\n"
+
+	c := collectFrom(writeStore(t, map[string]string{"2026-08-13T04.jsonl": leafLine}), leaf)
+	if len(c.Chain) != 1 {
+		t.Fatalf("chain holds %d entries, want 1", len(c.Chain))
+	}
+	if c.Chain[0].ParentID == nil || len(*c.Chain[0].ParentID) != maxEntryFieldBytes {
+		t.Fatalf("the embedded parent_id was not capped: %d bytes", len(*c.Chain[0].ParentID))
+	}
+	var oversized, malformed bool
+	for _, a := range c.Anomalies {
+		switch a.Kind {
+		case AnomalyOversizedField:
+			oversized = true
+		case AnomalyMalformedEntry:
+			malformed = true
+		}
+	}
+	if !oversized || !malformed {
+		t.Errorf("anomalies are %+v; want the capping and the unwalkable parent both recorded", c.Anomalies)
 	}
 }
 
