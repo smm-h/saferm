@@ -12,6 +12,28 @@ import (
 // ErrNotFound is returned when a queried record does not exist.
 var ErrNotFound = errors.New("record not found")
 
+// ErrOriginVersionWithoutName is returned by Insert when a record carries an
+// origin version but no origin name.
+//
+// SQLite cannot add a CHECK constraint to an existing table, so the invariant
+// is enforced here instead of in the schema: one enforcement path, identical on
+// a fresh database and on one that reached this schema through the migration
+// ladder, and no table rebuild. The cost is stated rather than hidden -- a
+// hand-edited database, or an older binary writing into a newer one, bypasses
+// it.
+var ErrOriginVersionWithoutName = errors.New("origin_version requires origin_name")
+
+// ErrOriginEmpty is returned by Insert when an origin field is present but
+// empty. Both fields are nullable and never empty: an empty string would be a
+// third state beside "a tool claimed this" and "none did", and nothing can read
+// it as either.
+var ErrOriginEmpty = errors.New("origin fields must be absent or non-empty")
+
+// recordColumns is the column list every read of a deletion record selects, in
+// the order scanOne scans them. It is spelled once because a query that drifts
+// from the scanner produces a mismatch at run time, not at compile time.
+const recordColumns = `id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at, origin_name, origin_version, group_id`
+
 // DB wraps a *sql.DB connection to the saferm SQLite database.
 type DB struct {
 	conn   *sql.DB
@@ -20,21 +42,32 @@ type DB struct {
 
 // DeletionRecord represents a single archived deletion in the database.
 type DeletionRecord struct {
-	ID           int64
-	UUID         string
-	OriginalPath string
-	OriginalName string
-	Size         int64
-	Hash         string
-	IsDirectory  bool
-	DeletedAt    time.Time
-	Command      string     // may be empty
-	Description  string
-	Metadata     string     // JSON blob
+	ID            int64
+	UUID          string
+	OriginalPath  string
+	OriginalName  string
+	Size          int64
+	Hash          string
+	IsDirectory   bool
+	DeletedAt     time.Time
+	Command       string // may be empty
+	Description   string
+	Metadata      string     // JSON blob
 	RestoredAt    *time.Time // nil if not restored
 	RestoredTo    *string    // nil if not restored
-	SymlinkTarget *string   // nil if not a symlink
+	SymlinkTarget *string    // nil if not a symlink
 	PurgedAt      *time.Time // nil if not purged
+
+	// OriginName and OriginVersion name the tool that ran this deletion, as
+	// derived at insert time from the process trace store. Both are nil when no
+	// tool claimed the deletion -- which is every deletion made before the
+	// trace store existed, and every deletion made from a shell.
+	OriginName    *string
+	OriginVersion *string
+
+	// GroupID is shared by every record one delete invocation writes. Nil on
+	// rows written before the column existed.
+	GroupID *string
 }
 
 // busyTimeoutMS is how long SQLite itself waits for a held lock before handing
@@ -122,6 +155,33 @@ func migrate(conn *sql.DB) error {
 		}
 	}
 
+	if version < 3 {
+		// Migration 3: add origin_name, origin_version and group_id.
+		// The columns exist in fresh databases (from CREATE TABLE) but not in
+		// databases created before this migration was added -- and a column
+		// that lands in only one of the two places is how fresh and migrated
+		// databases silently fork.
+		//
+		// Every column here is nullable and none carries a constraint, which is
+		// the whole of what the ladder can express: existing rows stay valid,
+		// existing readers keep reading, and a binary from before this
+		// migration still opens and writes the migrated database.
+		for _, column := range []string{"origin_name", "origin_version", "group_id"} {
+			present, err := hasColumn(conn, "deletions", column)
+			if err != nil {
+				return fmt.Errorf("migration 3 (add %s): %w", column, err)
+			}
+			if !present {
+				if _, err := conn.Exec("ALTER TABLE deletions ADD COLUMN " + column + " TEXT"); err != nil {
+					return fmt.Errorf("migration 3 (add %s): %w", column, err)
+				}
+			}
+		}
+		if _, err := conn.Exec("PRAGMA user_version = 3"); err != nil {
+			return fmt.Errorf("setting user_version to 3: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -167,12 +227,20 @@ func (d *DB) Close() error {
 }
 
 // Insert inserts a DeletionRecord and returns the auto-increment ID.
+//
+// The origin invariants are checked here, before anything is written: see
+// ErrOriginVersionWithoutName for why they live in code rather than in the
+// schema.
 func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
+	if err := validateOrigin(rec); err != nil {
+		return 0, err
+	}
+
 	var id int64
 	err := d.retry(func() error {
 		result, err := d.conn.Exec(
-			`INSERT INTO deletions (uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO deletions (uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, origin_name, origin_version, group_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			rec.UUID,
 			rec.OriginalPath,
 			rec.OriginalName,
@@ -186,6 +254,9 @@ func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
 			nullableTime(rec.RestoredAt),
 			rec.RestoredTo,
 			rec.SymlinkTarget,
+			rec.OriginName,
+			rec.OriginVersion,
+			rec.GroupID,
 		)
 		if err != nil {
 			return err
@@ -199,13 +270,26 @@ func (d *DB) Insert(rec *DeletionRecord) (int64, error) {
 	return id, nil
 }
 
+// validateOrigin enforces the two origin invariants: neither field may be
+// present-but-empty, and a version cannot exist without a name.
+func validateOrigin(rec *DeletionRecord) error {
+	if (rec.OriginName != nil && *rec.OriginName == "") ||
+		(rec.OriginVersion != nil && *rec.OriginVersion == "") {
+		return ErrOriginEmpty
+	}
+	if rec.OriginVersion != nil && rec.OriginName == nil {
+		return ErrOriginVersionWithoutName
+	}
+	return nil
+}
+
 // QueryByID retrieves a single record by ID. Returns ErrNotFound if it does
 // not exist.
 func (d *DB) QueryByID(id int64) (*DeletionRecord, error) {
 	var rec *DeletionRecord
 	err := d.retry(func() error {
 		row := d.conn.QueryRow(
-			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			`SELECT `+recordColumns+`
 			 FROM deletions WHERE id = ?`, id)
 		var err error
 		rec, err = scanRecord(row)
@@ -230,7 +314,7 @@ func (d *DB) QueryByUUID(uuid string) (*DeletionRecord, error) {
 	var rec *DeletionRecord
 	err := d.retry(func() error {
 		row := d.conn.QueryRow(
-			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			`SELECT `+recordColumns+`
 			 FROM deletions WHERE uuid = ?`, uuid)
 		var err error
 		rec, err = scanRecord(row)
@@ -251,7 +335,7 @@ func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
 	var records []*DeletionRecord
 	err := d.retry(func() error {
 		rows, err := d.conn.Query(
-			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			`SELECT `+recordColumns+`
 			 FROM deletions WHERE original_path = ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`, path)
 		if err != nil {
 			return err
@@ -269,7 +353,7 @@ func (d *DB) QueryByPath(path string) ([]*DeletionRecord, error) {
 // QueryAll returns all records ordered by deleted_at DESC. If includeAll
 // is false, restored and purged records are excluded.
 func (d *DB) QueryAll(includeAll bool) ([]*DeletionRecord, error) {
-	query := `SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+	query := `SELECT ` + recordColumns + `
 		 FROM deletions`
 	if !includeAll {
 		query += " WHERE restored_at IS NULL AND purged_at IS NULL"
@@ -341,7 +425,7 @@ func (d *DB) QueryOlderThan(before time.Time) ([]*DeletionRecord, error) {
 	var records []*DeletionRecord
 	err := d.retry(func() error {
 		rows, err := d.conn.Query(
-			`SELECT id, uuid, original_path, original_name, size, hash, is_directory, deleted_at, command, description, metadata, restored_at, restored_to, symlink_target, purged_at
+			`SELECT `+recordColumns+`
 			 FROM deletions WHERE deleted_at < ? AND restored_at IS NULL AND purged_at IS NULL ORDER BY deleted_at DESC`,
 			before.Format(time.RFC3339))
 		if err != nil {
@@ -379,6 +463,7 @@ func scanOne(s scanner) (*DeletionRecord, error) {
 		&command, &rec.Description, &metadata,
 		&restoredAtStr, &restoredTo, &rec.SymlinkTarget,
 		&purgedAtStr,
+		&rec.OriginName, &rec.OriginVersion, &rec.GroupID,
 	)
 	if err != nil {
 		return nil, err
