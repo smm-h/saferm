@@ -524,6 +524,16 @@
         },
         {
           "level": 3,
+          "text": "`ErrArchiveEntryMissing`",
+          "anchor": "errarchiveentrymissing"
+        },
+        {
+          "level": 3,
+          "text": "`ErrArchiveEntryReplaced`",
+          "anchor": "errarchiveentryreplaced"
+        },
+        {
+          "level": 3,
           "text": "`ErrSourceDiverged`",
           "anchor": "errsourcediverged"
         },
@@ -531,6 +541,11 @@
           "level": 3,
           "text": "`ErrArchivedContentChanged`",
           "anchor": "errarchivedcontentchanged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrDirectoryChanged`",
+          "anchor": "errdirectorychanged"
         },
         {
           "level": 3,
@@ -781,6 +796,16 @@
         },
         {
           "level": 3,
+          "text": "`ErrArchiveEntryMissing`",
+          "anchor": "errarchiveentrymissing"
+        },
+        {
+          "level": 3,
+          "text": "`ErrArchiveEntryReplaced`",
+          "anchor": "errarchiveentryreplaced"
+        },
+        {
+          "level": 3,
           "text": "`ErrSourceDiverged`",
           "anchor": "errsourcediverged"
         },
@@ -788,6 +813,11 @@
           "level": 3,
           "text": "`ErrArchivedContentChanged`",
           "anchor": "errarchivedcontentchanged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrDirectoryChanged`",
+          "anchor": "errdirectorychanged"
         },
         {
           "level": 3,
@@ -1019,5 +1049,5 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-13T02:13:41.865603+00:00"
+  "last_gen": "2026-08-13T05:12:40.999030+00:00"
 }
