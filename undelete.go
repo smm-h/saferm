@@ -318,7 +318,7 @@ func restoreSteps(p *archive.RestorePlan, overwrite bool) []restoreStep {
 		// The move IS the consumption: a rename either happened or did not, and
 		// the cross-device fallback copies before it removes.
 		steps = append(steps, restoreStep{seam: func(fx *strictcli.Effects) error {
-			_, err := fx.Rename(p.Entry, p.Dest, strictcli.Resource("path:"+p.Dest))
+			err := renameOut(fx, p.Entry, p.Dest)
 			if err != nil && archive.IsCrossDeviceError(err) {
 				return archive.CopyOut(p.Entry, p.Dest)
 			}
@@ -356,6 +356,19 @@ func restoreSteps(p *archive.RestorePlan, overwrite bool) []restoreStep {
 	}
 
 	return steps
+}
+
+// renameOut moves a file's archive entry to the destination through the effects
+// handle, and is the whole of what the handle does for that step.
+//
+// It is indirected for the same reason the archive package indirects os.Link:
+// the branch that follows it -- the cross-device fallback -- fires only when
+// the archive and the destination are on different filesystems, which no test
+// can arrange inside a temporary directory. A test replaces this to make the
+// rename fail with EXDEV and drives the fallback that way.
+var renameOut = func(fx *strictcli.Effects, entry, dest string) error {
+	_, err := fx.Rename(entry, dest, strictcli.Resource("path:"+dest))
+	return err
 }
 
 // consumeEntryStep drops the archived copy once the destination holds it. It is
