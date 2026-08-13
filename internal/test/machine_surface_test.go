@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -100,6 +101,101 @@ func TestMachineMode_StdoutCarriesOnlyTheEnvelope(t *testing.T) {
 				t.Errorf("the envelope's diagnostics must carry what the run printed, got: %q", joined.String())
 			}
 		})
+	}
+}
+
+// `delete`'s payload is the identifier lines it already prints, in a form a
+// consumer does not have to parse out of prose: one entry per archived path,
+// carrying both identifiers, the path, and the size. The group identifier the
+// invocation stamps on every record it writes is on the payload too, because
+// nothing on the human stream ever named it.
+func TestMachineSurface_DeleteNamesEveryRecordItWrote(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	first := testutil.CreateTempFile(t, workDir, "first.txt", "first\n")
+	second := testutil.CreateTempFile(t, workDir, "second.txt", "second content\n")
+
+	env, stderr, code := runSafermJSON(t, homeDir,
+		"delete", "--on-error", "abort", "--description", "delete payload test", first, second)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): %q", code, stderr)
+	}
+
+	var payload struct {
+		GroupID  string `json:"group_id"`
+		Archived []struct {
+			ID   int64  `json:"id"`
+			UUID string `json:"uuid"`
+			Path string `json:"path"`
+			Size int64  `json:"size"`
+		} `json:"archived"`
+	}
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("delete's payload does not parse (%v): %s", err, env.Payload)
+	}
+
+	if len(payload.Archived) != 2 {
+		t.Fatalf("both paths were archived, so both belong on the payload, got: %s", env.Payload)
+	}
+	if payload.GroupID == "" {
+		t.Error("the payload must carry the group identifier the invocation stamped on its records")
+	}
+	if payload.Archived[0].Path != first || payload.Archived[1].Path != second {
+		t.Errorf("the payload must name the paths in the order they were archived, got: %s", env.Payload)
+	}
+	if payload.Archived[0].Size != int64(len("first\n")) {
+		t.Errorf("size = %d, want %d", payload.Archived[0].Size, len("first\n"))
+	}
+	for _, rec := range payload.Archived {
+		if len(rec.UUID) != 36 {
+			t.Errorf("each entry carries the durable handle, got %q", rec.UUID)
+		}
+		if rec.ID <= 0 {
+			t.Errorf("each entry carries the database id, got %d", rec.ID)
+		}
+	}
+
+	// `info` accepts what the payload handed back, which is what makes the
+	// identifiers usable rather than merely present.
+	if _, _, code := runSaferm(t, homeDir, "info", payload.Archived[0].UUID); code != 0 {
+		t.Errorf("the payload's uuid must resolve, got exit %d", code)
+	}
+}
+
+// A previewed delete produces no records, so it claims none: the envelope's
+// dry_run flag and its preview say what would happen, and the payload does not
+// invent identifiers for rows that were never written.
+func TestMachineSurface_DeletePreviewClaimsNoRecords(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "previewed.txt", "content\n")
+
+	env, stderr, code := runSafermJSON(t, homeDir,
+		"--dry-run", "delete", "--on-error", "abort", "--description", "delete preview payload", file)
+	if code != 0 {
+		t.Fatalf("previewed delete failed (exit %d): %q", code, stderr)
+	}
+	if !env.DryRun {
+		t.Error("the envelope must report the run as a preview")
+	}
+	if len(env.Preview) == 0 {
+		t.Error("the envelope's preview must name what the delete would do")
+	}
+
+	var payload struct {
+		GroupID  string        `json:"group_id"`
+		Archived []interface{} `json:"archived"`
+	}
+	if err := json.Unmarshal(env.Payload, &payload); err != nil {
+		t.Fatalf("delete's payload does not parse (%v): %s", err, env.Payload)
+	}
+	if len(payload.Archived) != 0 {
+		t.Errorf("a preview writes no records, so it claims none, got: %s", env.Payload)
+	}
+	if _, err := os.Lstat(file); err != nil {
+		t.Errorf("a previewed delete archived %s for real: %v", file, err)
 	}
 }
 

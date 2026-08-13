@@ -23,9 +23,60 @@ const (
 	onErrorContinue = "continue"
 )
 
+// archivedRecord is one record a `delete` invocation wrote, as the machine
+// payload carries it: the identifier line's own content, in a shape a consumer
+// does not have to parse out of prose.
+type archivedRecord struct {
+	ID   int64  `json:"id"`
+	UUID string `json:"uuid"`
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+}
+
+// deletePayload is `delete`'s machine payload: the invocation's group
+// identifier plus every record it wrote.
+//
+// A preview writes no records, so `archived` is empty there and no identifier
+// is invented for a row that does not exist -- what a previewed delete WOULD do
+// is the envelope's own `preview` member. `group_id` is minted for the
+// invocation either way, and is the one thing on the payload that the human
+// stream never names.
+type deletePayload struct {
+	GroupID  string           `json:"group_id"`
+	Archived []archivedRecord `json:"archived"`
+}
+
+// deletePayloadSchema declares the payload above over the framework's closed
+// subset. Sizes and identifiers are integers, and both stay far below the 2^53
+// magnitude the envelope's number model permits; the uuid is a string because
+// it always was one.
+var deletePayloadSchema = map[string]interface{}{
+	"type": "object",
+	"properties": map[string]interface{}{
+		"group_id": map[string]interface{}{"type": "string"},
+		"archived": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id":   map[string]interface{}{"type": "integer"},
+					"uuid": map[string]interface{}{"type": "string"},
+					"path": map[string]interface{}{"type": "string"},
+					"size": map[string]interface{}{"type": "integer"},
+				},
+				"required":             []interface{}{"id", "uuid", "path", "size"},
+				"additionalProperties": false,
+			},
+		},
+	},
+	"required":             []interface{}{"group_id", "archived"},
+	"additionalProperties": false,
+}
+
 func registerDeleteCmd(app *strictcli.App) {
 	app.Command("delete", "Move files to the saferm archive with metadata tracking", handleDelete,
 		strictcli.WithEffect(strictcli.EffectMutating),
+		strictcli.PayloadSchema(deletePayloadSchema),
 		strictcli.WithGrants(strictcli.Grant{
 			Name:   "git-index",
 			Reason: "a tracked file that moved into the archive must leave the git index too, or the next commit resurrects it",
@@ -153,6 +204,16 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 		metaJSON:       string(metaJSON),
 		gitRoot:        metadata.GitRoot,
 		scanner:        bufio.NewScanner(os.Stdin),
+		written:        []archivedRecord{},
+	}
+
+	// The machine payload is supplied on every way out from here, the abort
+	// included: a batch that stopped partway still wrote the records above the
+	// failure, and a consumer holding only the exit code would have to go
+	// looking for them. It is supplied in both modes -- outside machine mode
+	// nothing prints it.
+	supplyPayload := func() {
+		ctx.Payload(deletePayload{GroupID: groupID, Archived: run.written})
 	}
 
 	archived := 0
@@ -175,6 +236,7 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 		// its identifiers are already on stdout, so the caller loses nothing by
 		// the exit -- which is exactly why this mode is safe to offer.
 		if onError == onErrorAbort {
+			supplyPayload()
 			return strictcli.Exit(code)
 		}
 	}
@@ -186,6 +248,8 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 			say(ctx, "%d file(s) archived\n", archived)
 		}
 	}
+
+	supplyPayload()
 
 	if failed > 0 {
 		// continue mode: every failure was reported as it happened, and the
@@ -224,6 +288,12 @@ type deleteRun struct {
 	// resolved from the trace store; both nil when none did.
 	originName    *string
 	originVersion *string
+
+	// written accumulates the records this invocation created, in the order it
+	// created them. It is what the machine payload carries, and it is appended
+	// to at exactly the point the identifier line is printed, so the two can
+	// never disagree about what was archived.
+	written []archivedRecord
 
 	// groupID is stamped on every record this invocation writes.
 	groupID string
@@ -351,6 +421,7 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	// delete still leaves the caller holding the identifiers of everything
 	// that did get archived.
 	say(r.ctx, "archived: [%d] %s %s (%s)\n", id, result.UUID, absPath, humanSize(result.Size))
+	r.written = append(r.written, archivedRecord{ID: id, UUID: result.UUID, Path: absPath, Size: result.Size})
 
 	return true, ExitSuccess
 }
