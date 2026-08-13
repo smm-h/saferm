@@ -17,6 +17,7 @@ Version: :-: var key="project.version"
 
 ## Commands
 
+- [capabilities](../cli-capabilities/) -- Name the features this saferm ships, for a program deciding how to drive it
 - [delete](../cli-delete/) -- Move files to the saferm archive with metadata tracking
 - [info](../cli-info/) -- Display full metadata and context for an archived deletion
 - [list](../cli-list/) -- Show all items currently held in the saferm archive

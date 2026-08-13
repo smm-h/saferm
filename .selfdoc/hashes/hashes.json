@@ -5,6 +5,11 @@
     "description": "83cd81eee1759808554122d0d891c076e5941dbb608cef336ed14ce9e3ccb81b",
     "source_docstring": "cfe140f32378853077dad90f842e8701f667707e9d41b50ce31a6625edf81ce2"
   },
+  "en/cli-capabilities.md": {
+    "content": "f4d545ea9ec1f9136195c66d39c75c4b915832ccf2cc58d6cebb8ef60e83d390",
+    "description": "4edb2848671504674135cbf94f0613234f537c14e8a29fc9c5be5d683abe349c",
+    "seed_hash": "4edb2848671504674135cbf94f0613234f537c14e8a29fc9c5be5d683abe349c"
+  },
   "en/cli-config.md": {
     "content": "112c85a9978d16eebbab736229bf88f63ebba4457d91f7b2cab57be5756cec54",
     "description": "7ee798adb5cec834c9a968f4ab8fe755869ecd29a453c38de008c08ed32bba2d",

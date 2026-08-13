@@ -54,6 +54,7 @@ A restore consumes the archived copy -- it is moved back out, not copied -- and 
 
 | Command | Description |
 | --- | --- |
+| `capabilities` | Name the features this saferm ships, for a program deciding how to drive it |
 | `delete` | Move files to the saferm archive with metadata tracking |
 | `info` | Display full metadata and context for an archived deletion |
 | `list` | Show all items currently held in the saferm archive |
