@@ -123,7 +123,7 @@ $ saferm --json capabilities
 
 `capabilities` is how a program decides what this saferm can do. It names features, never a version -- a locally built binary reports a Go pseudo-version no semver parser accepts -- and a missing verb or a missing feature means the same thing as saferm not being installed. The verb reads nothing, so it answers on a machine where saferm has never run.
 
-The payload schemas are declared in the code and published verbatim by `saferm --dump-schema` and by the MCP tool descriptors. The machine-surface page in the docs is the specification.
+The payload schemas are declared in the code and published verbatim by `saferm --dump-schema`, which is the one channel that carries them. The MCP tool descriptors (`saferm --mcp`) carry each command's effect classification and its argument schema, never its payload schema. The machine-surface page in the docs is the specification.
 
 ## Metadata
 
