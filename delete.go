@@ -249,7 +249,7 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	}
 
 	if r.dryRun {
-		if err := recordArchival(r.fx, plan); err != nil {
+		if err := recordArchival(r.ctx, r.fx, plan); err != nil {
 			fmt.Fprintf(os.Stderr, "error: recording archival of %s: %s\n", file, err)
 			return false, ExitArchive
 		}
@@ -439,13 +439,42 @@ func reportUnremovedSource(absPath string, plan *archive.Plan, id int64, uuid st
 // The archive directory itself is not minted here: ensureDirectories already
 // declared it once, before the first plan was built, and repeating it per file
 // would pad the would-do log with a line that says nothing new.
-func recordArchival(fx *strictcli.Effects, plan *archive.Plan) error {
-	// A symlink's entry IS its target path written out. For the other two kinds
-	// the entry's content is the file's own bytes or a compressed tree, neither
-	// of which the handle can carry, so the write is declared with none.
+func recordArchival(ctx *strictcli.Context, fx *strictcli.Effects, plan *archive.Plan) error {
+	// Structural, not decorative: the content below is a description of an
+	// entry, not the bytes anything writes, and outside dry mode the handle
+	// would write it. Nothing calls this outside dry mode; this is what keeps
+	// that true.
+	if !ctx.DryRun() {
+		return errors.New("recordArchival describes an archival for a preview and must not run outside --dry-run")
+	}
+
+	// What the entry will contain, per kind:
+	//
+	//   - A symlink's entry IS its target path written out, so the real content
+	//     is right here.
+	//   - A regular file's entry is a hard link to the source (or a verified
+	//     copy), so its size is the source's size. The buffer carries that
+	//     length and nothing else: the framework renders a write's content as
+	//     its byte count, and a preview minted with no content at all claimed
+	//     "(0 bytes)" for every file however large -- a promise to write an
+	//     empty file. Reading the file to say the same number would cost a full
+	//     read, and a preview must not cost what the operation it previews does
+	//     not.
+	//   - A directory's entry is a .tar.zst that does not exist until the
+	//     compression runs, and its size is not knowable before it does. The
+	//     write is declared with no content, which is the only thing that is
+	//     true about it here; strictcli's write has no way to say "size
+	//     unknown", so the log renders that absence as 0.
 	var content []byte
-	if plan.Kind == archive.KindSymlink {
+	switch plan.Kind {
+	case archive.KindSymlink:
 		content = []byte(plan.SymlinkTarget)
+	case archive.KindFile:
+		info, err := os.Lstat(plan.Source)
+		if err != nil {
+			return err
+		}
+		content = make([]byte, info.Size())
 	}
 	if _, err := fx.Write(plan.Dest, content, strictcli.Resource("saferm-entry:"+plan.UUID)); err != nil {
 		return err

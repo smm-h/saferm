@@ -190,12 +190,19 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 		}
 
 		// Remove the archive file
-		archivePath := filepath.Join(archiveDir, rec.UUID)
-		if rec.SymlinkTarget != nil {
-			archivePath += ".symlink"
-		} else if rec.IsDirectory {
-			archivePath += ".tar.zst"
+		archivePath := archiveEntryPath(archiveDir, rec)
+
+		// A row can legitimately name nothing: an archival that meets a changed
+		// source inside its window commits its record and discards its entry on
+		// purpose, and `info` reports that state. Purging it is how the row is
+		// cleared, so it is not an error -- but it destroys nothing, and saying
+		// so is the difference between "one item purged" meaning content was
+		// destroyed and it meaning a row was tidied up.
+		if rec.RestoredAt == nil && archiveEntryIsGone(archiveDir, rec) {
+			fmt.Fprintf(os.Stderr, "note: [%d] %s: the archived copy was already gone; there is nothing to destroy for this row\n",
+				rec.ID, rec.OriginalPath)
 		}
+
 		// Minted on the handle: purging is the irreversible half of saferm, so
 		// the destruction is declared (and, under --dry-run, only declared).
 		if _, err := fx.Remove(archivePath,

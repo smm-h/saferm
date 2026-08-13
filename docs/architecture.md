@@ -96,7 +96,7 @@ When `--update-git-index` is true (the default) and the file resides in a git re
 
 ## Restoration (undelete)
 
-Restoration reverses the archival process, moving content from the archive back to its original location on disk. The approach mirrors archival: files use atomic renames with cross-device copy fallback, directories are extracted from their compressed archive, and symlinks are recreated from stored metadata. Conflict detection prevents accidental overwrites at the destination path:
+Restoration reverses the archival process, moving content from the archive back to its original location on disk. It does not mirror archival, which links rather than moves: a restore is a single move that leaves nothing behind in the archive. Files are renamed out of the archive with a cross-device copy fallback, directories are extracted from their compressed archive, and symlinks are recreated from stored metadata. Conflict detection prevents accidental overwrites at the destination path:
 
 - **Regular files**: `os.Rename` from archive to original path, with cross-device copy fallback
 - **Directories**: extract the `.tar.zst` archive into the original path, stripping the top-level directory entry so contents land directly at the destination

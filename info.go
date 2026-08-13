@@ -24,13 +24,21 @@ func registerInfoCmd(app *strictcli.App) {
 // recordStatus states, in one line, whether the archived content is still
 // there to restore.
 //
-// It is derived from the two columns that already carry the answer rather than
-// from any inspection of the archive directory: a restore moves the blob out
-// and stamps restored_at, a purge destroys it and stamps purged_at, and every
-// blob absence in a healthy archive is explained by one of the two. Both stamps
-// can be set -- a record restored first and purged afterwards -- and then both
-// are reported, because either alone would hide half of what happened.
-func recordStatus(rec *db.DeletionRecord) string {
+// The two lifecycle columns answer it wherever they are set: a restore moves
+// the blob out and stamps restored_at, a purge destroys it and stamps
+// purged_at. Both can be set -- a record restored first and purged afterwards
+// -- and then both are reported, because either alone would hide half of what
+// happened.
+//
+// Where neither is set the columns are no longer the whole answer, and the
+// archive directory is consulted for the one remaining case. An archival that
+// meets a changed source inside its window commits its row and DISCARDS its
+// entry on purpose -- a file written through while its archive entry was a
+// hard link to it, a tree that grew during the insert -- so a row that names
+// nothing is a state saferm produces itself, not a corruption. Answering
+// "restorable" for it is the one answer that sends a caller into an undelete
+// that cannot work.
+func recordStatus(rec *db.DeletionRecord, archiveDir string) string {
 	var parts []string
 	if rec.RestoredAt != nil {
 		parts = append(parts, "restored at "+rec.RestoredAt.Format(time.RFC3339))
@@ -39,6 +47,9 @@ func recordStatus(rec *db.DeletionRecord) string {
 		parts = append(parts, "purged at "+rec.PurgedAt.Format(time.RFC3339))
 	}
 	if len(parts) == 0 {
+		if archiveEntryIsGone(archiveDir, rec) {
+			return "the archived copy is gone though nothing restored or purged it -- this row names nothing; purge it to clear it"
+		}
 		return "restorable"
 	}
 	return strings.Join(parts, ", ")
@@ -53,6 +64,7 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 		return strictcli.Exit(code)
 	}
 
+	archiveDir := kwargs["archive_dir"].(string)
 	dbPath := kwargs["db_path"].(string)
 
 	database, err := openArchiveDBIfPresent(ctx, dbPath)
@@ -92,7 +104,7 @@ func handleInfo(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 		fmt.Printf("Target:        %s\n", *rec.SymlinkTarget)
 	}
 	fmt.Printf("Deleted At:    %s\n", rec.DeletedAt.Format(time.RFC3339))
-	fmt.Printf("Status:        %s\n", recordStatus(rec))
+	fmt.Printf("Status:        %s\n", recordStatus(rec, archiveDir))
 	fmt.Printf("Description:   %s\n", rec.Description)
 	if rec.Command != "" {
 		fmt.Printf("Command:       %s\n", rec.Command)

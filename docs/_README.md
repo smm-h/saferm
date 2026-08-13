@@ -94,7 +94,7 @@ Restored db/migrations/
 
 Either way the identifiers of everything already archived are on stdout before the failure is reported.
 
-`info` also states the record's status in one line: `restorable`, `restored at <time>`, `purged at <time>`, or both stamps when a record was restored and later purged.
+`info` also states the record's status in one line: `restorable`, `restored at <time>`, `purged at <time>`, or both stamps when a record was restored and later purged. Where neither stamp is set and the archived copy is not there -- the state an archival leaves when it discards its entry because the source changed inside its window -- the status says so instead of claiming the record is restorable, and points at `purge` as the way to clear the row.
 
 ## Metadata
 

@@ -120,6 +120,30 @@ func openArchiveDBIfPresent(ctx *strictcli.Context, dbPath string) (*db.DB, erro
 	return db.Open(dbPath, retryNotifier(ctx))
 }
 
+// archiveEntryPath is where a record's archived content lives, by the naming
+// the three kinds use: `<uuid>` for a file, `<uuid>.tar.zst` for a tree,
+// `<uuid>.symlink` for a symlink. Spelled once, because `purge` destroys that
+// path and `info` reports whether it is still there, and the two answering
+// differently would be worse than either being wrong.
+func archiveEntryPath(archiveDir string, rec *db.DeletionRecord) string {
+	path := filepath.Join(archiveDir, rec.UUID)
+	switch {
+	case rec.SymlinkTarget != nil:
+		return path + ".symlink"
+	case rec.IsDirectory:
+		return path + ".tar.zst"
+	}
+	return path
+}
+
+// archiveEntryIsGone reports whether a record's archived content is not on
+// disk. Any other stat failure -- a permission problem, an unreadable mount --
+// is not an absence, and is deliberately not reported as one.
+func archiveEntryIsGone(archiveDir string, rec *db.DeletionRecord) bool {
+	_, err := os.Lstat(archiveEntryPath(archiveDir, rec))
+	return errors.Is(err, os.ErrNotExist)
+}
+
 // pathSeparatorPlaceholder stands in for "/" while a pattern and a path are
 // handed to filepath.Match. NUL is the one byte a POSIX path can never contain
 // (the kernel interface terminates paths with it), so substituting it can never

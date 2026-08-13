@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -222,6 +223,17 @@ func TestDeleteDryRunRecordsAndDeletesNothing(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "would be archived") {
 		t.Errorf("a preview must not claim files were archived, got: %s", stdout)
+	}
+
+	// The entry the preview promises is the size of the file it would archive.
+	// It used to be minted with nil content, so every preview of every file --
+	// however large -- said "(0 bytes)", which reads as a promise to write an
+	// empty file.
+	if !strings.Contains(log, fmt.Sprintf("(%d bytes)", len("content\n"))) {
+		t.Errorf("the would-do log must state the entry's real size, got: %s", log)
+	}
+	if strings.Contains(log, "(0 bytes)") {
+		t.Errorf("a preview of a non-empty file must not claim it writes nothing, got: %s", log)
 	}
 
 	if _, err := os.Stat(target); err != nil {
