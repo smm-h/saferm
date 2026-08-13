@@ -1,8 +1,8 @@
 {
   "_hash_version": 3,
   "en/architecture.md": {
-    "content": "eb9a9f278c296760038a5d849da36731b5576f22fe715d90462388223b2583e6",
-    "description": "6c003ff98163311ec6e69252a29ff60b9f7710df166326fa1365caa685e91bcb",
+    "content": "f7f10f4ed085eb04ab64e5db0ac75e8a1aa3fed93a1a949db40b80a301319334",
+    "description": "83cd81eee1759808554122d0d891c076e5941dbb608cef336ed14ce9e3ccb81b",
     "source_docstring": "cfe140f32378853077dad90f842e8701f667707e9d41b50ce31a6625edf81ce2"
   },
   "en/cli-config.md": {
