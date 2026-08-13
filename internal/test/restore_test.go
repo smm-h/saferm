@@ -786,3 +786,56 @@ func TestUndelete_GitIndexSwitchLeavesTheIndexAlone(t *testing.T) {
 		t.Errorf("the switch must leave the index exactly as it was, got: %q", staged)
 	}
 }
+
+// The failure-keeps-the-copy property holds for the symlink shape too: the
+// .symlink entry is dropped only once the link is back on disk, so a refused
+// symlink call leaves the record restorable.
+func TestUndelete_SymlinkRecreationFails_KeepsTheEntry(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	target := testutil.CreateTempFile(t, workDir, "target.txt", "target\n")
+	holder := filepath.Join(workDir, "holder")
+	if err := os.Mkdir(holder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(holder, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "symlink failure test", link)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, ".symlink")
+
+	// Nothing may be created in the link's own directory any more.
+	if err := os.Chmod(holder, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(holder, 0o700) })
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", uuid)
+	if code == 0 {
+		t.Fatalf("recreating a symlink into an unwritable directory must fail; stderr=%q", stderr)
+	}
+	if !strings.Contains(stderr, "still restorable") {
+		t.Errorf("the failure must say the record can be tried again, got: %q", stderr)
+	}
+	if _, err := os.Lstat(entry); err != nil {
+		t.Errorf("a failed restore must keep the archived entry: %v", err)
+	}
+
+	// And once the obstacle is gone, the same restore works.
+	if err := os.Chmod(holder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", uuid); code != 0 {
+		t.Fatalf("the retry after a kept copy must succeed, got %d: %q", code, stderr)
+	}
+	if _, err := os.Readlink(link); err != nil {
+		t.Errorf("the link was not restored on retry: %v", err)
+	}
+}
