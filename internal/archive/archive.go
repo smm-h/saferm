@@ -22,8 +22,15 @@ import (
 var (
 	ErrFileNotFound      = errors.New("file not found")
 	ErrRecursiveRequired = errors.New("target is a directory; recursive flag required")
-	ErrConflict          = errors.New("destination already exists")
 	ErrHashMismatch      = errors.New("hash mismatch after copy")
+
+	// What a restore can find wrong with an archived copy before it touches
+	// anything at the destination. See [VerifyEntry] for what each kind's hash
+	// does and does not prove.
+	ErrEntryMissing  = errors.New("the archived copy is not in the archive")
+	ErrEntryCorrupt  = errors.New("the archived copy is not what the record says it is")
+	ErrEntryDiverged = errors.New("the archived symlink entry does not name the target the record names")
+	ErrUnverifiable  = errors.New("the record carries no hash, so the archived copy cannot be checked before the destination is destroyed")
 
 	// The ways a source can stop being what was archived while the caller is
 	// recording the deletion. See [RemoveSource] for why that window is wide
@@ -333,15 +340,15 @@ func verifyTreeUnchanged(p *Plan) error {
 		return fmt.Errorf("re-walking %s before removing it: %w", p.Source, err)
 	}
 	if len(unarchived) > 0 {
-		return fmt.Errorf("%s: %w: %s", p.Source, ErrDirectoryChanged, namePaths(unarchived))
+		return fmt.Errorf("%s: %w: %s", p.Source, ErrDirectoryChanged, NamePaths(unarchived))
 	}
 	return nil
 }
 
-// namePaths renders the paths a refusal is about. All of them up to a handful,
+// NamePaths renders the paths a refusal is about. All of them up to a handful,
 // because the caller has to go and look at them, and a count after that so a
 // tree that changed wholesale does not print itself into the terminal.
-func namePaths(paths []string) string {
+func NamePaths(paths []string) string {
 	const shown = 5
 	if len(paths) <= shown {
 		return strings.Join(paths, ", ")
@@ -472,75 +479,194 @@ func archiveDirectory(p *Plan) (*ArchiveResult, error) {
 	return &ArchiveResult{UUID: uuid, Hash: hash, Size: totalSize, IsDirectory: true}, nil
 }
 
-// Restore extracts an archived file or directory to destPath.
-// When symlinkTarget is non-empty, the entry is restored as a symlink
-// pointing to that target (no physical archive file is read).
-func Restore(uuid string, archiveDir string, destPath string, isDirectory bool, force bool, symlinkTarget string) error {
-	if _, err := os.Lstat(destPath); err == nil {
-		if !force {
-			return ErrConflict
-		}
-		if err := os.RemoveAll(destPath); err != nil {
-			return fmt.Errorf("removing existing destination: %w", err)
-		}
-	}
+// RestorePlan is everything a restore can determine by reading: which archive
+// entry holds the record's content, what shape that entry is, and where it is
+// going. Building one mutates nothing.
+//
+// A restore is split the way an archival is, and for the same reason: the acts
+// that consume the archived copy must be separable from the acts that write the
+// destination, so that a failure can always leave the copy where it is. Every
+// primitive below is one of those halves, and none of them decides anything --
+// what to do about a destination that already exists, and whether the entry is
+// verified first, are the caller's decisions.
+type RestorePlan struct {
+	UUID          string
+	ArchiveDir    string
+	Dest          string
+	Kind          Kind
+	SymlinkTarget string
 
-	if symlinkTarget != "" {
-		return restoreSymlink(uuid, archiveDir, destPath, symlinkTarget)
-	}
-	if isDirectory {
-		return restoreDirectory(uuid, archiveDir, destPath)
-	}
-	return restoreFile(uuid, archiveDir, destPath)
+	// Entry is the archive file holding the content: the bare uuid for a
+	// regular file, uuid.tar.zst for a tree, uuid.symlink for a link.
+	Entry string
 }
 
-func restoreSymlink(uuid string, archiveDir string, destPath string, target string) error {
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-		return fmt.Errorf("creating parent directory: %w", err)
+// NewRestorePlan resolves where a record's content lives and where it is going.
+// The kind is read off the record, not off the archive: a record knows whether
+// it archived a tree and what a symlink pointed at, and both facts must be
+// available before anything is read from disk.
+func NewRestorePlan(uuid string, archiveDir string, dest string, isDirectory bool, symlinkTarget string) *RestorePlan {
+	p := &RestorePlan{UUID: uuid, ArchiveDir: archiveDir, Dest: dest, SymlinkTarget: symlinkTarget}
+	switch {
+	case symlinkTarget != "":
+		p.Kind = KindSymlink
+		p.Entry = filepath.Join(archiveDir, uuid+".symlink")
+	case isDirectory:
+		p.Kind = KindDirectory
+		p.Entry = filepath.Join(archiveDir, uuid+".tar.zst")
+	default:
+		p.Kind = KindFile
+		p.Entry = filepath.Join(archiveDir, uuid)
 	}
-	if err := os.Symlink(target, destPath); err != nil {
-		return fmt.Errorf("recreating symlink: %w", err)
+	return p
+}
+
+// EntryPresent reports whether the archived copy is there to be restored at
+// all. It is a stat, not a read: every restore makes this check, including the
+// ones that deliberately do no verification, because an absent entry is worth
+// naming as such rather than surfacing as a failed rename of a UUID.
+func EntryPresent(p *RestorePlan) error {
+	info, err := os.Lstat(p.Entry)
+	if err != nil {
+		return fmt.Errorf("%s: %w (%v)", p.Entry, ErrEntryMissing, err)
 	}
-	// Clean up the .symlink metadata file from the archive.
-	os.Remove(filepath.Join(archiveDir, uuid+".symlink"))
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s: %w: it is not a regular file", p.Entry, ErrEntryCorrupt)
+	}
 	return nil
 }
 
-func restoreFile(uuid string, archiveDir string, destPath string) error {
-	src := filepath.Join(archiveDir, uuid)
-	if _, err := os.Lstat(src); err != nil {
-		return fmt.Errorf("archive entry not found: %w", err)
-	}
-
-	// Ensure parent directory exists.
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+// VerifyEntry checks the archived copy against what the record says about it,
+// reading only -- so a caller can refuse a destructive restore BEFORE the
+// destination is touched.
+//
+// The recorded hash means three different things, one per kind, and this is the
+// only place that states all three honestly:
+//
+//   - KindFile: recordedHash is the SHA-256 of the archived file's CONTENT, and
+//     the entry is that file. The check is exact: a byte that rotted in the
+//     archive is found here.
+//   - KindDirectory: recordedHash is the SHA-256 of the .tar.zst CONTAINER, not
+//     of any member and not of the tree. So this proves the container arrived
+//     intact -- which is what a corrupt or truncated archive fails -- and says
+//     nothing about individual members beyond that. There is no per-member
+//     digest anywhere in the archive, so no check here can promise one.
+//   - KindSymlink: nothing was hashed at all. A symlink has no content; its
+//     entry is the recorded target written out, and recordedHash is empty by
+//     construction. The check is therefore an equality: the entry must still
+//     name the target the record names. A hash comparison here would fail
+//     spuriously on every symlink ever archived.
+//
+// A file or a tree whose record carries no hash cannot be verified at all, and
+// that is [ErrUnverifiable] rather than a pass: the caller asked to destroy a
+// destination on the strength of a check that cannot be made.
+func VerifyEntry(p *RestorePlan, recordedHash string) error {
+	if err := EntryPresent(p); err != nil {
 		return err
 	}
 
-	err := os.Rename(src, destPath)
-	if err != nil {
-		if isCrossDevice(err) {
-			if err := copyFile(src, destPath); err != nil {
-				return err
-			}
-			return os.Remove(src)
+	if p.Kind == KindSymlink {
+		recorded, err := os.ReadFile(p.Entry)
+		if err != nil {
+			return fmt.Errorf("reading the archived symlink entry %s: %w", p.Entry, err)
 		}
-		return fmt.Errorf("restoring file: %w", err)
+		if string(recorded) != p.SymlinkTarget {
+			return fmt.Errorf("%s: %w: the entry names %q and the record names %q",
+				p.Entry, ErrEntryDiverged, string(recorded), p.SymlinkTarget)
+		}
+		return nil
+	}
+
+	if recordedHash == "" {
+		return fmt.Errorf("%s: %w", p.Entry, ErrUnverifiable)
+	}
+	hash, err := hashFile(p.Entry)
+	if err != nil {
+		return fmt.Errorf("hashing the archived copy %s: %w", p.Entry, err)
+	}
+	if hash != recordedHash {
+		return fmt.Errorf("%s: %w: the entry hashes to %s and the record says %s",
+			p.Entry, ErrEntryCorrupt, hash, recordedHash)
 	}
 	return nil
 }
 
-func restoreDirectory(uuid string, archiveDir string, destPath string) error {
-	src := filepath.Join(archiveDir, uuid+".tar.zst")
-	if _, err := os.Stat(src); err != nil {
-		return fmt.Errorf("archive entry not found: %w", err)
+// RestoreSymlink recreates the link at the plan's destination. It does NOT
+// consume the entry: the caller removes it once the link is there, so a failure
+// leaves the recorded target on disk.
+func RestoreSymlink(p *RestorePlan) error {
+	if err := os.Symlink(p.SymlinkTarget, p.Dest); err != nil {
+		return fmt.Errorf("recreating symlink: %w", err)
 	}
+	return nil
+}
 
-	if err := extractTarZst(src, destPath); err != nil {
-		return fmt.Errorf("extracting archive: %w", err)
+// ExtractTree extracts the tree held in the plan's entry into its destination
+// and does NOT consume the entry, for the same reason as [RestoreSymlink]: an
+// extraction that fails partway must leave the archived copy readable, so the
+// restore can simply be run again.
+//
+// It returns every path it created, in creation order, whether it succeeded or
+// not -- that list is what makes a partial extraction reportable and undoable.
+func ExtractTree(p *RestorePlan) ([]string, error) {
+	if err := EntryPresent(p); err != nil {
+		return nil, err
 	}
+	created, err := extractTarZst(p.Entry, p.Dest)
+	if err != nil {
+		return created, fmt.Errorf("extracting archive: %w", err)
+	}
+	return created, nil
+}
 
+// RollbackExtraction removes the paths a failed extraction created, newest
+// first, and returns the ones it could not remove.
+//
+// The destination of a restore holds nothing but archive-derived bytes: it was
+// absent, or an empty directory, or removed outright by an overwrite that
+// verified the archived copy first. So undoing a partial extraction destroys
+// nothing that is not still in the archive -- the entry is consumed only after
+// the extraction succeeds. Leaving the half tree instead would leave a
+// destination that looks restored and is not, and a retry would then meet its
+// own leftovers as a conflict.
+//
+// Directories go through os.Remove, not os.RemoveAll: reverse order empties
+// them first, and one that is still not empty holds something this extraction
+// did not write. That is exactly what must survive, so it is reported as stuck
+// rather than destroyed.
+func RollbackExtraction(created []string) []string {
+	var stuck []string
+	for i := len(created) - 1; i >= 0; i-- {
+		if err := os.Remove(created[i]); err != nil && !errors.Is(err, os.ErrNotExist) {
+			stuck = append(stuck, created[i])
+		}
+	}
+	return stuck
+}
+
+// CopyOut is the cross-device half of a file restore: the archived copy is
+// copied to dst and consumed only once the copy is complete.
+//
+// A rename cannot cross a filesystem boundary, and the archive and the
+// destination are not always on one. The order is what keeps the failure safe:
+// a copy that fails leaves the entry untouched and takes its own partial
+// destination back, so nothing is left looking restored and the restore can be
+// run again.
+func CopyOut(src string, dst string) error {
+	if err := copyFile(src, dst); err != nil {
+		// Archive-derived bytes only, and incomplete ones: the content they
+		// came from is still in the entry, which is not removed below.
+		os.Remove(dst)
+		return err
+	}
 	return os.Remove(src)
+}
+
+// IsCrossDeviceError reports whether a failed rename means "these two paths are
+// on different filesystems", which is what sends a file restore through
+// [CopyOut].
+func IsCrossDeviceError(err error) bool {
+	return isCrossDevice(err)
 }
 
 // NewUUID returns a UUID v4 string using crypto/rand.
@@ -729,17 +855,25 @@ func createTarZst(srcDir string, dstPath string) (map[string]member, error) {
 	return members, nil
 }
 
-// extractTarZst extracts a .tar.zst archive into dstDir.
-func extractTarZst(srcPath string, dstDir string) error {
+// extractTarZst extracts a .tar.zst archive into dstDir and returns every path
+// it created, in creation order.
+//
+// The list is returned on the failure path too, and it is the whole reason the
+// extraction tracks what it writes: an archive that ends mid-stream leaves a
+// destination holding part of a tree, and only the extraction knows which part.
+// See [RollbackExtraction] for what is done with it.
+func extractTarZst(srcPath string, dstDir string) ([]string, error) {
+	var created []string
+
 	inFile, err := os.Open(srcPath)
 	if err != nil {
-		return err
+		return created, err
 	}
 	defer inFile.Close()
 
 	zstReader, err := zstd.NewReader(inFile)
 	if err != nil {
-		return err
+		return created, err
 	}
 	defer zstReader.Close()
 
@@ -751,13 +885,13 @@ func extractTarZst(srcPath string, dstDir string) error {
 			break
 		}
 		if err != nil {
-			return err
+			return created, err
 		}
 
 		// Security: prevent path traversal.
 		cleanName := filepath.Clean(header.Name)
 		if strings.HasPrefix(cleanName, "/") || strings.HasPrefix(cleanName, "..") || strings.Contains(cleanName, "/../") {
-			return fmt.Errorf("invalid tar entry path (path traversal): %s", header.Name)
+			return created, fmt.Errorf("invalid tar entry path (path traversal): %s", header.Name)
 		}
 
 		// Strip the top-level directory from the path so contents extract
@@ -766,8 +900,8 @@ func extractTarZst(srcPath string, dstDir string) error {
 		var targetRel string
 		if len(parts) < 2 || parts[1] == "" {
 			// This is the top-level directory entry itself; just ensure dstDir exists.
-			if err := os.MkdirAll(dstDir, 0755); err != nil {
-				return err
+			if err := mkdirTracked(dstDir, 0755, &created); err != nil {
+				return created, err
 			}
 			continue
 		}
@@ -778,44 +912,73 @@ func extractTarZst(srcPath string, dstDir string) error {
 		// Double-check the resolved path is inside dstDir.
 		absTarget, err := filepath.Abs(target)
 		if err != nil {
-			return err
+			return created, err
 		}
 		absDst, err := filepath.Abs(dstDir)
 		if err != nil {
-			return err
+			return created, err
 		}
 		if !strings.HasPrefix(absTarget, absDst+string(filepath.Separator)) && absTarget != absDst {
-			return fmt.Errorf("invalid tar entry path (escapes destination): %s", header.Name)
+			return created, fmt.Errorf("invalid tar entry path (escapes destination): %s", header.Name)
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
-				return err
+			if err := mkdirTracked(target, os.FileMode(header.Mode), &created); err != nil {
+				return created, err
 			}
 		case tar.TypeSymlink:
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return err
+			if err := mkdirTracked(filepath.Dir(target), 0755, &created); err != nil {
+				return created, err
 			}
 			if err := os.Symlink(header.Linkname, target); err != nil {
-				return err
+				return created, err
 			}
+			created = append(created, target)
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return err
+			if err := mkdirTracked(filepath.Dir(target), 0755, &created); err != nil {
+				return created, err
 			}
 			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
-				return err
+				return created, err
 			}
+			created = append(created, target)
 			if _, err := io.Copy(f, tarReader); err != nil {
 				f.Close()
-				return err
+				return created, err
 			}
 			f.Close()
 		}
 	}
 
+	return created, nil
+}
+
+// mkdirTracked is os.MkdirAll that appends every directory it actually creates
+// to created, so an undo can tell the directories the extraction made from the
+// ones it found. A destination the caller already owns -- the empty original
+// location of a restored tree -- is found, not created, and so survives a
+// rollback.
+func mkdirTracked(path string, mode os.FileMode, created *[]string) error {
+	if info, err := os.Lstat(path); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("%s exists and is not a directory", path)
+		}
+		return nil
+	}
+	if parent := filepath.Dir(path); parent != path {
+		if err := mkdirTracked(parent, 0755, created); err != nil {
+			return err
+		}
+	}
+	if err := os.Mkdir(path, mode); err != nil {
+		if os.IsExist(err) {
+			return nil
+		}
+		return err
+	}
+	*created = append(*created, path)
 	return nil
 }
 

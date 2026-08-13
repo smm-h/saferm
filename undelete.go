@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -67,7 +66,7 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	// the record's own vocabulary, because both routes below answer badly: with
 	// the destination gone the archive layer reports a raw failed stat of a
 	// UUID, and with the destination still there the conflict path advertises
-	// --force-overwrite, which could not have helped.
+	// an overwrite, which could not have helped.
 	if rec.RestoredAt != nil {
 		restoredTo := rec.OriginalPath
 		if rec.RestoredTo != nil {
@@ -91,34 +90,35 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	if rec.SymlinkTarget != nil {
 		symlinkTarget = *rec.SymlinkTarget
 	}
-	// A restore is the mirror of an archival and just as compound (extract a
-	// tar+zstd tree, or move the entry back with a cross-device fallback), so
-	// the same split applies: under --dry-run the move is recorded on the
-	// handle and nothing is touched. See recordArchival in delete.go.
-	if ctx.DryRun() {
-		src := filepath.Join(archiveDir, rec.UUID)
-		switch {
-		case symlinkTarget != "":
-			src += ".symlink"
-		case rec.IsDirectory:
-			src += ".tar.zst"
-		}
-		if _, err := ctx.Effects().Rename(src, dest, strictcli.Resource("path:"+dest)); err != nil {
-			fmt.Fprintf(os.Stderr, "error: recording restore: %s\n", err)
-			return strictcli.Exit(ExitArchive)
-		}
-		say(ctx, "Would restore %s\n", dest)
-		return strictcli.Exit(ExitSuccess)
+
+	plan := archive.NewRestorePlan(rec.UUID, archiveDir, dest, rec.IsDirectory, symlinkTarget)
+
+	// A stat, not a read, and it runs in every mode: an entry that is not there
+	// is worth saying so before anything else is decided, rather than surfacing
+	// as a failed rename of a UUID halfway through.
+	if err := archive.EntryPresent(plan); err != nil {
+		fmt.Fprintf(os.Stderr, "error: restoring record %d: %s\n", rec.ID, err)
+		return strictcli.Exit(ExitArchive)
 	}
 
-	err = archive.Restore(rec.UUID, archiveDir, dest, rec.IsDirectory, forceOverwrite, symlinkTarget)
-	if err != nil {
-		if errors.Is(err, archive.ErrConflict) {
+	overwrite := false
+	if _, err := os.Lstat(dest); err == nil {
+		if !forceOverwrite {
 			fmt.Fprintf(os.Stderr, "error: %s already exists (use --force-overwrite to overwrite)\n", dest)
 			return strictcli.Exit(ExitConflict)
 		}
-		fmt.Fprintf(os.Stderr, "error: restoring: %s\n", err)
+		overwrite = true
+	}
+
+	if err := runRestore(ctx, plan, overwrite); err != nil {
+		fmt.Fprintf(os.Stderr, "error: restoring %s: %s; the archived copy was kept, so record %d is still restorable\n",
+			dest, err, rec.ID)
 		return strictcli.Exit(ExitArchive)
+	}
+
+	if ctx.DryRun() {
+		say(ctx, "Would restore %s\n", dest)
+		return strictcli.Exit(ExitSuccess)
 	}
 
 	if err := database.MarkRestored(rec.ID, dest); err != nil {
@@ -137,3 +137,163 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	say(ctx, "Restored %s\n", dest)
 	return strictcli.Exit(ExitSuccess)
 }
+
+// restoreStep is one mutation a restore performs, described once for both
+// modes.
+//
+// The effects handle's closed method set can perform some of a restore itself
+// -- removing what is at the destination, making the parent directory, moving a
+// file out of the archive, dropping the consumed entry -- and can only DESCRIBE
+// the rest, because recreating a symlink and extracting a tar+zstd tree have no
+// primitive on the handle. Both kinds of step live in one list, built once from
+// one plan, so a change to what a restore does changes what a preview says by
+// construction. The real path used to do all of it behind the handle's back,
+// with only the dry branch minting anything, which is exactly how a preview
+// drifts from the thing it previews.
+type restoreStep struct {
+	// seam is the effects-handle call for this step. When act is nil the handle
+	// performs the step itself, so this runs in both modes; when act is
+	// non-nil the handle can only describe the step, so this runs in dry mode
+	// only and act performs it for real.
+	seam func(*strictcli.Effects) error
+	act  func() error
+}
+
+// runRestore walks the step list a plan implies: recording it in dry mode,
+// performing it otherwise.
+func runRestore(ctx *strictcli.Context, p *archive.RestorePlan, overwrite bool) error {
+	fx := ctx.Effects()
+	dry := ctx.DryRun()
+	for _, step := range restoreSteps(p, overwrite) {
+		if step.act == nil || dry {
+			if err := step.seam(fx); err != nil {
+				return err
+			}
+		}
+		if step.act != nil && !dry {
+			if err := step.act(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// restoreSteps is the whole of what a restore does, in the order it does it.
+//
+// The ordering carries one invariant: THE ARCHIVED COPY IS CONSUMED LAST. A
+// file's move out of the archive is itself the consumption and cannot fail
+// halfway; every other kind writes the destination first and drops the entry
+// only once that has worked. So any failure -- a refused symlink, a truncated
+// tar, a copy that ran out of space -- leaves the entry where it is and the
+// restore can simply be run again.
+func restoreSteps(p *archive.RestorePlan, overwrite bool) []restoreStep {
+	var steps []restoreStep
+
+	if overwrite {
+		steps = append(steps, restoreStep{seam: func(fx *strictcli.Effects) error {
+			_, err := fx.Remove(p.Dest, strictcli.Resource("path:"+p.Dest))
+			return err
+		}})
+	}
+
+	parent := filepath.Dir(p.Dest)
+	steps = append(steps, restoreStep{seam: func(fx *strictcli.Effects) error {
+		_, err := fx.Mkdir(parent, strictcli.Resource("path:"+parent))
+		return err
+	}})
+
+	switch p.Kind {
+	case archive.KindFile:
+		// The move IS the consumption: a rename either happened or did not, and
+		// the cross-device fallback copies before it removes.
+		steps = append(steps, restoreStep{seam: func(fx *strictcli.Effects) error {
+			_, err := fx.Rename(p.Entry, p.Dest, strictcli.Resource("path:"+p.Dest))
+			if err != nil && archive.IsCrossDeviceError(err) {
+				return archive.CopyOut(p.Entry, p.Dest)
+			}
+			return err
+		}})
+
+	case archive.KindSymlink:
+		// A symlink's entry IS its target path written out, which is what the
+		// preview says; the real act is a symlink call the handle has no
+		// primitive for.
+		steps = append(steps,
+			restoreStep{
+				seam: func(fx *strictcli.Effects) error {
+					_, err := fx.Write(p.Dest, []byte(p.SymlinkTarget), strictcli.Resource("path:"+p.Dest))
+					return err
+				},
+				act: func() error { return archive.RestoreSymlink(p) },
+			},
+			consumeEntryStep(p),
+		)
+
+	case archive.KindDirectory:
+		// The tree appears at the destination; its size is not knowable before
+		// the extraction runs, so the write is declared with no content.
+		steps = append(steps,
+			restoreStep{
+				seam: func(fx *strictcli.Effects) error {
+					_, err := fx.Write(p.Dest, []byte(nil), strictcli.Resource("path:"+p.Dest))
+					return err
+				},
+				act: func() error { return extractTree(p) },
+			},
+			consumeEntryStep(p),
+		)
+	}
+
+	return steps
+}
+
+// consumeEntryStep drops the archived copy once the destination holds it. It is
+// always the last step of the kinds that do not consume the entry by moving it.
+func consumeEntryStep(p *archive.RestorePlan) restoreStep {
+	return restoreStep{seam: func(fx *strictcli.Effects) error {
+		_, err := fx.Remove(p.Entry, strictcli.Resource("saferm-entry:"+p.UUID))
+		return err
+	}}
+}
+
+// extractTree extracts a directory's archive entry and undoes itself if the
+// extraction fails partway.
+func extractTree(p *archive.RestorePlan) error {
+	created, err := archive.ExtractTree(p)
+	if err == nil {
+		return nil
+	}
+	if len(created) == 0 {
+		return err
+	}
+	return &partialExtraction{err: err, extracted: created, stuck: archive.RollbackExtraction(created)}
+}
+
+// partialExtraction is an extraction that wrote part of a tree and then failed.
+//
+// The half tree is taken back rather than left: the destination of a restore
+// holds nothing but bytes this extraction just wrote there -- it was absent, or
+// an empty directory, or removed by a verified overwrite -- and the content is
+// still in the archive, because the entry is consumed only after a successful
+// extraction. A destination left half-full would look restored, and a retry
+// would meet its own leftovers as a conflict. What the extraction managed to
+// write is named anyway, because "nothing is there now" is only half the truth
+// the caller needs.
+type partialExtraction struct {
+	err       error
+	extracted []string
+	stuck     []string
+}
+
+func (e *partialExtraction) Error() string {
+	msg := fmt.Sprintf("%s; %d path(s) had been extracted (%s)",
+		e.err, len(e.extracted), archive.NamePaths(e.extracted))
+	if len(e.stuck) > 0 {
+		return fmt.Sprintf("%s, and %d of them could not be removed again (%s)",
+			msg, len(e.stuck), archive.NamePaths(e.stuck))
+	}
+	return msg + " and were removed again"
+}
+
+func (e *partialExtraction) Unwrap() error { return e.err }

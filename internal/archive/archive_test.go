@@ -92,7 +92,7 @@ func TestArchive_FileRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(result.UUID, archiveDir, restorePath, false, false, ""); err != nil {
+	if err := restoreNow(result.UUID, archiveDir, restorePath, false, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,7 +166,7 @@ func TestArchive_DirectoryRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(result.UUID, archiveDir, restoreDir, true, false, ""); err != nil {
+	if err := restoreNow(result.UUID, archiveDir, restoreDir, true, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -213,65 +213,6 @@ func TestArchive_NonexistentFile(t *testing.T) {
 	}
 }
 
-func TestRestore_ConflictNoForce(t *testing.T) {
-	tmpDir := t.TempDir()
-	archiveDir := filepath.Join(tmpDir, "archive")
-	srcFile := filepath.Join(tmpDir, "hello.txt")
-	destFile := filepath.Join(tmpDir, "existing.txt")
-
-	if err := os.WriteFile(srcFile, []byte("data"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	// Create the destination file so it conflicts.
-	if err := os.WriteFile(destFile, []byte("blocker"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := archiveNow(srcFile, archiveDir, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = Restore(result.UUID, archiveDir, destFile, false, false, "")
-	if err != ErrConflict {
-		t.Errorf("expected ErrConflict, got: %v", err)
-	}
-}
-
-func TestRestore_ConflictWithForce(t *testing.T) {
-	tmpDir := t.TempDir()
-	archiveDir := filepath.Join(tmpDir, "archive")
-	srcFile := filepath.Join(tmpDir, "hello.txt")
-	destFile := filepath.Join(tmpDir, "existing.txt")
-
-	content := []byte("the real content")
-	if err := os.WriteFile(srcFile, content, 0644); err != nil {
-		t.Fatal(err)
-	}
-	// Create the destination file so it conflicts.
-	if err := os.WriteFile(destFile, []byte("blocker"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	result, err := archiveNow(srcFile, archiveDir, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = Restore(result.UUID, archiveDir, destFile, false, true, "")
-	if err != nil {
-		t.Fatalf("force restore failed: %v", err)
-	}
-
-	restored, err := os.ReadFile(destFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(restored) != string(content) {
-		t.Errorf("restored content mismatch: got %q, want %q", restored, content)
-	}
-}
-
 func TestArchive_Symlink(t *testing.T) {
 	tmpDir := t.TempDir()
 	archiveDir := filepath.Join(tmpDir, "archive")
@@ -294,7 +235,7 @@ func TestArchive_Symlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Restore(result.UUID, archiveDir, restoreDir, true, false, ""); err != nil {
+	if err := restoreNow(result.UUID, archiveDir, restoreDir, true, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -388,7 +329,7 @@ func TestTarZst_PathTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = extractTarZst(archivePath, extractDir)
+	_, err = extractTarZst(archivePath, extractDir)
 	if err == nil {
 		t.Fatal("expected path traversal error, got nil")
 	}
