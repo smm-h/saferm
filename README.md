@@ -110,6 +110,21 @@ Either way the identifiers of everything already archived are on stdout before t
 
 `info` also states the record's status in one line: `restorable`, `restored at <time>`, `purged at <time>`, or both stamps when a record was restored and later purged. Where neither stamp is set and the archived copy is not there -- the state an archival leaves when it discards its entry because the source changed inside its window -- the status says so instead of claiming the record is restorable, and points at `purge` as the way to clear the row.
 
+## Driving saferm from a program
+
+`--json` puts saferm in machine mode, where stdout carries exactly one document -- the envelope -- and everything saferm would have printed rides inside it. `delete`, `undelete`, `list` and `info` each answer with a structured payload: the records a delete wrote (both identifiers, path and size, plus the invocation's group id), where a restore put the content, the rows of a listing, the full record with its status, origin and group. `purge` deliberately has no payload.
+
+```
+$ saferm --json capabilities
+{"interface_version":1,"app":"saferm","command":"capabilities","exit_code":0,
+ "payload":{"features":["git-index-switches","group-id","machine-payloads","on-conflict-modes",
+ "on-error-modes","restore-destination","trace-origin","uuid-handles"]}, ...}
+```
+
+`capabilities` is how a program decides what this saferm can do. It names features, never a version -- a locally built binary reports a Go pseudo-version no semver parser accepts -- and a missing verb or a missing feature means the same thing as saferm not being installed. The verb reads nothing, so it answers on a machine where saferm has never run.
+
+The payload schemas are declared in the code and published verbatim by `saferm --dump-schema` and by the MCP tool descriptors. The machine-surface page in the docs is the specification.
+
 ## Metadata
 
 Every deletion automatically captures:
