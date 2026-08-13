@@ -59,8 +59,18 @@
         },
         {
           "level": 3,
-          "text": "4. Git index update",
-          "anchor": "4-git-index-update"
+          "text": "4. Removal of the original",
+          "anchor": "4-removal-of-the-original"
+        },
+        {
+          "level": 3,
+          "text": "`RemoveSource`",
+          "anchor": "removesource"
+        },
+        {
+          "level": 3,
+          "text": "5. Git index update",
+          "anchor": "5-git-index-update"
         },
         {
           "level": 3,
@@ -509,6 +519,26 @@
         },
         {
           "level": 3,
+          "text": "`ErrSourceReplaced`",
+          "anchor": "errsourcereplaced"
+        },
+        {
+          "level": 3,
+          "text": "`ErrSourceDiverged`",
+          "anchor": "errsourcediverged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrArchivedContentChanged`",
+          "anchor": "errarchivedcontentchanged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrNotExecuted`",
+          "anchor": "errnotexecuted"
+        },
+        {
+          "level": 3,
           "text": "`ArchiveResult`",
           "anchor": "archiveresult"
         },
@@ -541,11 +571,6 @@
           "level": 3,
           "text": "`DiscardBlob`",
           "anchor": "discardblob"
-        },
-        {
-          "level": 3,
-          "text": "`Archive`",
-          "anchor": "archive"
         },
         {
           "level": 3,
@@ -751,6 +776,26 @@
         },
         {
           "level": 3,
+          "text": "`ErrSourceReplaced`",
+          "anchor": "errsourcereplaced"
+        },
+        {
+          "level": 3,
+          "text": "`ErrSourceDiverged`",
+          "anchor": "errsourcediverged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrArchivedContentChanged`",
+          "anchor": "errarchivedcontentchanged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrNotExecuted`",
+          "anchor": "errnotexecuted"
+        },
+        {
+          "level": 3,
           "text": "`ArchiveResult`",
           "anchor": "archiveresult"
         },
@@ -783,11 +828,6 @@
           "level": 3,
           "text": "`DiscardBlob`",
           "anchor": "discardblob"
-        },
-        {
-          "level": 3,
-          "text": "`Archive`",
-          "anchor": "archive"
         },
         {
           "level": 3,
@@ -979,5 +1019,5 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-12T23:58:03.088565+00:00"
+  "last_gen": "2026-08-13T02:13:41.865603+00:00"
 }
