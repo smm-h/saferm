@@ -121,7 +121,7 @@ func NewPlan(path string, archiveDir string, isRecursive bool) (*Plan, error) {
 		return nil, ErrRecursiveRequired
 	}
 
-	p := &Plan{Source: path, ArchiveDir: archiveDir, UUID: generateUUID()}
+	p := &Plan{Source: path, ArchiveDir: archiveDir, UUID: NewUUID()}
 	switch {
 	case info.IsDir():
 		p.Kind = KindDirectory
@@ -543,8 +543,12 @@ func restoreDirectory(uuid string, archiveDir string, destPath string) error {
 	return os.Remove(src)
 }
 
-// generateUUID returns a UUID v4 string using crypto/rand.
-func generateUUID() string {
+// NewUUID returns a UUID v4 string using crypto/rand.
+//
+// It names an archive entry, and it is also what mints the group identifier a
+// delete invocation stamps on every record it writes: both are opaque handles
+// minted with no coordination between processes, so they are the same thing.
+func NewUUID() string {
 	var uuid [16]byte
 	if _, err := io.ReadFull(rand.Reader, uuid[:]); err != nil {
 		panic("crypto/rand failed: " + err.Error())

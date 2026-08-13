@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/smm-h/saferm/internal/testutil"
+	"github.com/smm-h/saferm/internal/trace"
 )
 
 var safermBinary string
@@ -64,6 +65,25 @@ func runSaferm(t *testing.T, homeDir string, args ...string) (stdout, stderr str
 // nothing added. Use it when the test is ABOUT consent.
 func runSafermNoConsent(t *testing.T, homeDir string, args ...string) (stdout, stderr string, exitCode int) {
 	t.Helper()
+	return runSafermEnv(t, homeDir, nil, args...)
+}
+
+// runSafermTraced runs saferm the way a traced caller's child sees it: HOME
+// points at the test's own home, so the trace store the test wrote is the store
+// saferm reads, and STRICTCLI_TRACE_PARENT carries the parent entry's
+// identifier. The value is passed through verbatim, malformed ones included.
+func runSafermTraced(t *testing.T, homeDir, parentID string, args ...string) (stdout, stderr string, exitCode int) {
+	t.Helper()
+	return runSafermEnv(t, homeDir, []string{
+		"HOME=" + homeDir,
+		trace.ParentEnv + "=" + parentID,
+	}, args...)
+}
+
+// runSafermEnv is runSafermNoConsent with extra environment entries appended.
+// Later entries win, so an entry here overrides the inherited one.
+func runSafermEnv(t *testing.T, homeDir string, extraEnv []string, args ...string) (stdout, stderr string, exitCode int) {
+	t.Helper()
 
 	cmd := exec.Command(safermBinary, args...)
 
@@ -74,6 +94,7 @@ func runSafermNoConsent(t *testing.T, homeDir string, args ...string) (stdout, s
 	safermHome := filepath.Join(homeDir, ".saferm")
 	env := filterEnv(os.Environ(), "SAFERM_")
 	env = append(env, "SAFERM_HOME="+safermHome)
+	env = append(env, extraEnv...)
 	cmd.Env = env
 
 	var outBuf, errBuf bytes.Buffer

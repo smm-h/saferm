@@ -344,7 +344,7 @@ func TestGenerateUUID(t *testing.T) {
 
 	seen := make(map[string]bool)
 	for i := 0; i < 100; i++ {
-		uuid := generateUUID()
+		uuid := NewUUID()
 		if !uuidRegex.MatchString(uuid) {
 			t.Errorf("UUID %q does not match v4 format", uuid)
 		}

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/smm-h/saferm/internal/trace"
 )
 
 // Metadata holds contextual information captured at deletion time.
@@ -17,12 +19,22 @@ type Metadata struct {
 	PPID      int               `json:"ppid,omitempty"`
 	ParentCmd string            `json:"parent_cmd,omitempty"`
 	Custom    map[string]string `json:"custom,omitempty"`
+
+	// Trace is the process ancestry resolved from the strictcli trace store at
+	// capture time: the flattened chain of invocations that led to this
+	// deletion, their identifiers, and anything malformed the resolution met.
+	// Nil when nothing claimed the invocation, which is not an anomaly.
+	//
+	// The chain is embedded rather than referenced so the record stays
+	// self-contained: pruning the store cannot orphan it.
+	Trace *trace.Capture `json:"trace,omitempty"`
 }
 
 // Collect gathers metadata from the current environment.
 //
-// Best-effort per collector -- git context and parent-process details degrade
-// to empty values rather than failing. The one thing it refuses to work around
+// Best-effort per collector -- git context, parent-process details and the
+// process ancestry read from the trace store degrade to empty values, or to a
+// recorded anomaly, rather than failing. The one thing it refuses to work around
 // is an exclude pattern that does not compile: that is the caller asking for a
 // redaction, and continuing without it would write the very variables the
 // caller meant to keep out. See collectEnv.
@@ -36,6 +48,7 @@ func Collect(excludePatterns []string, customMeta map[string]string) (*Metadata,
 	}
 	m.GitBranch, m.GitHEAD, m.GitRoot = collectGitContext()
 	m.PPID, m.ParentCmd = collectParentProcess()
+	m.Trace = trace.Collect()
 
 	if len(customMeta) > 0 {
 		m.Custom = make(map[string]string, len(customMeta))

@@ -124,11 +124,24 @@ func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictc
 		return strictcli.Exit(ExitGeneral)
 	}
 
+	// Who ran this deletion, derived from the process trace store the metadata
+	// capture already resolved. Both values are nil unless an entry resolved,
+	// which is what "no tool claimed this" means -- there is no flag to state
+	// an origin and nothing is inferred from any other variable.
+	originName, originVersion := metadata.Trace.Origin()
+
+	// One identifier for the whole invocation, minted unconditionally: every
+	// record written below carries it, so a batch stays recoverable as a batch.
+	groupID := archive.NewUUID()
+
 	run := &deleteRun{
 		ctx:            ctx,
 		fx:             fx,
 		database:       database,
 		archiveDir:     archiveDir,
+		originName:     originName,
+		originVersion:  originVersion,
+		groupID:        groupID,
 		recursive:      recursive,
 		ignoreMissing:  ignoreMissing,
 		interactive:    interactive,
@@ -206,6 +219,14 @@ type deleteRun struct {
 	metaJSON       string
 	gitRoot        string
 	scanner        *bufio.Scanner
+
+	// originName and originVersion name the tool that ran this invocation, as
+	// resolved from the trace store; both nil when none did.
+	originName    *string
+	originVersion *string
+
+	// groupID is stamped on every record this invocation writes.
+	groupID string
 }
 
 // archiveOne archives a single path, reporting its own failures on stderr.
@@ -270,16 +291,19 @@ func (r *deleteRun) archiveOne(file string) (archived bool, code int) {
 	}
 
 	rec := &db.DeletionRecord{
-		UUID:         result.UUID,
-		OriginalPath: absPath,
-		OriginalName: filepath.Base(absPath),
-		Size:         result.Size,
-		Hash:         result.Hash,
-		IsDirectory:  result.IsDirectory,
-		DeletedAt:    time.Now(),
-		Command:      r.command,
-		Description:  r.description,
-		Metadata:     r.metaJSON,
+		UUID:          result.UUID,
+		OriginalPath:  absPath,
+		OriginalName:  filepath.Base(absPath),
+		Size:          result.Size,
+		Hash:          result.Hash,
+		IsDirectory:   result.IsDirectory,
+		DeletedAt:     time.Now(),
+		Command:       r.command,
+		Description:   r.description,
+		Metadata:      r.metaJSON,
+		OriginName:    r.originName,
+		OriginVersion: r.originVersion,
+		GroupID:       &r.groupID,
 	}
 	if result.IsSymlink {
 		rec.SymlinkTarget = &result.SymlinkTarget
