@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: "How saferm's internal components fit together: hard-linked archive storage, SQLite metadata, the identity and content checks guarding removal of the original, and bounded retry under lock contention."
+description: "How saferm's internal components fit together: hard-linked archive storage, SQLite metadata, the identity, entry-existence and tree-coverage checks guarding removal of the original, and bounded retry under lock contention."
 ---
 
 # Architecture
