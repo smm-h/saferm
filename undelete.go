@@ -37,6 +37,9 @@ func registerUndeleteCmd(app *strictcli.App) {
 			strictcli.StringFlag("on-conflict",
 				"What to do when something already exists at the restoration destination: overwrite (check the archived copy against the record, then replace what is there) or abort (refuse and change nothing). Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default",
 				strictcli.Default(nil), strictcli.Choices(onConflictOverwrite, onConflictAbort)),
+			strictcli.StringFlag("destination",
+				"Restore to this path instead of the record's original one. Where the content actually went is written to the record, so `info` names it afterwards",
+				strictcli.Default("")),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("target", "Record UUID, numeric database ID, or original file path of the item to restore ("+identifierOrderHelp+", anything else is a path)"),
@@ -52,6 +55,7 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	if v, ok := kwargs["on_conflict"].(string); ok {
 		onConflict = v
 	}
+	destination := kwargs["destination"].(string)
 	target := kwargs["target"].(string)
 
 	archiveDir := kwargs["archive_dir"].(string)
@@ -106,7 +110,19 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 		return strictcli.Exit(ExitArchive)
 	}
 
+	// Where the content is going: the record's own path unless the caller named
+	// somewhere else. It is resolved to an absolute path here, because it is
+	// what gets written to the record -- a relative path in the row would mean
+	// nothing to anyone reading it later from another directory.
 	dest := rec.OriginalPath
+	if destination != "" {
+		abs, err := filepath.Abs(destination)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: resolving destination %q: %s\n", destination, err)
+			return strictcli.Exit(ExitUsage)
+		}
+		dest = abs
+	}
 
 	symlinkTarget := ""
 	if rec.SymlinkTarget != nil {
@@ -165,7 +181,7 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 	}
 
 	if ctx.DryRun() {
-		say(ctx, "Would restore %s\n", dest)
+		say(ctx, "Would restore %s\n", describeDestination(rec.OriginalPath, dest))
 		return strictcli.Exit(ExitSuccess)
 	}
 
@@ -182,8 +198,19 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 		}
 	}
 
-	say(ctx, "Restored %s\n", dest)
+	say(ctx, "Restored %s\n", describeDestination(rec.OriginalPath, dest))
 	return strictcli.Exit(ExitSuccess)
+}
+
+// describeDestination names where the content went, and where it came from
+// when those are not the same place: a restore to an alternate destination that
+// only printed the destination would read as if the record had always been
+// there.
+func describeDestination(originalPath string, dest string) string {
+	if dest == originalPath {
+		return dest
+	}
+	return fmt.Sprintf("%s to %s", originalPath, dest)
 }
 
 // destinationOccupied reports whether something is standing where the restore

@@ -573,3 +573,121 @@ func TestUndelete_EmptyDestinationDirectoryIsAConflictForAFile(t *testing.T) {
 		t.Errorf("the file must be back: got %q (%v)", got, err)
 	}
 }
+
+// A restore can go somewhere other than where the record came from, and where
+// it went is written down: the record's restored-to column is the alternate
+// destination, so `info` answers "where is it now" without guessing.
+func TestUndelete_AlternateDestinationIsUsedAndRecorded(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+	elsewhere := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "moved.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "alternate destination test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	dest := filepath.Join(elsewhere, "nested", "moved.txt")
+	stdout, stderr, code = runSaferm(t, homeDir, "undelete", "--destination", dest, uuid)
+	if code != 0 {
+		t.Fatalf("restoring to an alternate destination failed (exit %d): %q", code, stderr)
+	}
+	if !strings.Contains(stdout, dest) {
+		t.Errorf("the confirmation must name where the file went, got: %q", stdout)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("nothing was restored to the alternate destination: %v", err)
+	}
+	if string(got) != "archived content\n" {
+		t.Errorf("restored content mismatch: got %q", got)
+	}
+	if _, err := os.Lstat(file); !os.IsNotExist(err) {
+		t.Errorf("the original path must stay empty, got: %v", err)
+	}
+
+	infoOut, _, code := runSaferm(t, homeDir, "info", uuid)
+	if code != 0 {
+		t.Fatalf("info failed: %q", infoOut)
+	}
+	if !strings.Contains(infoOut, "Restored To:") || !strings.Contains(infoOut, dest) {
+		t.Errorf("the alternate destination must be recorded on the record, got: %q", infoOut)
+	}
+}
+
+// The conflict rules follow the destination, not the record: an occupied
+// alternate destination demands the same answer an occupied original one does.
+func TestUndelete_AlternateDestinationObeysTheConflictMode(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+	elsewhere := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "moved.txt", "archived content\n")
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "alternate conflict test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	dest := testutil.CreateTempFile(t, elsewhere, "occupied.txt", "standing here\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--destination", dest, uuid)
+	if code != 2 {
+		t.Fatalf("an occupied alternate destination must demand the choice (exit 2), got %d: %q", code, stderr)
+	}
+	if !strings.Contains(stderr, dest) {
+		t.Errorf("the error must name the destination it means, got: %q", stderr)
+	}
+	got, err := os.ReadFile(dest)
+	if err != nil || string(got) != "standing here\n" {
+		t.Errorf("the alternate destination must be untouched: got %q (%v)", got, err)
+	}
+
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--destination", dest, "--on-conflict", "overwrite", uuid); code != 0 {
+		t.Fatalf("the stated overwrite failed (exit %d): %q", code, stderr)
+	}
+	got, err = os.ReadFile(dest)
+	if err != nil || string(got) != "archived content\n" {
+		t.Errorf("the archived content must be at the alternate destination: got %q (%v)", got, err)
+	}
+}
+
+// A tree goes to an alternate destination the same way, and the preview names
+// the alternate destination rather than the original path.
+func TestUndelete_AlternateDestinationForATree(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+	elsewhere := t.TempDir()
+
+	tree := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, tree, "inner.txt", "archived\n")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "alternate tree test", tree)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+
+	dest := filepath.Join(elsewhere, "restored-tree")
+	stdout, stderr, code = runSaferm(t, homeDir, "--dry-run", "undelete", "--destination", dest, uuid)
+	if code != 0 {
+		t.Fatalf("previewing an alternate destination failed (exit %d): %q", code, stderr)
+	}
+	if !strings.Contains(wouldDoLog(stdout), "write: "+dest) {
+		t.Errorf("the preview must name the alternate destination, got: %q", stdout)
+	}
+
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--destination", dest, uuid); code != 0 {
+		t.Fatalf("restoring a tree to an alternate destination failed (exit %d): %q", code, stderr)
+	}
+	got, err := os.ReadFile(filepath.Join(dest, "inner.txt"))
+	if err != nil {
+		t.Fatalf("the tree was not restored to the alternate destination: %v", err)
+	}
+	if string(got) != "archived\n" {
+		t.Errorf("restored content mismatch: got %q", got)
+	}
+}
