@@ -39,6 +39,8 @@ Bring it back:
 saferm undelete old-config.yaml
 ```
 
+A restore consumes the archived copy -- it is moved back out, not copied -- and it never overwrites anything by accident. If something is already standing at the destination, `--on-conflict` is required and has no default: `overwrite` checks the archived copy against the record before replacing what is there, `abort` refuses and changes nothing. `--destination <path>` restores somewhere else and writes that path to the record, so `info` names where the content went.
+
 ## Install
 
 | Method | Command |
@@ -58,11 +60,11 @@ saferm undelete old-config.yaml
 | `purge` | Permanently destroy archived items and free disk space |
 | `undelete` | Restore a previously archived file back to its original path |
 | **config** | Manage persistent configuration values stored in the config file |
-| `config edit` | Open the config file for manual editing in $EDITOR (creates if missing) |
-| `config init` | Generate a template config file with documented fields and defaults |
-| `config path` | Print the absolute path to the config file for this application |
-| `config set` | Set a persistent config value that overrides the default for a flag |
-| `config show` | Show all config values with their sources (config file, env, or default) |
+| `config edit` | Open this application's config file in the editor named by $EDITOR, falling back to vi. The parent directory and an empty config file are created first if they do not exist, so the editor always opens something. Launching the editor counts as a mutation: under --dry-run the command records the editor invocation and opens nothing. |
+| `config init` | Create a starter config file listing every flag and config field the application declares, each commented with its help text, type and default value, so the file documents itself. The format follows whichever of TOML or JSON the application was built for. Refuses with an error if a config file already exists rather than overwriting it; the created path is printed on success. |
+| `config path` | Print the absolute path to this application's config file and nothing else, so the value can be piped straight into another command. The path is $XDG_CONFIG_HOME/<app>/config.<toml\|json> (falling back to ~/.config), or the explicit override the application was built with. Printing it does not create the file, and reports the same path whether or not one exists yet. |
+| `config set` | Write a persistent value into the config file so it overrides a flag's declared default on every later run. The value is coerced to the flag's own type and rejected if it does not fit: repeatable flags take a comma-separated list (backslash-escape a literal comma) and are checked for duplicates, dict flags take a JSON object. Use --default to drop a key back to its default, and --clear to empty a repeatable flag. |
+| `config show` | Show every flag and config field with its effective value and where that value came from, resolved through the precedence chain environment variable, then config file, then declared default. Declared infrastructure roots, handshake and connection environment variables are listed too. Choose --plain for an aligned human-readable table; the framework-owned --json yields the same information as a machine-readable object carrying each entry's type, default and help text. |
 
 ## Example workflow
 

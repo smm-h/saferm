@@ -19,7 +19,7 @@ exitcodes.go     -- exit codes 0-8
 version.go       -- version from ldflags or debug.ReadBuildInfo
 
 internal/
-  archive/       -- file/dir archival (os.Link, copy+verify when the link is refused, tar+zstd for dirs); Execute writes the entry, RemoveSource removes the original, DiscardBlob takes it back
+  archive/       -- file/dir archival (os.Link, copy+verify when the link is refused, tar+zstd for dirs); Execute writes the entry, RemoveSource removes the original, DiscardBlob takes it back. On the way back: NewRestorePlan, EntryPresent, VerifyEntry, ExtractTree/RollbackExtraction, RestoreSymlink, CopyOut -- primitives only, so undelete.go owns the conflict decision and the step order
   db/            -- SQLite database (WAL mode, busy_timeout=5000, bounded contention retry, CRUD operations)
   meta/          -- metadata collection (env vars, git context, PPID + parent cmdline, the resolved trace chain)
   trace/         -- reads the strictcli process trace store: parses STRICTCLI_TRACE_PARENT and walks the ancestry chain
@@ -49,6 +49,11 @@ go install .                # install locally (picks up changes)
 - **`--dry-run` records instead of acting.** Every mutation `delete`, `undelete` and `purge` perform is minted on `ctx.Effects()`, so a dry run prints a would-do log naming each path it would move, write or destroy, and touches nothing. The database row is the one exception: no member of the effects handle's closed method set can describe a SQLite row change, so those writes sit outside the handle and are skipped in dry mode.
 - **`--description` is mandatory** on delete (no default value in strictcli). Never add a default.
 - **`--on-error` is mandatory** on delete too, with no default and the values `abort` and `continue`. A batch that meets a bad path has two defensible answers -- stop, or archive the rest -- and they suit opposite callers, so saferm refuses to pick one silently. `abort` stops at the first failing path; `continue` archives the remaining paths, reports every failure, and exits at the end with the FIRST failure's code. Either way the identifiers of everything already archived are on stdout before the failure is reported. Never add a default.
+- **`--on-conflict` is required on undelete exactly when the destination is occupied**, with no default and the values `overwrite` and `abort`. Omitting it there is an argument error (exit 2) naming both values; `abort` is a stated refusal and exits 7. An absent destination needs no answer, and neither does an EMPTY directory standing where a tree was archived -- that is the tree's own emptied place, and extracting into it replaces nothing. The rule is for directory records only: an empty directory over a file record is still a conflict, because a file cannot be renamed over a directory. There is deliberately no keep-both or backup mode.
+- **A restore always consumes the archived copy**, and the failure path is what makes that safe: the copy is dropped only as the LAST step, so a refused symlink, a truncated tar or a copy that ran out of space leaves the entry in place and the record restorable. A tree extraction that fails partway takes its own half tree back and names what it had extracted. A restored file that is wanted in the archive again is simply deleted again; there is no keep mode, because keeping a copy in the archive after restoring it is the parking workflow saferm exists to prevent.
+- **An overwrite verifies the archived copy before the destination is touched**, and only an overwrite does. The recorded hash means three things: a file's hash covers its content exactly, a directory's covers the `.tar.zst` container and nothing about individual members (no per-member digest exists anywhere in the archive), and a symlink has no hash at all -- its entry is compared against the target the record names. A file or tree whose record carries no hash refuses the overwrite rather than passing it. A restore into an absent or empty destination gets no verify pass: a corrupt copy just fails the restore, which destroys nothing.
+- **`--destination` restores somewhere else.** The path is resolved to an absolute one and written to the record's `restored_to` column, so `info` names where the content went. The conflict rules follow the destination, not the record.
+- **`--update-git-index` exists on both sides.** `delete` runs `git rm --cached`, `undelete` runs `git add`, both default to true, and both can be turned off -- a programmatic caller may want no index side effects at all.
 - **`delete` prints both identifiers per archived path**: `archived: [<id>] <uuid> <path> (<size>)`, one line per record, through `say()` so `--quiet` still silences it. The uuid is the durable handle -- `undelete`, `info` and `purge` all accept it, and `undelete` accepts an original path as well.
 - **Identifier disambiguation is by shape, in one place** (`identifiers.go`): a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID, anything else is a path. The order is total and independent of what happens to exist, so the same argument always means the same thing. `info` and `purge` refuse a path outright, naming the two forms they take.
 - **`info` states a record's status** in one derived line: `restorable`, `restored at <time>`, `purged at <time>`, or both when a record was restored and later purged. It is read off `restored_at`/`purged_at`, plus one stat of the record's own archive entry where neither column is set: an archival that meets a changed source inside its window commits its row and discards its entry on purpose, so a row that names nothing is a state saferm produces itself, and reporting it as `restorable` would send the caller into an undelete that cannot work. `purge` says the same thing in its own vocabulary -- purging such a row destroys nothing, which it notes on stderr and does not treat as an error.
@@ -133,7 +138,18 @@ saferm info 6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11
 saferm undelete 42
 saferm undelete 6f1c0e2a-6c9e-4a24-9d1f-2b0f3f5b7c11
 saferm undelete /path/to/file
-saferm undelete --force-overwrite 42  # overwrite existing file
+
+# Restore where something is already standing: --on-conflict is required
+# there and has no default (an absent destination, or the emptied original
+# directory of an archived tree, needs no answer)
+saferm undelete --on-conflict overwrite 42   # check the archived copy, then replace
+saferm undelete --on-conflict abort 42       # refuse and change nothing
+
+# Restore somewhere else; the path is recorded on the record
+saferm undelete --destination /tmp/inspect/config.yaml 42
+
+# Restore without touching the git index
+saferm undelete --no-update-git-index 42
 
 # Permanently remove from archive
 saferm --approve-consequential purge 42 43 44             # by IDs or uuids

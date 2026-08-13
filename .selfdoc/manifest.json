@@ -94,8 +94,33 @@
         },
         {
           "level": 3,
-          "text": "`Restore`",
-          "anchor": "restore"
+          "text": "The step list",
+          "anchor": "the-step-list"
+        },
+        {
+          "level": 3,
+          "text": "Conflicts and the empty-destination rule",
+          "anchor": "conflicts-and-the-empty-destination-rule"
+        },
+        {
+          "level": 3,
+          "text": "Verification before an overwrite",
+          "anchor": "verification-before-an-overwrite"
+        },
+        {
+          "level": 3,
+          "text": "Partial extraction",
+          "anchor": "partial-extraction"
+        },
+        {
+          "level": 3,
+          "text": "Git index",
+          "anchor": "git-index"
+        },
+        {
+          "level": 3,
+          "text": "`VerifyEntry`",
+          "anchor": "verifyentry"
         },
         {
           "level": 2,
@@ -519,13 +544,28 @@
         },
         {
           "level": 3,
-          "text": "`ErrConflict`",
-          "anchor": "errconflict"
+          "text": "`ErrHashMismatch`",
+          "anchor": "errhashmismatch"
         },
         {
           "level": 3,
-          "text": "`ErrHashMismatch`",
-          "anchor": "errhashmismatch"
+          "text": "`ErrEntryMissing`",
+          "anchor": "errentrymissing"
+        },
+        {
+          "level": 3,
+          "text": "`ErrEntryCorrupt`",
+          "anchor": "errentrycorrupt"
+        },
+        {
+          "level": 3,
+          "text": "`ErrEntryDiverged`",
+          "anchor": "errentrydiverged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrUnverifiable`",
+          "anchor": "errunverifiable"
         },
         {
           "level": 3,
@@ -579,6 +619,11 @@
         },
         {
           "level": 3,
+          "text": "`RestorePlan`",
+          "anchor": "restoreplan"
+        },
+        {
+          "level": 3,
           "text": "`NewPlan`",
           "anchor": "newplan"
         },
@@ -594,13 +639,53 @@
         },
         {
           "level": 3,
+          "text": "`NamePaths`",
+          "anchor": "namepaths"
+        },
+        {
+          "level": 3,
           "text": "`DiscardBlob`",
           "anchor": "discardblob"
         },
         {
           "level": 3,
-          "text": "`Restore`",
-          "anchor": "restore"
+          "text": "`NewRestorePlan`",
+          "anchor": "newrestoreplan"
+        },
+        {
+          "level": 3,
+          "text": "`EntryPresent`",
+          "anchor": "entrypresent"
+        },
+        {
+          "level": 3,
+          "text": "`VerifyEntry`",
+          "anchor": "verifyentry"
+        },
+        {
+          "level": 3,
+          "text": "`RestoreSymlink`",
+          "anchor": "restoresymlink"
+        },
+        {
+          "level": 3,
+          "text": "`ExtractTree`",
+          "anchor": "extracttree"
+        },
+        {
+          "level": 3,
+          "text": "`RollbackExtraction`",
+          "anchor": "rollbackextraction"
+        },
+        {
+          "level": 3,
+          "text": "`CopyOut`",
+          "anchor": "copyout"
+        },
+        {
+          "level": 3,
+          "text": "`IsCrossDeviceError`",
+          "anchor": "iscrossdeviceerror"
         },
         {
           "level": 3,
@@ -881,13 +966,28 @@
         },
         {
           "level": 3,
-          "text": "`ErrConflict`",
-          "anchor": "errconflict"
+          "text": "`ErrHashMismatch`",
+          "anchor": "errhashmismatch"
         },
         {
           "level": 3,
-          "text": "`ErrHashMismatch`",
-          "anchor": "errhashmismatch"
+          "text": "`ErrEntryMissing`",
+          "anchor": "errentrymissing"
+        },
+        {
+          "level": 3,
+          "text": "`ErrEntryCorrupt`",
+          "anchor": "errentrycorrupt"
+        },
+        {
+          "level": 3,
+          "text": "`ErrEntryDiverged`",
+          "anchor": "errentrydiverged"
+        },
+        {
+          "level": 3,
+          "text": "`ErrUnverifiable`",
+          "anchor": "errunverifiable"
         },
         {
           "level": 3,
@@ -941,6 +1041,11 @@
         },
         {
           "level": 3,
+          "text": "`RestorePlan`",
+          "anchor": "restoreplan"
+        },
+        {
+          "level": 3,
           "text": "`NewPlan`",
           "anchor": "newplan"
         },
@@ -956,13 +1061,53 @@
         },
         {
           "level": 3,
+          "text": "`NamePaths`",
+          "anchor": "namepaths"
+        },
+        {
+          "level": 3,
           "text": "`DiscardBlob`",
           "anchor": "discardblob"
         },
         {
           "level": 3,
-          "text": "`Restore`",
-          "anchor": "restore"
+          "text": "`NewRestorePlan`",
+          "anchor": "newrestoreplan"
+        },
+        {
+          "level": 3,
+          "text": "`EntryPresent`",
+          "anchor": "entrypresent"
+        },
+        {
+          "level": 3,
+          "text": "`VerifyEntry`",
+          "anchor": "verifyentry"
+        },
+        {
+          "level": 3,
+          "text": "`RestoreSymlink`",
+          "anchor": "restoresymlink"
+        },
+        {
+          "level": 3,
+          "text": "`ExtractTree`",
+          "anchor": "extracttree"
+        },
+        {
+          "level": 3,
+          "text": "`RollbackExtraction`",
+          "anchor": "rollbackextraction"
+        },
+        {
+          "level": 3,
+          "text": "`CopyOut`",
+          "anchor": "copyout"
+        },
+        {
+          "level": 3,
+          "text": "`IsCrossDeviceError`",
+          "anchor": "iscrossdeviceerror"
         },
         {
           "level": 3,
@@ -1251,5 +1396,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-08-13T09:51:49.318206+00:00"
+  "last_gen": "2026-08-13T18:40:39.678873+00:00",
+  "theme": "minimal"
 }

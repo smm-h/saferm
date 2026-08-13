@@ -17,7 +17,9 @@ Restore a previously archived file back to its original path
 
 | Name | Short | Type | Default | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--force-overwrite` |  | bool |  |  | Overwrite any existing file at the restoration destination |
+| `--on-conflict` |  | str |  |  | What to do when something already exists at the restoration destination: overwrite (check the archived copy against the record, then replace what is there) or abort (refuse and change nothing). Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default |
+| `--update-git-index` |  | bool | True |  | Run git add to stage the restored path in the git index |
+| `--destination` |  | str |  |  | Restore to this path instead of the record's original one. Where the content actually went is written to the record, so `info` names it afterwards |
 
 ## Arguments
 
