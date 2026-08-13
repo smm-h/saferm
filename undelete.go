@@ -110,6 +110,20 @@ func handleUndelete(ctx *strictcli.Context, kwargs map[string]interface{}) stric
 		overwrite = true
 	}
 
+	// Verification is proportional: it runs when, and only when, the restore is
+	// about to destroy something. An overwrite reads the archived copy through
+	// once BEFORE the destination is touched, because the alternative -- what
+	// this used to do -- is to remove the destination and only then discover
+	// that the archive holds nothing worth having. A restore into an empty or
+	// absent destination gets no verify pass at all: a corrupt copy simply
+	// fails the restore, which costs nothing and keeps the copy.
+	if overwrite {
+		if err := archive.VerifyEntry(plan, rec.Hash); err != nil {
+			fmt.Fprintf(os.Stderr, "error: refusing to overwrite %s: %s; the destination was not touched and the archived copy was kept\n", dest, err)
+			return strictcli.Exit(ExitArchive)
+		}
+	}
+
 	if err := runRestore(ctx, plan, overwrite); err != nil {
 		fmt.Fprintf(os.Stderr, "error: restoring %s: %s; the archived copy was kept, so record %d is still restorable\n",
 			dest, err, rec.ID)

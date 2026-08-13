@@ -212,3 +212,168 @@ func TestUndelete_SymlinkDryRunRecordsTheWholeRestore(t *testing.T) {
 		t.Errorf("a completed restore must consume the archived entry, got: %v", err)
 	}
 }
+
+// An overwrite is the one destructive thing a restore does, so the archived
+// copy is checked BEFORE the destination is touched. The restore used to remove
+// the destination first and read the archive afterwards, which turned a
+// corrupted archive into the loss of whatever was standing there.
+func TestUndelete_CorruptFileArchive_RefusesBeforeTouchingTheDestination(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "verified.txt", "the archived content\n")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "verify test", file)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, "")
+	if err := os.WriteFile(entry, []byte("rotted bytes\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Something is standing at the destination, and the caller asked for it to
+	// be replaced.
+	testutil.CreateTempFile(t, workDir, "verified.txt", "do not lose me\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid)
+	if code == 0 {
+		t.Fatalf("overwriting from a corrupt archive must fail; stderr=%q", stderr)
+	}
+	if !strings.Contains(stderr, "refusing to overwrite") {
+		t.Errorf("the refusal must say it did not touch the destination, got: %q", stderr)
+	}
+
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("reading the destination after the refusal: %v", err)
+	}
+	if string(got) != "do not lose me\n" {
+		t.Errorf("the destination was touched by a refused restore: got %q", got)
+	}
+	if _, err := os.Stat(entry); err != nil {
+		t.Errorf("a refused restore must keep the archived copy: %v", err)
+	}
+	infoOut, _, _ := runSaferm(t, homeDir, "info", uuid)
+	if !strings.Contains(infoOut, "restorable") {
+		t.Errorf("a refused restore must leave the record restorable, got: %q", infoOut)
+	}
+}
+
+// The same for a tree: a directory's recorded hash covers the .tar.zst
+// container, so a damaged container is found before the destination goes.
+func TestUndelete_CorruptDirectoryArchive_RefusesBeforeTouchingTheDestination(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	tree := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, tree, "inner.txt", "archived\n")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "verify tree test", tree)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, ".tar.zst")
+	writeCorruptTarZst(t, entry, "tree")
+
+	// A different tree is standing in its place.
+	replacement := testutil.CreateTempDir(t, workDir, "tree")
+	testutil.CreateTempFile(t, replacement, "mine.txt", "do not lose me\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid)
+	if code == 0 {
+		t.Fatalf("overwriting from a corrupt container must fail; stderr=%q", stderr)
+	}
+	if !strings.Contains(stderr, "refusing to overwrite") {
+		t.Errorf("the refusal must say it did not touch the destination, got: %q", stderr)
+	}
+	got, err := os.ReadFile(filepath.Join(tree, "mine.txt"))
+	if err != nil {
+		t.Fatalf("the destination tree was destroyed by a refused restore: %v", err)
+	}
+	if string(got) != "do not lose me\n" {
+		t.Errorf("the destination was rewritten by a refused restore: got %q", got)
+	}
+	if _, err := os.Stat(entry); err != nil {
+		t.Errorf("a refused restore must keep the archived copy: %v", err)
+	}
+}
+
+// A symlink was never hashed. Its entry is the recorded target written out, so
+// verification is an equality against the record -- and it must not fail
+// spuriously on the ordinary case, which is the whole reason the three kinds
+// are defined separately.
+func TestUndelete_SymlinkEntryDiverged_RefusesBeforeTouchingTheDestination(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	target := testutil.CreateTempFile(t, workDir, "target.txt", "target\n")
+	link := filepath.Join(workDir, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "symlink verify test", link)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, ".symlink")
+
+	// Something else is at the destination now.
+	testutil.CreateTempFile(t, workDir, "link.txt", "do not lose me\n")
+
+	// The untouched entry verifies: an ordinary overwrite of a symlink goes
+	// through, and no hash is involved anywhere.
+	if _, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid); code != 0 {
+		t.Fatalf("overwriting with an intact symlink entry must succeed, got %d: %q", code, stderr)
+	}
+	if _, err := os.Readlink(link); err != nil {
+		t.Fatalf("the link was not restored: %v", err)
+	}
+	if _, err := os.Lstat(entry); !os.IsNotExist(err) {
+		t.Errorf("the restore must have consumed the entry, got: %v", err)
+	}
+}
+
+// And an entry that no longer names the recorded target is refused before the
+// destination is touched.
+func TestUndelete_SymlinkEntryRewritten_RefusesBeforeTouchingTheDestination(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	target := testutil.CreateTempFile(t, workDir, "target.txt", "target\n")
+	link := filepath.Join(workDir, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "--description", "symlink divergence test", link)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	uuid := parseArchivedUUID(t, stdout)
+	entry := archiveEntry(homeDir, uuid, ".symlink")
+	if err := os.WriteFile(entry, []byte("/somewhere/else"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	testutil.CreateTempFile(t, workDir, "link.txt", "do not lose me\n")
+
+	_, stderr, code = runSaferm(t, homeDir, "undelete", "--force-overwrite", uuid)
+	if code == 0 {
+		t.Fatalf("overwriting from a diverged symlink entry must fail; stderr=%q", stderr)
+	}
+	got, err := os.ReadFile(link)
+	if err != nil {
+		t.Fatalf("the destination was destroyed by a refused restore: %v", err)
+	}
+	if string(got) != "do not lose me\n" {
+		t.Errorf("the destination was rewritten by a refused restore: got %q", got)
+	}
+	if _, err := os.Stat(entry); err != nil {
+		t.Errorf("a refused restore must keep the archived entry: %v", err)
+	}
+}

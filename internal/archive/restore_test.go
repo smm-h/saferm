@@ -3,6 +3,7 @@ package archive
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -291,6 +292,135 @@ func TestEntryPresent_NamesAMissingEntry(t *testing.T) {
 		t.Fatal("a missing entry must be reported")
 	}
 	if !strings.Contains(err.Error(), ErrEntryMissing.Error()) {
+		t.Errorf("expected ErrEntryMissing, got: %v", err)
+	}
+}
+
+// Verification is threefold, because the recorded hash means three different
+// things. A regular file's hash is the hash of its content and the entry IS
+// that content, so the check is exact.
+func TestVerifyEntry_File(t *testing.T) {
+	tmpDir := t.TempDir()
+	archiveDir := filepath.Join(tmpDir, "archive")
+	srcFile := filepath.Join(tmpDir, "hello.txt")
+	if err := os.WriteFile(srcFile, []byte("the archived bytes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := archiveNow(srcFile, archiveDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := NewRestorePlan(result.UUID, archiveDir, filepath.Join(tmpDir, "dest.txt"), false, "")
+
+	if err := VerifyEntry(p, result.Hash); err != nil {
+		t.Fatalf("an untouched entry must verify: %v", err)
+	}
+
+	if err := os.WriteFile(p.Entry, []byte("something else entirely"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err = VerifyEntry(p, result.Hash)
+	if !errors.Is(err, ErrEntryCorrupt) {
+		t.Errorf("a rewritten entry must be reported as corrupt, got: %v", err)
+	}
+}
+
+// A directory's recorded hash is the hash of the .tar.zst CONTAINER, so
+// verification proves the container arrived intact and nothing more: there is
+// no per-member digest anywhere in the archive to check against.
+func TestVerifyEntry_Directory(t *testing.T) {
+	tmpDir := t.TempDir()
+	archiveDir := filepath.Join(tmpDir, "archive")
+	srcDir := filepath.Join(tmpDir, "tree")
+	if err := os.MkdirAll(srcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "a.txt"), []byte("aaa"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := archiveNow(srcDir, archiveDir, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := NewRestorePlan(result.UUID, archiveDir, filepath.Join(tmpDir, "dest"), true, "")
+
+	if err := VerifyEntry(p, result.Hash); err != nil {
+		t.Fatalf("an untouched container must verify: %v", err)
+	}
+
+	// One flipped byte anywhere in the container is enough.
+	blob, err := os.ReadFile(p.Entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blob[len(blob)/2] ^= 0xff
+	if err := os.WriteFile(p.Entry, blob, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyEntry(p, result.Hash); !errors.Is(err, ErrEntryCorrupt) {
+		t.Errorf("a damaged container must be reported as corrupt, got: %v", err)
+	}
+}
+
+// A symlink was never hashed: it has no content, its recorded hash is empty by
+// construction, and its entry is the recorded target written out. Verification
+// is therefore an equality against the record -- a hash comparison here would
+// fail on every symlink ever archived.
+func TestVerifyEntry_Symlink(t *testing.T) {
+	tmpDir := t.TempDir()
+	archiveDir := filepath.Join(tmpDir, "archive")
+	link := filepath.Join(tmpDir, "link")
+	if err := os.Symlink("../elsewhere", link); err != nil {
+		t.Fatal(err)
+	}
+	result, err := archiveNow(link, archiveDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Hash != "" {
+		t.Fatalf("a symlink archival records no hash, got %q", result.Hash)
+	}
+	p := NewRestorePlan(result.UUID, archiveDir, filepath.Join(tmpDir, "dest"), false, result.SymlinkTarget)
+
+	if err := VerifyEntry(p, result.Hash); err != nil {
+		t.Fatalf("an untouched symlink entry must verify with no hash at all: %v", err)
+	}
+
+	if err := os.WriteFile(p.Entry, []byte("/somewhere/else"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyEntry(p, result.Hash); !errors.Is(err, ErrEntryDiverged) {
+		t.Errorf("an entry naming another target must be reported as diverged, got: %v", err)
+	}
+}
+
+// A file or a tree whose record carries no hash cannot be checked at all, and
+// that is a refusal rather than a pass: the caller asked to destroy a
+// destination on the strength of a check nothing can make.
+func TestVerifyEntry_NoRecordedHashIsARefusal(t *testing.T) {
+	tmpDir := t.TempDir()
+	archiveDir := filepath.Join(tmpDir, "archive")
+	srcFile := filepath.Join(tmpDir, "hello.txt")
+	if err := os.WriteFile(srcFile, []byte("data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := archiveNow(srcFile, archiveDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := NewRestorePlan(result.UUID, archiveDir, filepath.Join(tmpDir, "dest.txt"), false, "")
+
+	if err := VerifyEntry(p, ""); !errors.Is(err, ErrUnverifiable) {
+		t.Errorf("an unhashed record must refuse verification, got: %v", err)
+	}
+}
+
+// A missing entry is found by verification too, before the destination is
+// touched.
+func TestVerifyEntry_MissingEntry(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := NewRestorePlan(NewUUID(), tmpDir, filepath.Join(tmpDir, "dest"), false, "")
+	if err := VerifyEntry(p, "0000"); !errors.Is(err, ErrEntryMissing) {
 		t.Errorf("expected ErrEntryMissing, got: %v", err)
 	}
 }
