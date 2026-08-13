@@ -4,14 +4,52 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/smm-h/saferm/internal/db"
 	"github.com/smm-h/strictcli/go/strictcli"
 )
 
+// listRow is one row of `list`'s machine payload: the table's own columns, plus
+// the two things the table cannot carry. The uuid is the handle that survives
+// (the table has room only for the numeric id), and deleted_at is an absolute
+// RFC3339 timestamp where the Age column is relative prose nothing can compute
+// with.
+type listRow struct {
+	ID        int64  `json:"id"`
+	UUID      string `json:"uuid"`
+	Path      string `json:"path"`
+	Size      int64  `json:"size"`
+	Kind      string `json:"kind"`
+	DeletedAt string `json:"deleted_at"`
+	Status    string `json:"status"`
+}
+
+// listPayloadSchema declares `list`'s payload: the rows, as an array. An empty
+// archive answers with an empty array rather than null, so a consumer never has
+// to special-case "nothing has ever been deleted here".
+var listPayloadSchema = map[string]interface{}{
+	"type": "array",
+	"items": map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"id":         map[string]interface{}{"type": "integer"},
+			"uuid":       map[string]interface{}{"type": "string"},
+			"path":       map[string]interface{}{"type": "string"},
+			"size":       map[string]interface{}{"type": "integer"},
+			"kind":       map[string]interface{}{"type": "string", "enum": []interface{}{kindFile, kindDirectory, kindSymlink}},
+			"deleted_at": map[string]interface{}{"type": "string"},
+			"status":     map[string]interface{}{"type": "string", "enum": []interface{}{statusArchived, statusRestored, statusPurged}},
+		},
+		"required":             []interface{}{"id", "uuid", "path", "size", "kind", "deleted_at", "status"},
+		"additionalProperties": false,
+	},
+}
+
 func registerListCmd(app *strictcli.App) {
 	app.Command("list", "Show all items currently held in the saferm archive", handleList,
 		strictcli.WithEffect(strictcli.EffectReadOnly),
+		strictcli.PayloadSchema(listPayloadSchema),
 		strictcli.WithFlags(
 			strictcli.StringFlag("path", "Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth)", strictcli.Default("")),
 			strictcli.BoolFlag("all", "Include items that have already been restored or purged", strictcli.Default(false)),
@@ -33,6 +71,7 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 	// No database file means nothing has ever been deleted on this machine,
 	// which is a list of length zero, not a failure.
 	if database == nil {
+		ctx.Payload([]listRow{})
 		emit(ctx, "No archived items found.\n")
 		return strictcli.Exit(ExitSuccess)
 	}
@@ -59,6 +98,10 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 		}
 		records = filtered
 	}
+
+	// The payload is the filtered set, whatever its size: an empty selection is
+	// an empty array, never null.
+	ctx.Payload(listRows(records))
 
 	if len(records) == 0 {
 		emit(ctx, "No archived items found.\n")
@@ -101,15 +144,42 @@ func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli
 	return strictcli.Exit(ExitSuccess)
 }
 
+// The three lifecycle words `list` shows in its Status column, spelled once and
+// declared as the payload's own enum.
+const (
+	statusArchived = "archived"
+	statusRestored = "restored"
+	statusPurged   = "purged"
+)
+
 // listStatus is the lifecycle word `list` shows for a record, and the one the
 // machine payload carries. One function, so the column and the payload can
 // never disagree about what a row's state is.
 func listStatus(rec *db.DeletionRecord) string {
 	switch {
 	case rec.PurgedAt != nil:
-		return "purged"
+		return statusPurged
 	case rec.RestoredAt != nil:
-		return "restored"
+		return statusRestored
 	}
-	return "archived"
+	return statusArchived
+}
+
+// listRows renders the records as the machine payload carries them. It is built
+// from the same slice the table is, after the same filtering, so the two
+// answers can never describe different sets.
+func listRows(records []*db.DeletionRecord) []listRow {
+	rows := make([]listRow, 0, len(records))
+	for _, rec := range records {
+		rows = append(rows, listRow{
+			ID:        rec.ID,
+			UUID:      rec.UUID,
+			Path:      rec.OriginalPath,
+			Size:      rec.Size,
+			Kind:      recordKind(rec),
+			DeletedAt: rec.DeletedAt.Format(time.RFC3339),
+			Status:    listStatus(rec),
+		})
+	}
+	return rows
 }

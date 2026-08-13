@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/smm-h/saferm/internal/testutil"
 )
@@ -318,6 +319,111 @@ func TestMachineSurface_UndeleteReportsAnOverwrite(t *testing.T) {
 	}
 	if !payload.Overwrote {
 		t.Errorf("the payload must record that the restore replaced something, got: %s", env.Payload)
+	}
+}
+
+// listRow is one row of `list`'s payload: the table's columns, plus the durable
+// handle the table has no room for and a timestamp instead of an age.
+type listRow struct {
+	ID        int64  `json:"id"`
+	UUID      string `json:"uuid"`
+	Path      string `json:"path"`
+	Size      int64  `json:"size"`
+	Kind      string `json:"kind"`
+	DeletedAt string `json:"deleted_at"`
+	Status    string `json:"status"`
+}
+
+// `list`'s payload is its rows. Two things the table cannot carry are on it:
+// the uuid (the table shows only the numeric id, and the uuid is the handle
+// that survives) and an absolute timestamp (the Age column is relative prose
+// nothing can compute with).
+func TestMachineSurface_ListCarriesTheRows(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+	workDir := t.TempDir()
+
+	file := testutil.CreateTempFile(t, workDir, "listed.txt", "content\n")
+	tree := testutil.CreateTempDir(t, workDir, "listed-tree")
+
+	stdout, stderr, code := runSaferm(t, homeDir, "delete", "--on-error", "abort", "-r", "--description", "list payload test", file, tree)
+	if code != 0 {
+		t.Fatalf("delete failed (exit %d): stderr=%q", code, stderr)
+	}
+	_ = stdout
+
+	env, stderr, code := runSafermJSON(t, homeDir, "list")
+	if code != 0 {
+		t.Fatalf("list failed (exit %d): %q", code, stderr)
+	}
+
+	var rows []listRow
+	if err := json.Unmarshal(env.Payload, &rows); err != nil {
+		t.Fatalf("list's payload does not parse (%v): %s", err, env.Payload)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("two records were archived, so the payload holds two rows, got: %s", env.Payload)
+	}
+
+	byPath := map[string]listRow{}
+	for _, row := range rows {
+		byPath[row.Path] = row
+	}
+	fileRow, ok := byPath[file]
+	if !ok {
+		t.Fatalf("the payload must name the archived file, got: %s", env.Payload)
+	}
+	if fileRow.Kind != "file" {
+		t.Errorf("kind = %q, want file", fileRow.Kind)
+	}
+	if fileRow.Status != "archived" {
+		t.Errorf("status = %q, want archived", fileRow.Status)
+	}
+	if len(fileRow.UUID) != 36 {
+		t.Errorf("each row carries the durable handle, got %q", fileRow.UUID)
+	}
+	if _, err := time.Parse(time.RFC3339, fileRow.DeletedAt); err != nil {
+		t.Errorf("deleted_at must be a timestamp, got %q (%v)", fileRow.DeletedAt, err)
+	}
+	if byPath[tree].Kind != "directory" {
+		t.Errorf("the tree's kind = %q, want directory", byPath[tree].Kind)
+	}
+
+	// A restored record's row says so, and --all is what shows it at all.
+	if _, stderr, code := runSaferm(t, homeDir, "undelete", fileRow.UUID); code != 0 {
+		t.Fatalf("undelete failed (exit %d): %q", code, stderr)
+	}
+	env, _, _ = runSafermJSON(t, homeDir, "list", "--all")
+	if err := json.Unmarshal(env.Payload, &rows); err != nil {
+		t.Fatalf("list's payload does not parse (%v): %s", err, env.Payload)
+	}
+	for _, row := range rows {
+		if row.Path == file && row.Status != "restored" {
+			t.Errorf("the restored row's status = %q, want restored", row.Status)
+		}
+	}
+}
+
+// An empty archive answers with an empty list, not with null: a consumer
+// iterating the payload must not have to special-case "nothing has ever been
+// deleted on this machine".
+func TestMachineSurface_ListOfNothingIsAnEmptyArray(t *testing.T) {
+	homeDir := testutil.SetupTestEnv(t)
+
+	env, stderr, code := runSafermJSON(t, homeDir, "list")
+	if code != 0 {
+		t.Fatalf("list failed (exit %d): %q", code, stderr)
+	}
+	if strings.TrimSpace(string(env.Payload)) != "[]" {
+		t.Errorf("an empty archive's payload must be [], got: %s", env.Payload)
+	}
+
+	// The same answer where the filter matches nothing.
+	env, _, code = runSafermJSON(t, homeDir, "list", "--path", "/nowhere/*")
+	if code != 0 {
+		t.Fatalf("filtered list failed (exit %d)", code)
+	}
+	if strings.TrimSpace(string(env.Payload)) != "[]" {
+		t.Errorf("a filter matching nothing must answer [], got: %s", env.Payload)
 	}
 }
 
