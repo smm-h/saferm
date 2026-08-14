@@ -90,7 +90,7 @@ func TestPurgeRefusesWithoutConsent(t *testing.T) {
 	if code == 0 {
 		t.Fatalf("an unapproved purge must not succeed; stderr=%s", stderr)
 	}
-	const want = "error: stdin is not interactive; pass --approve-consequential to confirm"
+	const want = "error: stdin is not interactive; a consequential command must be confirmed at a terminal"
 	if !strings.Contains(stderr, want) {
 		t.Errorf("expected %q on stderr, got: %s", want, stderr)
 	}
