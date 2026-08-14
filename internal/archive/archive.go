@@ -221,9 +221,11 @@ func RemoveSource(p *Plan) error {
 // Both halves are checked for every kind, because the removal is irreversible
 // for every kind and either half alone lets it through wrongly:
 //
-//   - The SOURCE's identity, by dev/ino. A directory or a symlink has no
-//     content of its own that the archive shares, so being the same inode is
-//     most of the question for them; a regular file is also checked for
+//   - The SOURCE's identity, by dev/ino -- necessary for every kind and
+//     sufficient for none, because the filesystem reuses the inode number of an
+//     unlinked path. A directory is checked against the member list the
+//     archiving walk recorded, a symlink against the target that was archived
+//     (see [verifySymlinkUnchanged]); a regular file is also checked for
 //     content, and cheaply -- the size and mtime as of the hash against the
 //     current stat, and a re-hash only when those differ, rather than
 //     re-reading every archived file on every delete. A write that restores
@@ -262,6 +264,9 @@ func verifySource(p *Plan) error {
 	if p.Kind == KindDirectory {
 		return verifyTreeUnchanged(p)
 	}
+	if p.Kind == KindSymlink {
+		return verifySymlinkUnchanged(p)
+	}
 	if p.Kind != KindFile {
 		return nil
 	}
@@ -291,6 +296,33 @@ func verifySource(p *Plan) error {
 		return fmt.Errorf("%s: %w", p.Source, ErrArchivedContentChanged)
 	}
 	return fmt.Errorf("%s: %w", p.Source, ErrSourceDiverged)
+}
+
+// verifySymlinkUnchanged reports whether the link still names the target that
+// was archived.
+//
+// The identity check ahead of it does not settle this, because a dev/ino pair
+// is not a durable name for a path. A symlink's target cannot be rewritten in
+// place -- replacing one means unlinking it and creating another -- and the
+// filesystem is free to hand the freed inode number straight back to the
+// replacement. ext4 routinely does, so os.SameFile reports the new link as the
+// archived one and the removal destroys a link nothing holds a copy of. A tmpfs
+// never reuses an inode number, which is why the hole is invisible on a
+// developer's machine and reachable on every CI runner.
+//
+// A symlink has no content, no hash and no member list, so the recorded target
+// is the only thing left that can tell the two apart. It is what the archive
+// actually holds: the .symlink metadata file beside the entry carries the same
+// string, and a restore recreates the link from it.
+func verifySymlinkUnchanged(p *Plan) error {
+	target, err := os.Readlink(p.Source)
+	if err != nil {
+		return fmt.Errorf("re-reading %s before removing it: %w", p.Source, err)
+	}
+	if target != p.SymlinkTarget {
+		return fmt.Errorf("%s: %w", p.Source, ErrSourceReplaced)
+	}
+	return nil
 }
 
 // verifyTreeUnchanged reports whether the tree still holds only what the tar
@@ -382,6 +414,9 @@ func archiveSymlink(p *Plan) (*ArchiveResult, error) {
 		return nil, fmt.Errorf("writing symlink metadata: %w", err)
 	}
 
+	// What the archive holds, which is what RemoveSource checks the link
+	// against -- the plan was built from a read taken before this one.
+	p.SymlinkTarget = target
 	p.identity = info
 	return &ArchiveResult{UUID: p.UUID, Hash: "", Size: 0, IsSymlink: true, SymlinkTarget: target}, nil
 }

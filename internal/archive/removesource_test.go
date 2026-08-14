@@ -264,11 +264,115 @@ func TestRemoveSource_RefusesAReplacedDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := RemoveSource(plan); !errors.Is(err, ErrSourceReplaced) {
-		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	// Which refusal this is depends on how the filesystem hands out inode
+	// numbers, and both are correct. A filesystem that gives the recreated
+	// directory a fresh inode fails the identity check outright; one that hands
+	// back the inode the removal just freed -- ext4 routinely does -- gets past
+	// it, and the tree walk refuses on the unarchived file instead. What the
+	// removal must never do is proceed.
+	err = RemoveSource(plan)
+	if !errors.Is(err, ErrSourceReplaced) && !errors.Is(err, ErrDirectoryChanged) {
+		t.Fatalf("expected ErrSourceReplaced or ErrDirectoryChanged, got %v", err)
 	}
 	if _, err := os.Stat(survivor); err != nil {
 		t.Fatalf("the recursive removal destroyed a tree nothing archived: %v", err)
+	}
+}
+
+// A dev/ino pair is not a durable name for a path: the filesystem is free to
+// hand the inode number of an unlinked file straight back to the next one
+// created in its place, and ext4 does it routinely. The identity check then
+// reports a replacement as the archived thing, so whatever stands behind it has
+// to carry the refusal on its own.
+//
+// Both tests below stand in for the reuse rather than waiting for a filesystem
+// that performs it -- a tmpfs never reuses an inode number, so on a developer's
+// machine these paths are otherwise unreachable while a CI runner's ext4 /tmp
+// takes them every time.
+func TestRemoveSource_RefusesAReplacedDirectoryOnAReusedInode(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "tree")
+	if err := os.MkdirAll(filepath.Join(src, "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "nested", "f.txt"), []byte("archived"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if err := os.RemoveAll(src); err != nil {
+		t.Fatal(err)
+	}
+	survivor := filepath.Join(src, "unrelated.txt")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(survivor, []byte("belongs to whoever made this one"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	replaced, err := os.Lstat(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.identity = replaced
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrDirectoryChanged) {
+		t.Fatalf("expected ErrDirectoryChanged, got %v", err)
+	}
+	if _, err := os.Stat(survivor); err != nil {
+		t.Fatalf("the recursive removal destroyed a tree nothing archived: %v", err)
+	}
+}
+
+// A symlink has no content and no member list, so the identity check was the
+// whole of its verification -- and past a reused inode number that check says
+// yes. The recorded target is the only thing left that tells the archived link
+// apart from one written over it.
+func TestRemoveSource_RefusesAReplacedSymlinkOnAReusedInode(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "link")
+	if err := os.Symlink("/etc/hostname", src); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := NewPlan(src, filepath.Join(dir, "archive"), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Execute(plan); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if err := os.Remove(src); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/etc/hosts", src); err != nil {
+		t.Fatal(err)
+	}
+
+	replaced, err := os.Lstat(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan.identity = replaced
+
+	if err := RemoveSource(plan); !errors.Is(err, ErrSourceReplaced) {
+		t.Fatalf("expected ErrSourceReplaced, got %v", err)
+	}
+	target, err := os.Readlink(src)
+	if err != nil {
+		t.Fatalf("the replacement symlink was destroyed: %v", err)
+	}
+	if target != "/etc/hosts" {
+		t.Errorf("the surviving symlink points at %q", target)
 	}
 }
 
