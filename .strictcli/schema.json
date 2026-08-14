@@ -603,7 +603,7 @@
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
           },
-          "help": "Print the absolute path to this application's config file and nothing else, so the value can be piped straight into another command. The path is $XDG_CONFIG_HOME/\u003capp\u003e/config.\u003ctoml|json\u003e (falling back to ~/.config), or the explicit override the application was built with. Printing it does not create the file, and reports the same path whether or not one exists yet.",
+          "help": "Print the absolute path to this application's config file and nothing else, so the value can be piped straight into another command. The path is $XDG_CONFIG_HOME/<app>/config.<toml|json> (falling back to ~/.config), or the explicit override the application was built with. Printing it does not create the file, and reports the same path whether or not one exists yet.",
           "name": "path"
         },
         "set": {
@@ -678,5 +678,5 @@
   "name": "saferm",
   "project_id": "github.com/smm-h/saferm",
   "schema_version": 1,
-  "version": "(devel)"
+  "version": "0.9.0"
 }
