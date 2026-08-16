@@ -170,7 +170,7 @@ If the destination is inside a git repository and `--update-git-index` is true (
 
 Purging permanently removes the archived content while preserving the metadata record. The archive file (`<uuid>`, `<uuid>.tar.zst`, or `<uuid>.symlink`) is deleted from disk, and the database record's `purged_at` field is set. This means `saferm list --all` still shows the deletion history, but `saferm undelete` will refuse to restore a purged item because the content is gone.
 
-Records can be selected for purging by record UUID or numeric ID, by age (`--older-than`), by size (`--larger-than`), or all at once (`--all`).
+Records can be selected for purging by record UUID or numeric ID, by age (`--older-than`), by size (`--larger-than`), or all at once (`--all`). At least one of those four must be given, and that rule is a declaration rather than a check inside the handler: the constraint `purge-selection` is registered with the command, rendered in `saferm purge --help`, published in the dumped schema, and enforced by the parser before dispatch. A purge that selects nothing is refused with `constraint "purge-selection": at least one of targets, --older-than, --larger-than, --all is required` and exits 1. `--all` counts only when it is true, so `--no-all` declines the option rather than choosing one, and the refusal says so.
 
 ## Cross-device handling
 

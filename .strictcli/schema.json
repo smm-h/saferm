@@ -1,102 +1,161 @@
 {
-  "commands": {
-    "capabilities": {
-      "effect": "read_only",
-      "help": "Name the features this saferm ships, for a program deciding how to drive it",
-      "name": "capabilities",
-      "payload_schema": {
-        "additionalProperties": false,
-        "properties": {
-          "features": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "features"
-        ],
-        "type": "object"
-      }
+  "schema_version": 2,
+  "defaults": {
+    "schema_version": 2,
+    "app": {
+      "env_prefix": null,
+      "config": false,
+      "config_format": "json",
+      "config_path": null,
+      "config_conflict_mode": "cli-wins",
+      "proc_observe_allowlist": [],
+      "global_flags": [],
+      "commands": {},
+      "groups": {},
+      "deprecated": {},
+      "tag_contracts": {},
+      "checks": {},
+      "config_fields": {},
+      "infra": {}
     },
+    "flag": {
+      "short": null,
+      "env": null,
+      "env_separator": null,
+      "prefixed": true,
+      "choices": null,
+      "elect_by": null,
+      "unique": false,
+      "conflict_mode": null,
+      "negatable": null,
+      "nullable": false
+    },
+    "arg": {
+      "variadic": false,
+      "choices": null
+    },
+    "choice": {
+      "flags": []
+    },
+    "choice_record": {
+      "help": null
+    },
+    "command": {
+      "consequential": false,
+      "dry_run_supported": true,
+      "dry_run_unsupported_reason": null,
+      "update_of": null,
+      "write_mode": null,
+      "payload_schema": null,
+      "owns_stdout": false,
+      "passthrough": false,
+      "flags": [],
+      "flag_sets": [],
+      "args": [],
+      "tags": [],
+      "constraints": [],
+      "hidden": false,
+      "interactive": false,
+      "config_fields": [],
+      "grants": [],
+      "forwarding": null
+    },
+    "group": {
+      "commands": {},
+      "groups": {},
+      "deprecated": {},
+      "tags": [],
+      "hidden": false
+    },
+    "config_field": {
+      "default": null,
+      "bound_commands": []
+    },
+    "check": {
+      "scope": null
+    },
+    "infra": {
+      "roots": [],
+      "handshakes": [],
+      "connections": []
+    }
+  },
+  "project_id": "github.com/smm-h/saferm",
+  "name": "saferm",
+  "version": "(devel)",
+  "help": "AI-first safe rm replacement",
+  "env_prefix": "SAFERM",
+  "config": true,
+  "config_format": "toml",
+  "config_path": {
+    "relative_to_root": {
+      "env_var": "SAFERM_HOME",
+      "parts": [
+        "config.toml"
+      ]
+    }
+  },
+  "global_flags": [
+    {
+      "name": "archive-dir",
+      "help": "Path to the archive directory",
+      "value_schema": {
+        "type": "string"
+      },
+      "presence": "default",
+      "default": {
+        "relative_to_root": {
+          "env_var": "SAFERM_HOME",
+          "parts": [
+            "archive"
+          ]
+        }
+      },
+      "conflict_mode": "error"
+    },
+    {
+      "name": "db-path",
+      "help": "Path to the SQLite database",
+      "value_schema": {
+        "type": "string"
+      },
+      "presence": "default",
+      "default": {
+        "relative_to_root": {
+          "env_var": "SAFERM_HOME",
+          "parts": [
+            "db",
+            "saferm.db"
+          ]
+        }
+      },
+      "conflict_mode": "error"
+    },
+    {
+      "name": "exclude-env-patterns",
+      "help": "Regex patterns for env vars to exclude from metadata",
+      "value_schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "presence": "default",
+      "default": [
+        "(?i)token",
+        "(?i)secret",
+        "(?i)password",
+        "(?i)key",
+        "(?i)credential"
+      ],
+      "unique": true
+    }
+  ],
+  "commands": {
     "delete": {
-      "args": [
-        {
-          "help": "One or more files or directories to move into the archive",
-          "name": "files",
-          "variadic": true
-        }
-      ],
-      "effect": "mutating",
-      "flags": [
-        {
-          "default": false,
-          "help": "Allow recursive deletion of directories and all their contents",
-          "name": "recursive",
-          "negatable": true,
-          "short": "r",
-          "type": "bool"
-        },
-        {
-          "default": false,
-          "help": "Silently skip files that do not exist instead of erroring",
-          "name": "ignore-missing",
-          "negatable": true,
-          "short": "f",
-          "type": "bool"
-        },
-        {
-          "default": false,
-          "help": "Prompt for confirmation before archiving each file",
-          "name": "interactive",
-          "negatable": true,
-          "short": "i",
-          "type": "bool"
-        },
-        {
-          "help": "Mandatory explanation of why this deletion is happening",
-          "name": "description",
-          "type": "str"
-        },
-        {
-          "default": "",
-          "help": "Record the original rm command being replaced by saferm",
-          "name": "command",
-          "type": "str"
-        },
-        {
-          "help": "Attach additional metadata as key=value pairs (repeatable)",
-          "name": "meta",
-          "repeatable": true,
-          "type": "str"
-        },
-        {
-          "default": true,
-          "help": "Run git rm --cached to stage removal in the git index",
-          "name": "update-git-index",
-          "negatable": true,
-          "type": "bool"
-        },
-        {
-          "choices": [
-            "abort",
-            "continue"
-          ],
-          "help": "What to do when a path cannot be archived: abort (stop at the first failure) or continue (archive the remaining paths, report every failure, and exit non-zero at the end). Mandatory: there is no default",
-          "name": "on-error",
-          "type": "str"
-        }
-      ],
-      "grants": [
-        {
-          "kind": "proc_mutate",
-          "name": "git-index",
-          "reason": "a tracked file that moved into the archive must leave the git index too, or the next commit resurrects it"
-        }
-      ],
-      "help": "Move files to the saferm archive with metadata tracking",
       "name": "delete",
+      "help": "Move files to the saferm archive with metadata tracking",
+      "effect": "mutating",
       "payload_schema": {
         "additionalProperties": false,
         "properties": {
@@ -156,18 +215,379 @@
           "failed"
         ],
         "type": "object"
-      }
-    },
-    "info": {
-      "args": [
+      },
+      "flags": [
         {
-          "help": "Record UUID or numeric database ID of the archived item to inspect (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID)",
-          "name": "target"
+          "name": "recursive",
+          "help": "Allow recursive deletion of directories and all their contents; omitted, a directory is refused",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "short": "r",
+          "presence": "optional",
+          "negatable": true
+        },
+        {
+          "name": "ignore-missing",
+          "help": "Silently skip files that do not exist instead of erroring; omitted, a missing path is an error",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "short": "f",
+          "presence": "optional",
+          "negatable": true
+        },
+        {
+          "name": "interactive",
+          "help": "Prompt for confirmation before archiving each file; omitted, nothing is asked",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "short": "i",
+          "presence": "optional",
+          "negatable": true
+        },
+        {
+          "name": "description",
+          "help": "Mandatory explanation of why this deletion is happening",
+          "value_schema": {
+            "type": "string"
+          },
+          "presence": "required"
+        },
+        {
+          "name": "command",
+          "help": "Record the original rm command being replaced by saferm; omitted, no command is recorded",
+          "value_schema": {
+            "type": "string"
+          },
+          "presence": "optional"
+        },
+        {
+          "name": "meta",
+          "help": "Attach additional metadata as key=value pairs (repeatable); omitted, no custom metadata is attached",
+          "value_schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "presence": "optional"
+        },
+        {
+          "name": "update-git-index",
+          "help": "Run git rm --cached to stage removal in the git index; omitted, the index is updated",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "presence": "optional",
+          "negatable": true
+        },
+        {
+          "name": "on-error",
+          "help": "What to do when a path cannot be archived. Mandatory: there is no default",
+          "value_schema": {
+            "type": "string",
+            "enum": [
+              "abort",
+              "continue"
+            ]
+          },
+          "presence": "required",
+          "choices": [
+            {
+              "value": "abort",
+              "help": "stop at the first path that cannot be archived, leaving the remaining paths untouched"
+            },
+            {
+              "value": "continue",
+              "help": "archive the remaining paths, report every failure, and exit with the first failure's code at the end"
+            }
+          ]
         }
       ],
+      "args": [
+        {
+          "name": "files",
+          "help": "One or more files or directories to move into the archive",
+          "value_schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "presence": "required",
+          "variadic": true
+        }
+      ],
+      "grants": [
+        {
+          "name": "git-index",
+          "reason": "a tracked file that moved into the archive must leave the git index too, or the next commit resurrects it",
+          "kind": "proc_mutate"
+        }
+      ]
+    },
+    "undelete": {
+      "name": "undelete",
+      "help": "Restore a previously archived file back to its original path",
+      "effect": "mutating",
+      "payload_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "file",
+              "directory",
+              "symlink"
+            ],
+            "type": "string"
+          },
+          "original_path": {
+            "type": "string"
+          },
+          "overwrote": {
+            "type": "boolean"
+          },
+          "restored_to": {
+            "type": "string"
+          },
+          "uuid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "uuid",
+          "original_path",
+          "restored_to",
+          "kind",
+          "overwrote"
+        ],
+        "type": "object"
+      },
+      "flags": [
+        {
+          "name": "on-conflict",
+          "help": "What to do when something already exists at the restoration destination. Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default",
+          "value_schema": {
+            "type": "string",
+            "enum": [
+              "overwrite",
+              "abort"
+            ]
+          },
+          "presence": "optional",
+          "choices": [
+            {
+              "value": "overwrite",
+              "help": "check the archived copy against the record, then replace what is standing at the destination"
+            },
+            {
+              "value": "abort",
+              "help": "refuse the restore and change nothing at the destination"
+            }
+          ]
+        },
+        {
+          "name": "update-git-index",
+          "help": "Run git add to stage the restored path in the git index; omitted, the index is updated",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "presence": "optional",
+          "negatable": true
+        },
+        {
+          "name": "destination",
+          "help": "Restore to this path instead of the record's original one; omitted, the record's own path is used. Where the content actually went is written to the record, so `info` names it afterwards",
+          "value_schema": {
+            "type": "string"
+          },
+          "presence": "optional"
+        }
+      ],
+      "args": [
+        {
+          "name": "target",
+          "help": "Record UUID, numeric database ID, or original file path of the item to restore (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID, anything else is a path)",
+          "value_schema": {
+            "type": "string"
+          },
+          "presence": "required"
+        }
+      ],
+      "grants": [
+        {
+          "name": "git-index",
+          "reason": "a restored file is staged so the working tree and the index agree again",
+          "kind": "proc_mutate"
+        }
+      ]
+    },
+    "list": {
+      "name": "list",
+      "help": "Show all items currently held in the saferm archive",
       "effect": "read_only",
-      "help": "Display full metadata and context for an archived deletion",
+      "payload_schema": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "deleted_at": {
+              "type": "string"
+            },
+            "id": {
+              "type": "integer"
+            },
+            "kind": {
+              "enum": [
+                "file",
+                "directory",
+                "symlink"
+              ],
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "size": {
+              "type": "integer"
+            },
+            "status": {
+              "enum": [
+                "archived",
+                "restored",
+                "purged"
+              ],
+              "type": "string"
+            },
+            "uuid": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "uuid",
+            "path",
+            "size",
+            "kind",
+            "deleted_at",
+            "status"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "flags": [
+        {
+          "name": "path",
+          "help": "Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth); omitted, every path is listed",
+          "value_schema": {
+            "type": "string"
+          },
+          "presence": "optional"
+        },
+        {
+          "name": "all",
+          "help": "Include items that have already been restored or purged",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "presence": "default",
+          "default": false,
+          "negatable": true
+        }
+      ]
+    },
+    "purge": {
+      "name": "purge",
+      "help": "Permanently destroy archived items and free disk space",
+      "effect": "mutating",
+      "consequential": true,
+      "flags": [
+        {
+          "name": "older-than",
+          "help": "Purge items older than duration (e.g., 30d, 24h, 1w); omitted, age selects nothing",
+          "value_schema": {
+            "type": "string"
+          },
+          "presence": "optional"
+        },
+        {
+          "name": "larger-than",
+          "help": "Only purge items larger than this size (e.g. 100MB, 1GB); omitted, size filters nothing",
+          "value_schema": {
+            "type": "string"
+          },
+          "presence": "optional"
+        },
+        {
+          "name": "all",
+          "help": "Select all archived items for permanent destruction; omitted, nothing is selected by this flag",
+          "value_schema": {
+            "type": "boolean"
+          },
+          "presence": "optional",
+          "negatable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "targets",
+          "help": "Record UUIDs or numeric database IDs of specific items to permanently destroy (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID)",
+          "value_schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "presence": "optional",
+          "variadic": true
+        }
+      ],
+      "constraints": [
+        {
+          "type": "at_least_one",
+          "name": "purge-selection",
+          "members": [
+            {
+              "kind": "arg",
+              "name": "targets",
+              "when": "non_empty"
+            },
+            {
+              "kind": "flag",
+              "name": "older-than",
+              "when": "present"
+            },
+            {
+              "kind": "flag",
+              "name": "larger-than",
+              "when": "present"
+            },
+            {
+              "kind": "flag",
+              "name": "all",
+              "when": "true"
+            }
+          ]
+        }
+      ],
+      "grants": [
+        {
+          "name": "purge",
+          "reason": "purging destroys the archived content permanently; undelete cannot bring it back",
+          "kind": "file_write"
+        }
+      ]
+    },
+    "info": {
       "name": "info",
+      "help": "Display full metadata and context for an archived deletion",
+      "effect": "read_only",
       "payload_schema": {
         "additionalProperties": false,
         "properties": {
@@ -280,403 +700,167 @@
           "group_id"
         ],
         "type": "object"
-      }
-    },
-    "list": {
-      "effect": "read_only",
-      "flags": [
+      },
+      "args": [
         {
-          "default": "",
-          "help": "Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth)",
-          "name": "path",
-          "type": "str"
-        },
-        {
-          "default": false,
-          "help": "Include items that have already been restored or purged",
-          "name": "all",
-          "negatable": true,
-          "type": "bool"
-        }
-      ],
-      "help": "Show all items currently held in the saferm archive",
-      "name": "list",
-      "payload_schema": {
-        "items": {
-          "additionalProperties": false,
-          "properties": {
-            "deleted_at": {
-              "type": "string"
-            },
-            "id": {
-              "type": "integer"
-            },
-            "kind": {
-              "enum": [
-                "file",
-                "directory",
-                "symlink"
-              ],
-              "type": "string"
-            },
-            "path": {
-              "type": "string"
-            },
-            "size": {
-              "type": "integer"
-            },
-            "status": {
-              "enum": [
-                "archived",
-                "restored",
-                "purged"
-              ],
-              "type": "string"
-            },
-            "uuid": {
-              "type": "string"
-            }
+          "name": "target",
+          "help": "Record UUID or numeric database ID of the archived item to inspect (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID)",
+          "value_schema": {
+            "type": "string"
           },
-          "required": [
-            "id",
-            "uuid",
-            "path",
-            "size",
-            "kind",
-            "deleted_at",
-            "status"
-          ],
-          "type": "object"
-        },
-        "type": "array"
-      }
+          "presence": "required"
+        }
+      ]
     },
-    "purge": {
-      "args": [
-        {
-          "help": "Record UUIDs or numeric database IDs of specific items to permanently destroy (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID)",
-          "name": "targets",
-          "required": false,
-          "variadic": true
-        }
-      ],
-      "consequential": true,
-      "effect": "mutating",
-      "flags": [
-        {
-          "default": "",
-          "help": "Purge items older than duration (e.g., 30d, 24h, 1w)",
-          "name": "older-than",
-          "type": "str"
-        },
-        {
-          "default": "",
-          "help": "Only purge items larger than this size (e.g. 100MB, 1GB)",
-          "name": "larger-than",
-          "type": "str"
-        },
-        {
-          "default": false,
-          "help": "Select all archived items for permanent destruction",
-          "name": "all",
-          "negatable": true,
-          "type": "bool"
-        }
-      ],
-      "grants": [
-        {
-          "kind": "file_write",
-          "name": "purge",
-          "reason": "purging destroys the archived content permanently; undelete cannot bring it back"
-        }
-      ],
-      "help": "Permanently destroy archived items and free disk space",
-      "name": "purge"
-    },
-    "undelete": {
-      "args": [
-        {
-          "help": "Record UUID, numeric database ID, or original file path of the item to restore (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID, anything else is a path)",
-          "name": "target"
-        }
-      ],
-      "effect": "mutating",
-      "flags": [
-        {
-          "choices": [
-            "overwrite",
-            "abort"
-          ],
-          "help": "What to do when something already exists at the restoration destination: overwrite (check the archived copy against the record, then replace what is there) or abort (refuse and change nothing). Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default",
-          "name": "on-conflict",
-          "type": "str"
-        },
-        {
-          "default": true,
-          "help": "Run git add to stage the restored path in the git index",
-          "name": "update-git-index",
-          "negatable": true,
-          "type": "bool"
-        },
-        {
-          "default": "",
-          "help": "Restore to this path instead of the record's original one. Where the content actually went is written to the record, so `info` names it afterwards",
-          "name": "destination",
-          "type": "str"
-        }
-      ],
-      "grants": [
-        {
-          "kind": "proc_mutate",
-          "name": "git-index",
-          "reason": "a restored file is staged so the working tree and the index agree again"
-        }
-      ],
-      "help": "Restore a previously archived file back to its original path",
-      "name": "undelete",
+    "capabilities": {
+      "name": "capabilities",
+      "help": "Name the features this saferm ships, for a program deciding how to drive it",
+      "effect": "read_only",
       "payload_schema": {
         "additionalProperties": false,
         "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "kind": {
-            "enum": [
-              "file",
-              "directory",
-              "symlink"
-            ],
-            "type": "string"
-          },
-          "original_path": {
-            "type": "string"
-          },
-          "overwrote": {
-            "type": "boolean"
-          },
-          "restored_to": {
-            "type": "string"
-          },
-          "uuid": {
-            "type": "string"
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [
-          "id",
-          "uuid",
-          "original_path",
-          "restored_to",
-          "kind",
-          "overwrote"
+          "features"
         ],
         "type": "object"
       }
     }
   },
-  "config": true,
-  "config_fields": {
-    "archive_dir": {
-      "help": "Directory where deleted files are archived. Default derives from SAFERM_HOME (an infrastructure override: unlike config values, SAFERM_HOME is NOT suppressed by --hermetic).",
-      "required": true,
-      "type": "str"
-    },
-    "db_path": {
-      "help": "Path to the SQLite database. Default derives from SAFERM_HOME (an infrastructure override: unlike config values, SAFERM_HOME is NOT suppressed by --hermetic).",
-      "required": true,
-      "type": "str"
-    }
-  },
-  "defaults": {
-    "app": {
-      "commands": {},
-      "config": false,
-      "deprecated": {},
-      "env_prefix": null,
-      "global_flags": [],
-      "groups": {},
-      "tag_contracts": {}
-    },
-    "arg": {
-      "choices": null,
-      "default": null,
-      "required": true,
-      "type": "str",
-      "variadic": false
-    },
-    "command": {
-      "args": [],
-      "constraints": [],
-      "flags": [],
-      "hidden": false,
-      "interactive": false,
-      "passthrough": false,
-      "tags": []
-    },
-    "flag": {
-      "choices": null,
-      "default": null,
-      "env": null,
-      "env_separator": null,
-      "hidden": false,
-      "negatable": null,
-      "repeatable": false,
-      "short": null,
-      "unique": false
-    },
-    "group": {
-      "commands": {},
-      "deprecated": {},
-      "groups": {},
-      "hidden": false,
-      "tags": []
-    },
-    "schema_version": 1
-  },
-  "env_prefix": "SAFERM",
-  "global_flags": [
-    {
-      "conflict_mode": "error",
-      "default": {
-        "relative_to_root": {
-          "env_var": "SAFERM_HOME",
-          "parts": [
-            "archive"
-          ]
-        }
-      },
-      "help": "Path to the archive directory",
-      "name": "archive-dir",
-      "type": "str"
-    },
-    {
-      "conflict_mode": "error",
-      "default": {
-        "relative_to_root": {
-          "env_var": "SAFERM_HOME",
-          "parts": [
-            "db",
-            "saferm.db"
-          ]
-        }
-      },
-      "help": "Path to the SQLite database",
-      "name": "db-path",
-      "type": "str"
-    },
-    {
-      "default": [
-        "(?i)token",
-        "(?i)secret",
-        "(?i)password",
-        "(?i)key",
-        "(?i)credential"
-      ],
-      "help": "Regex patterns for env vars to exclude from metadata",
-      "name": "exclude-env-patterns",
-      "repeatable": true,
-      "type": "str",
-      "unique": true
-    }
-  ],
   "groups": {
     "config": {
+      "name": "config",
+      "help": "Manage persistent configuration values stored in the config file",
       "commands": {
-        "edit": {
-          "effect": "mutating",
-          "forwarding": {
-            "reason": "framework-internal: absorbs app-defined global flag values"
-          },
-          "help": "Open this application's config file in the editor named by $EDITOR, falling back to vi. The parent directory and an empty config file are created first if they do not exist, so the editor always opens something. Launching the editor counts as a mutation: under --dry-run the command records the editor invocation and opens nothing.",
-          "interactive": true,
-          "name": "edit"
-        },
-        "init": {
-          "effect": "mutating",
-          "forwarding": {
-            "reason": "framework-internal: absorbs app-defined global flag values"
-          },
-          "help": "Create a starter config file listing every flag and config field the application declares, each commented with its help text, type and default value, so the file documents itself. The format follows whichever of TOML or JSON the application was built for. Refuses with an error if a config file already exists rather than overwriting it; the created path is printed on success.",
-          "name": "init"
-        },
         "path": {
+          "name": "path",
+          "help": "Print the absolute path to this application's config file and nothing else, so the value can be piped straight into another command. The path is $XDG_CONFIG_HOME/<app>/config.<toml|json> (falling back to ~/.config), or the explicit override the application was built with. Printing it does not create the file, and reports the same path whether or not one exists yet.",
           "effect": "read_only",
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
-          },
-          "help": "Print the absolute path to this application's config file and nothing else, so the value can be piped straight into another command. The path is $XDG_CONFIG_HOME/<app>/config.<toml|json> (falling back to ~/.config), or the explicit override the application was built with. Printing it does not create the file, and reports the same path whether or not one exists yet.",
-          "name": "path"
-        },
-        "set": {
-          "args": [
-            {
-              "help": "The config key to set, matching a registered flag name",
-              "name": "key"
-            },
-            {
-              "help": "Value to set (comma-separated for repeatable flags, use backslash to escape commas)",
-              "name": "value",
-              "required": false
-            }
-          ],
-          "effect": "mutating",
-          "flags": [
-            {
-              "default": false,
-              "help": "Clear a repeatable flag by setting its value to an empty list",
-              "name": "clear",
-              "negatable": true,
-              "type": "bool"
-            },
-            {
-              "default": false,
-              "help": "Reset a key to its default value by removing it from the config file",
-              "name": "default",
-              "negatable": true,
-              "type": "bool"
-            }
-          ],
-          "forwarding": {
-            "reason": "framework-internal: absorbs app-defined global flag values"
-          },
-          "help": "Write a persistent value into the config file so it overrides a flag's declared default on every later run. The value is coerced to the flag's own type and rejected if it does not fit: repeatable flags take a comma-separated list (backslash-escape a literal comma) and are checked for duplicates, dict flags take a JSON object. Use --default to drop a key back to its default, and --clear to empty a repeatable flag.",
-          "name": "set"
+          }
         },
         "show": {
+          "name": "show",
+          "help": "Show every flag and config field with its effective value and where that value came from, resolved through the precedence chain environment variable, then config file, then declared default. Declared infrastructure roots, handshake and connection environment variables are listed too. Choose --plain for an aligned human-readable table; the framework-owned --json yields the same information as a machine-readable object carrying each entry's type, default and help text.",
           "effect": "read_only",
+          "payload_schema": {
+            "type": "object"
+          },
           "flags": [
             {
-              "default": false,
-              "help": "Display config values in a human-readable table format",
               "name": "plain",
-              "negatable": true,
-              "type": "bool"
+              "help": "Display config values in a human-readable table format",
+              "value_schema": {
+                "type": "boolean"
+              },
+              "presence": "default",
+              "default": false,
+              "negatable": true
             }
           ],
           "forwarding": {
             "reason": "framework-internal: absorbs app-defined global flag values"
-          },
-          "help": "Show every flag and config field with its effective value and where that value came from, resolved through the precedence chain environment variable, then config file, then declared default. Declared infrastructure roots, handshake and connection environment variables are listed too. Choose --plain for an aligned human-readable table; the framework-owned --json yields the same information as a machine-readable object carrying each entry's type, default and help text.",
-          "name": "show",
-          "payload_schema": {
-            "type": "object"
+          }
+        },
+        "set": {
+          "name": "set",
+          "help": "Write a persistent value into the config file so it overrides a flag's declared default on every later run. The value is coerced to the flag's own type and rejected if it does not fit: repeatable flags take a comma-separated list (backslash-escape a literal comma) and are checked for duplicates, dict flags take a JSON object. Use --default to drop a key back to its default, and --clear to empty a repeatable flag.",
+          "effect": "mutating",
+          "flags": [
+            {
+              "name": "write",
+              "help": "What to write at the key: a value, a clear, or a reset to the declared default",
+              "presence": "required",
+              "choices": [
+                {
+                  "name": "value",
+                  "help": "Write a value at the key",
+                  "flags": [
+                    {
+                      "name": "value",
+                      "help": "Write this value at the key, coerced to the key's own type (comma-separated for a repeatable flag, backslash-escaping a literal comma; a JSON object for a dict flag)",
+                      "value_schema": {
+                        "type": "string"
+                      },
+                      "presence": "required"
+                    }
+                  ]
+                },
+                {
+                  "name": "clear",
+                  "help": "Clear a repeatable flag"
+                },
+                {
+                  "name": "default",
+                  "help": "Reset the key to its declared default"
+                }
+              ],
+              "elect_by": "member-flags"
+            }
+          ],
+          "args": [
+            {
+              "name": "key",
+              "help": "The config key to set, matching a registered flag name",
+              "value_schema": {
+                "type": "string"
+              },
+              "presence": "required"
+            }
+          ],
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
+          }
+        },
+        "edit": {
+          "name": "edit",
+          "help": "Open this application's config file in the editor named by $EDITOR, falling back to vi. The parent directory and an empty config file are created first if they do not exist, so the editor always opens something. Launching the editor counts as a mutation: under --dry-run the command records the editor invocation and opens nothing.",
+          "effect": "mutating",
+          "interactive": true,
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
+          }
+        },
+        "init": {
+          "name": "init",
+          "help": "Create a starter config file listing every flag and config field the application declares, each commented with its help text, type and default value, so the file documents itself. The format follows whichever of TOML or JSON the application was built for. Refuses with an error if a config file already exists rather than overwriting it; the created path is printed on success.",
+          "effect": "mutating",
+          "forwarding": {
+            "reason": "framework-internal: absorbs app-defined global flag values"
           }
         }
-      },
-      "help": "Manage persistent configuration values stored in the config file",
-      "name": "config"
+      }
     }
   },
-  "help": "AI-first safe rm replacement",
+  "config_fields": {
+    "archive_dir": {
+      "value_schema": {
+        "type": "string"
+      },
+      "help": "Directory where deleted files are archived. Default derives from SAFERM_HOME (an infrastructure override: unlike config values, SAFERM_HOME is NOT suppressed by --hermetic).",
+      "required": true
+    },
+    "db_path": {
+      "value_schema": {
+        "type": "string"
+      },
+      "help": "Path to the SQLite database. Default derives from SAFERM_HOME (an infrastructure override: unlike config values, SAFERM_HOME is NOT suppressed by --hermetic).",
+      "required": true
+    }
+  },
   "infra": {
     "roots": [
       {
-        "default": "~/.saferm",
-        "env_var": "SAFERM_HOME"
+        "env_var": "SAFERM_HOME",
+        "default": "~/.saferm"
       }
     ]
-  },
-  "name": "saferm",
-  "project_id": "github.com/smm-h/saferm",
-  "schema_version": 1,
-  "version": "0.9.0"
+  }
 }

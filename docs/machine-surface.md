@@ -26,13 +26,14 @@ In machine mode **stdout carries exactly one document**: the envelope, serialize
 
 | Key | Type | Meaning |
 |-----|------|---------|
-| `interface_version` | integer | The envelope contract's own version. `1` today. |
+| `interface_version` | integer | The envelope contract's own version. `2` today. A consumer pinning `interface_version == 1` must be updated before it can read saferm 0.10.0 or later. |
 | `app` | string | `saferm`. |
 | `app_version` | string | The version of the binary that ran. |
 | `command` | string \| null | The command that ran (`list`, `config.show`). `null` when the run ended before a command resolved -- a parse error, an unknown command. |
 | `exit_code` | integer | The process's exit status -- the same codes saferm returns outside machine mode. |
 | `payload` | any \| null | The verb's own answer, described below. `null` for a verb that declares no payload, and for a run that failed before producing one. |
 | `dry_run` | boolean | Whether the run was a preview. |
+| `writes` | object \| null | The properties an update command wrote. **Always `null` in saferm**, which declares no update command; it is part of the version-2 contract and is present on every envelope. |
 | `preview` | array | The structured effects the run recorded: every path it wrote, moved or removed. Populated in both modes. |
 | `preview_error` | object \| null | Why a preview stopped early, when it did. |
 | `diagnostics` | array | Every line the run would have printed, in order, as `{"level", "message"}`. |

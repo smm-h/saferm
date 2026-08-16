@@ -49,10 +49,13 @@ Use `saferm config` subcommands to manage the file:
 saferm config show
 
 # Set archive directory
-saferm config set archive_dir /mnt/backup/saferm/archive
+saferm config set archive_dir --value /mnt/backup/saferm/archive
 
 # Reset a key to its default
-saferm config set --default archive_dir
+saferm config set archive_dir --default
+
+# Empty a repeatable key
+saferm config set exclude_env_patterns --clear
 
 # Open config file in $EDITOR
 saferm config edit
