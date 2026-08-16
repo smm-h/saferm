@@ -116,7 +116,7 @@ Either way the identifiers of everything already archived are on stdout before t
 
 ```
 $ saferm --json capabilities
-{"interface_version":1,"app":"saferm","command":"capabilities","exit_code":0,
+{"interface_version":2,"app":"saferm","command":"capabilities","exit_code":0,
  "payload":{"features":["git-index-switches","group-id","machine-payloads","on-conflict-modes",
  "on-error-modes","restore-destination","trace-origin","uuid-handles"]}, ...}
 ```
