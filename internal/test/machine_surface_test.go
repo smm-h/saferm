@@ -21,16 +21,21 @@ import (
 // consumer sees it rather than imported: the point of the surface is that
 // something outside this repository can parse it from the bytes alone.
 type envelope struct {
-	InterfaceVersion int                      `json:"interface_version"`
-	App              string                   `json:"app"`
-	AppVersion       string                   `json:"app_version"`
-	Command          *string                  `json:"command"`
-	ExitCode         int                      `json:"exit_code"`
-	Payload          json.RawMessage          `json:"payload"`
-	DryRun           bool                     `json:"dry_run"`
-	Preview          []map[string]interface{} `json:"preview"`
-	PreviewError     *map[string]interface{}  `json:"preview_error"`
-	Diagnostics      []struct {
+	InterfaceVersion int             `json:"interface_version"`
+	App              string          `json:"app"`
+	AppVersion       string          `json:"app_version"`
+	Command          *string         `json:"command"`
+	ExitCode         int             `json:"exit_code"`
+	Payload          json.RawMessage `json:"payload"`
+	DryRun           bool            `json:"dry_run"`
+	// Always null here: `writes` names the properties an update command wrote,
+	// and saferm declares no update command. It is mirrored anyway, because a
+	// consumer parsing this envelope sees the member and this struct is the
+	// consumer's own view of the document.
+	Writes       json.RawMessage          `json:"writes"`
+	Preview      []map[string]interface{} `json:"preview"`
+	PreviewError *map[string]interface{}  `json:"preview_error"`
+	Diagnostics  []struct {
 		Level   string `json:"level"`
 		Message string `json:"message"`
 	} `json:"diagnostics"`
@@ -52,8 +57,13 @@ func runSafermJSON(t *testing.T, homeDir string, args ...string) (envelope, stri
 	if err := json.Unmarshal([]byte(trimmed), &env); err != nil {
 		t.Fatalf("stdout is not one envelope (%v): %q", err, stdout)
 	}
-	if env.InterfaceVersion != 1 {
-		t.Errorf("interface_version = %d, want 1", env.InterfaceVersion)
+	if env.InterfaceVersion != 2 {
+		t.Errorf("interface_version = %d, want 2", env.InterfaceVersion)
+	}
+	// saferm declares no update command, so the version-2 member that names an
+	// update's write set is null on every one of saferm's envelopes.
+	if s := string(env.Writes); s != "null" {
+		t.Errorf("writes = %s, want null", s)
 	}
 	if env.App != "saferm" {
 		t.Errorf("app = %q, want saferm", env.App)
