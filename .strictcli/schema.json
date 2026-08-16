@@ -82,7 +82,7 @@
   },
   "project_id": "github.com/smm-h/saferm",
   "name": "saferm",
-  "version": "(devel)",
+  "version": "0.10.0",
   "help": "AI-first safe rm replacement",
   "env_prefix": "SAFERM",
   "config": true,
