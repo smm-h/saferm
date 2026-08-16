@@ -15,17 +15,25 @@ Permanently destroy archived items and free disk space
 
 ## Flags
 
-| Name | Short | Type | Default | Env | Description |
+| Name | Short | Type | Presence | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--older-than` |  | str |  |  | Purge items older than duration (e.g., 30d, 24h, 1w) |
-| `--larger-than` |  | str |  |  | Only purge items larger than this size (e.g. 100MB, 1GB) |
-| `--all` |  | bool |  |  | Select all archived items for permanent destruction |
+| `--older-than` |  | str | optional |  | Purge items older than duration (e.g., 30d, 24h, 1w); omitted, age selects nothing |
+| `--larger-than` |  | str | optional |  | Only purge items larger than this size (e.g. 100MB, 1GB); omitted, size filters nothing |
+| `--all`, `--no-all` |  | bool | optional |  | Select all archived items for permanent destruction; omitted, nothing is selected by this flag |
 
 ## Arguments
 
-| Name | Required | Description |
-| --- | --- | --- |
-| `targets` | no | Record UUIDs or numeric database IDs of specific items to permanently destroy (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID) |
+| Name | Type | Presence | Description |
+| --- | --- | --- | --- |
+| `targets` | list[str] (variadic) | optional | Record UUIDs or numeric database IDs of specific items to permanently destroy (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID) |
+
+## Constraints
+
+The framework enforces these before the command runs.
+
+| Rule | What it requires |
+| --- | --- |
+| `purge-selection` | At least one of `targets` (when non-empty), `--older-than` (when supplied), `--larger-than` (when supplied), `--all` (when true). |
 
 ## Grants
 

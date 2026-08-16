@@ -15,7 +15,7 @@ Show all items currently held in the saferm archive
 
 ## Flags
 
-| Name | Short | Type | Default | Env | Description |
+| Name | Short | Type | Presence | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--path` |  | str |  |  | Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth) |
-| `--all` |  | bool |  |  | Include items that have already been restored or purged |
+| `--path` |  | str | optional |  | Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth); omitted, every path is listed |
+| `--all`, `--no-all` |  | bool | default: `false` |  | Include items that have already been restored or purged |

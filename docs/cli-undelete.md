@@ -15,17 +15,17 @@ Restore a previously archived file back to its original path
 
 ## Flags
 
-| Name | Short | Type | Default | Env | Description |
+| Name | Short | Type | Presence | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--on-conflict` |  | str |  |  | What to do when something already exists at the restoration destination: overwrite (check the archived copy against the record, then replace what is there) or abort (refuse and change nothing). Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default |
-| `--update-git-index` |  | bool | True |  | Run git add to stage the restored path in the git index |
-| `--destination` |  | str |  |  | Restore to this path instead of the record's original one. Where the content actually went is written to the record, so `info` names it afterwards |
+| `--on-conflict` |  | str | optional |  | What to do when something already exists at the restoration destination. Required only when the destination is occupied; an absent destination, or the emptied original directory of an archived tree, needs no answer. There is no default Values: `overwrite` (check the archived copy against the record, then replace what is standing at the destination), `abort` (refuse the restore and change nothing at the destination). |
+| `--update-git-index`, `--no-update-git-index` |  | bool | optional |  | Run git add to stage the restored path in the git index; omitted, the index is updated |
+| `--destination` |  | str | optional |  | Restore to this path instead of the record's original one; omitted, the record's own path is used. Where the content actually went is written to the record, so `info` names it afterwards |
 
 ## Arguments
 
-| Name | Required | Description |
-| --- | --- | --- |
-| `target` | yes | Record UUID, numeric database ID, or original file path of the item to restore (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID, anything else is a path) |
+| Name | Type | Presence | Description |
+| --- | --- | --- | --- |
+| `target` | str | required | Record UUID, numeric database ID, or original file path of the item to restore (resolved by shape, in this order: a 36-character hyphenated hex string is a record UUID, an all-digit string is a numeric database ID, anything else is a path) |
 
 ## Grants
 

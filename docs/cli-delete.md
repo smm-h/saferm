@@ -15,22 +15,22 @@ Move files to the saferm archive with metadata tracking
 
 ## Flags
 
-| Name | Short | Type | Default | Env | Description |
+| Name | Short | Type | Presence | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--recursive` | `-r` | bool |  |  | Allow recursive deletion of directories and all their contents |
-| `--ignore-missing` | `-f` | bool |  |  | Silently skip files that do not exist instead of erroring |
-| `--interactive` | `-i` | bool |  |  | Prompt for confirmation before archiving each file |
-| `--description` |  | str |  |  | Mandatory explanation of why this deletion is happening |
-| `--command` |  | str |  |  | Record the original rm command being replaced by saferm |
-| `--meta` |  | str |  |  | Attach additional metadata as key=value pairs (repeatable) |
-| `--update-git-index` |  | bool | True |  | Run git rm --cached to stage removal in the git index |
-| `--on-error` |  | str |  |  | What to do when a path cannot be archived: abort (stop at the first failure) or continue (archive the remaining paths, report every failure, and exit non-zero at the end). Mandatory: there is no default |
+| `--recursive`, `--no-recursive` | `-r` | bool | optional |  | Allow recursive deletion of directories and all their contents; omitted, a directory is refused |
+| `--ignore-missing`, `--no-ignore-missing` | `-f` | bool | optional |  | Silently skip files that do not exist instead of erroring; omitted, a missing path is an error |
+| `--interactive`, `--no-interactive` | `-i` | bool | optional |  | Prompt for confirmation before archiving each file; omitted, nothing is asked |
+| `--description` |  | str | required |  | Mandatory explanation of why this deletion is happening |
+| `--command` |  | str | optional |  | Record the original rm command being replaced by saferm; omitted, no command is recorded |
+| `--meta` |  | list[str] | optional |  | Attach additional metadata as key=value pairs (repeatable); omitted, no custom metadata is attached |
+| `--update-git-index`, `--no-update-git-index` |  | bool | optional |  | Run git rm --cached to stage removal in the git index; omitted, the index is updated |
+| `--on-error` |  | str | required |  | What to do when a path cannot be archived. Mandatory: there is no default Values: `abort` (stop at the first path that cannot be archived, leaving the remaining paths untouched), `continue` (archive the remaining paths, report every failure, and exit with the first failure's code at the end). |
 
 ## Arguments
 
-| Name | Required | Description |
-| --- | --- | --- |
-| `files` | yes | One or more files or directories to move into the archive |
+| Name | Type | Presence | Description |
+| --- | --- | --- | --- |
+| `files` | list[str] (variadic) | required | One or more files or directories to move into the archive |
 
 ## Grants
 

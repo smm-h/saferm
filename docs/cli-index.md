@@ -17,12 +17,12 @@ Version: :-: var key="project.version"
 
 ## Commands
 
-- [capabilities](../cli-capabilities/) -- Name the features this saferm ships, for a program deciding how to drive it
 - [delete](../cli-delete/) -- Move files to the saferm archive with metadata tracking
-- [info](../cli-info/) -- Display full metadata and context for an archived deletion
+- [undelete](../cli-undelete/) -- Restore a previously archived file back to its original path
 - [list](../cli-list/) -- Show all items currently held in the saferm archive
 - [purge](../cli-purge/) -- Permanently destroy archived items and free disk space
-- [undelete](../cli-undelete/) -- Restore a previously archived file back to its original path
+- [info](../cli-info/) -- Display full metadata and context for an archived deletion
+- [capabilities](../cli-capabilities/) -- Name the features this saferm ships, for a program deciding how to drive it
 
 ## Command Groups
 
@@ -30,11 +30,11 @@ Version: :-: var key="project.version"
 
 ## Global flags
 
-| Name | Short | Type | Default | Env | Description |
+| Name | Short | Type | Presence | Env | Description |
 | --- | --- | --- | --- | --- | --- |
-| `--archive-dir` |  | str | `{"relative_to_root": {"env_var": "SAFERM_HOME", "parts": ["archive"]}}` |  | Path to the archive directory |
-| `--db-path` |  | str | `{"relative_to_root": {"env_var": "SAFERM_HOME", "parts": ["db", "saferm.db"]}}` |  | Path to the SQLite database |
-| `--exclude-env-patterns` |  | str | `["(?i)token", "(?i)secret", "(?i)password", "(?i)key", "(?i)credential"]` |  | Regex patterns for env vars to exclude from metadata |
+| `--archive-dir` |  | str | default: `{"relative_to_root": {"env_var": "SAFERM_HOME", "parts": ["archive"]}}` |  | Path to the archive directory |
+| `--db-path` |  | str | default: `{"relative_to_root": {"env_var": "SAFERM_HOME", "parts": ["db", "saferm.db"]}}` |  | Path to the SQLite database |
+| `--exclude-env-patterns` |  | list[str] (unique) | default: `["(?i)token", "(?i)secret", "(?i)password", "(?i)key", "(?i)credential"]` |  | Regex patterns for env vars to exclude from metadata |
 
 ## Framework flags
 
@@ -46,6 +46,15 @@ These flags are owned by the strictcli framework, not by the app. No command may
 | `--approve-consequential` | Skips the confirmation prompt a consequential command shows before it runs. |
 | `--quiet` | Hides informational output. Warnings, errors, structured data and the dry-run log are never suppressed. |
 | `--verbose` | Shows debug output. `--quiet` wins when both are passed. |
+
+## Configuration
+
+| Setting | Value |
+| --- | --- |
+| Config file | This app reads a config file; `--config <path>` selects one. |
+| Config format | `toml` |
+| Config path | `{"relative_to_root": {"env_var": "SAFERM_HOME", "parts": ["config.toml"]}}` |
+| Env prefix | `SAFERM` -- every env-bound flag reads `SAFERM` + its own variable name unless it declares otherwise. |
 
 ## Infrastructure
 
