@@ -377,3 +377,46 @@ func parseDuration(s string) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid duration %q: unknown suffix %q (use h, d, w, or m)", s, suffix)
 	}
 }
+
+// optBool resolves an optional flag's absence to the fallback its own help text
+// declares.
+//
+// strictcli's mutating-default ban (contract §27.1) forbids Default() on any
+// flag or positional arg of a command declaring effect="mutating": absence must
+// never resolve to a value the invocation did not state, because on a mutating
+// command a value the framework picked is a value the framework writes. saferm's
+// opt-in and opt-out switches on delete, undelete and purge therefore declare
+// Optional() and name their fallback in their own help, and this function is the
+// ONLY place where absence becomes that fallback -- so no code further down ever
+// receives a nil it would misread as the zero value.
+func optBool(v interface{}, fallback bool) bool {
+	if v == nil {
+		return fallback
+	}
+	return v.(bool)
+}
+
+// optStr is optBool's string twin: absence becomes the declared fallback, and a
+// supplied value -- the empty string included -- is delivered as itself. The
+// empty string is a value here, not a sentinel for absence; callers that need to
+// know whether anything was supplied read the two-result type assertion instead.
+func optStr(v interface{}, fallback string) string {
+	if v == nil {
+		return fallback
+	}
+	return v.(string)
+}
+
+// optStrSlice converts an optional repeatable flag's or variadic arg's value to
+// []string, delivering absence as an empty slice.
+func optStrSlice(v interface{}) []string {
+	if v == nil {
+		return nil
+	}
+	raw := v.([]interface{})
+	out := make([]string, len(raw))
+	for i, elem := range raw {
+		out[i] = elem.(string)
+	}
+	return out
+}

@@ -100,7 +100,8 @@ func registerInfoCmd(app *strictcli.App) {
 		strictcli.WithEffect(strictcli.EffectReadOnly),
 		strictcli.PayloadSchema(infoPayloadSchema),
 		strictcli.WithArgs(
-			strictcli.NewArg("target", "Record UUID or numeric database ID of the archived item to inspect ("+identifierOrderHelp+")"),
+			strictcli.NewArg("target", "Record UUID or numeric database ID of the archived item to inspect ("+identifierOrderHelp+")",
+				strictcli.ArgRequired()),
 		),
 	)
 }

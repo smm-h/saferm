@@ -25,42 +25,61 @@ func registerPurgeCmd(app *strictcli.App) {
 			Reason: "purging destroys the archived content permanently; undelete cannot bring it back",
 			Kind:   strictcli.FileWrite,
 		}),
+		// Nothing here carries a value default: purge is `mutating`, and the
+		// framework's mutating-default ban forbids a declaration whose absence
+		// resolves to a value nobody typed. The two strings used to declare
+		// Default("") and the handler tested `!= ""` to find out whether anyone
+		// had asked -- an absence sentinel, which Optional() now says outright.
 		strictcli.WithFlags(
-			strictcli.StringFlag("older-than", "Purge items older than duration (e.g., 30d, 24h, 1w)", strictcli.Default("")),
-			strictcli.StringFlag("larger-than", "Only purge items larger than this size (e.g. 100MB, 1GB)", strictcli.Default("")),
-			strictcli.BoolFlag("all", "Select all archived items for permanent destruction", strictcli.Default(false)),
+			strictcli.StringFlag("older-than", "Purge items older than duration (e.g., 30d, 24h, 1w); omitted, age selects nothing", strictcli.Optional()),
+			strictcli.StringFlag("larger-than", "Only purge items larger than this size (e.g. 100MB, 1GB); omitted, size filters nothing", strictcli.Optional()),
+			strictcli.BoolFlag("all", "Select all archived items for permanent destruction; omitted, nothing is selected by this flag", strictcli.Optional()),
 		),
 		strictcli.WithArgs(
 			strictcli.NewArg("targets", "Record UUIDs or numeric database IDs of specific items to permanently destroy ("+identifierOrderHelp+")",
-				strictcli.Variadic(), strictcli.ArgRequired(false)),
+				strictcli.Variadic(), strictcli.ArgOptional()),
+		),
+		// The selection rule, declared once. It used to be a hand guard in the
+		// handler printing "specify record UUIDs or numeric IDs, --older-than,
+		// --larger-than, or --all" and returning ExitUsage; the framework now
+		// refuses the empty selection at parse time, renders the rule in --help,
+		// and publishes it in the dumped schema. `--all` elects on `true` alone,
+		// so `--no-all` selects nothing and is told so.
+		strictcli.WithConstraints(
+			strictcli.AtLeastOne("purge-selection",
+				strictcli.Member("targets", strictcli.WhenNonEmpty()),
+				strictcli.Member("older-than"),
+				strictcli.Member("larger-than"),
+				strictcli.Member("all", strictcli.WhenTrue()),
+			),
 		),
 	)
 }
 
 func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
-	olderThan := kwargs["older_than"].(string)
-	largerThan := kwargs["larger_than"].(string)
-	purgeAll := kwargs["all"].(bool)
+	// Absence is absence, not "". Whether anyone asked for an age or a size
+	// selection is the two-result type assertion, so `--older-than ""` is a
+	// supplied value that fails in parseDuration rather than a silent no-op.
+	olderThan, hasOlderThan := kwargs["older_than"].(string)
+	largerThan, hasLargerThan := kwargs["larger_than"].(string)
+	// `all` is read by the declared constraint alone: it selects every record,
+	// which is what the final branch below already does for --larger-than on its
+	// own, so the handler has nothing left to ask it.
 	dryRun := ctx.DryRun()
-	targetsRaw := kwargs["targets"].([]interface{})
+	targets := optStrSlice(kwargs["targets"])
 	verbose := ctx.Verbose()
 	fx := ctx.Effects()
 
-	hasTargets := len(targetsRaw) > 0
-	hasOlderThan := olderThan != ""
-	hasLargerThan := largerThan != ""
+	hasTargets := len(targets) > 0
 
-	// Must specify at least one selection method.
+	// The at-least-one selection rule is the declaration's, enforced by the
+	// parser before dispatch: reaching this line means something was selected.
 	// --larger-than alone is valid (acts like --all --larger-than).
-	if !hasTargets && !hasOlderThan && !purgeAll && !hasLargerThan {
-		fmt.Fprintln(os.Stderr, "error: specify record UUIDs or numeric IDs, --older-than, --larger-than, or --all")
-		return strictcli.Exit(ExitUsage)
-	}
 
 	// Shape before archive: a path among the targets is refused before anything
 	// is opened or selected, on any machine.
-	for _, raw := range targetsRaw {
-		if code := requireIdentifierShape(raw.(string)); code != ExitSuccess {
+	for _, target := range targets {
+		if code := requireIdentifierShape(target); code != ExitSuccess {
 			return strictcli.Exit(code)
 		}
 	}
@@ -89,12 +108,12 @@ func handlePurge(ctx *strictcli.Context, kwargs map[string]interface{}) strictcl
 	var records []*db.DeletionRecord
 
 	if hasTargets {
-		for _, raw := range targetsRaw {
+		for _, target := range targets {
 			// The shared resolver keeps the identifier order identical across
 			// the verbs, and keeps a missing record distinguishable from a
 			// locked database: reporting contention as "no record" would tell a
 			// caller its record is gone when it is only busy.
-			rec, code := resolveRecord(database, raw.(string), false)
+			rec, code := resolveRecord(database, target, false)
 			if code != ExitSuccess {
 				return strictcli.Exit(code)
 			}

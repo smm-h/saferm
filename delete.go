@@ -109,14 +109,20 @@ func registerDeleteCmd(app *strictcli.App) {
 			Reason: "a tracked file that moved into the archive must leave the git index too, or the next commit resurrects it",
 			Kind:   strictcli.ProcMutate,
 		}),
+		// Every switch below declares Optional() rather than a value default:
+		// delete is `mutating`, and the framework's mutating-default ban forbids
+		// a declaration whose absence resolves to a value the invocation never
+		// stated. Each one names its fallback in its own help text, and
+		// [optBool] / [optStr] are the only place absence becomes that fallback.
+		// The command lines callers already write are unchanged.
 		strictcli.WithFlags(
-			strictcli.BoolFlag("recursive", "Allow recursive deletion of directories and all their contents", strictcli.Short("r"), strictcli.Default(false)),
-			strictcli.BoolFlag("ignore-missing", "Silently skip files that do not exist instead of erroring", strictcli.Short("f"), strictcli.Default(false)),
-			strictcli.BoolFlag("interactive", "Prompt for confirmation before archiving each file", strictcli.Short("i"), strictcli.Default(false)),
-			strictcli.StringFlag("description", "Mandatory explanation of why this deletion is happening"),
-			strictcli.StringFlag("command", "Record the original rm command being replaced by saferm", strictcli.Default("")),
-			strictcli.StringFlag("meta", "Attach additional metadata as key=value pairs (repeatable)", strictcli.Repeatable(), strictcli.Unique(false), strictcli.Default(nil)),
-			strictcli.BoolFlag("update-git-index", "Run git rm --cached to stage removal in the git index", strictcli.Default(true)),
+			strictcli.BoolFlag("recursive", "Allow recursive deletion of directories and all their contents; omitted, a directory is refused", strictcli.Short("r"), strictcli.Optional()),
+			strictcli.BoolFlag("ignore-missing", "Silently skip files that do not exist instead of erroring; omitted, a missing path is an error", strictcli.Short("f"), strictcli.Optional()),
+			strictcli.BoolFlag("interactive", "Prompt for confirmation before archiving each file; omitted, nothing is asked", strictcli.Short("i"), strictcli.Optional()),
+			strictcli.StringFlag("description", "Mandatory explanation of why this deletion is happening", strictcli.Required()),
+			strictcli.StringFlag("command", "Record the original rm command being replaced by saferm; omitted, no command is recorded", strictcli.Optional()),
+			strictcli.StringFlag("meta", "Attach additional metadata as key=value pairs (repeatable); omitted, no custom metadata is attached", strictcli.Repeatable(), strictcli.Unique(false), strictcli.Optional()),
+			strictcli.BoolFlag("update-git-index", "Run git rm --cached to stage removal in the git index; omitted, the index is updated", strictcli.Optional()),
 			// Mandatory, with no default. A batch that meets a bad path has two
 			// defensible answers and they suit opposite callers: a script wants
 			// the batch to stop before it does more, an interactive cleanup
@@ -124,38 +130,38 @@ func registerDeleteCmd(app *strictcli.App) {
 			// would be wrong for the other half of the callers, so saferm
 			// refuses to choose.
 			strictcli.StringFlag("on-error",
-				"What to do when a path cannot be archived: abort (stop at the first failure) or continue (archive the remaining paths, report every failure, and exit non-zero at the end). Mandatory: there is no default",
-				strictcli.Choices(onErrorAbort, onErrorContinue)),
+				"What to do when a path cannot be archived. Mandatory: there is no default",
+				strictcli.Required(),
+				strictcli.Choices(
+					strictcli.Ch(onErrorAbort, "stop at the first path that cannot be archived, leaving the remaining paths untouched"),
+					strictcli.Ch(onErrorContinue, "archive the remaining paths, report every failure, and exit with the first failure's code at the end"),
+				)),
 		),
 		strictcli.WithArgs(
-			strictcli.NewArg("files", "One or more files or directories to move into the archive", strictcli.Variadic()),
+			strictcli.NewArg("files", "One or more files or directories to move into the archive", strictcli.Variadic(), strictcli.ArgRequired()),
 		),
 	)
 }
 
 func handleDelete(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
-	recursive := kwargs["recursive"].(bool)
-	ignoreMissing := kwargs["ignore_missing"].(bool)
-	interactive := kwargs["interactive"].(bool)
+	// The optional switches resolve to the fallback their help declares; see
+	// [optBool] for why none of them may carry a Default().
+	recursive := optBool(kwargs["recursive"], false)
+	ignoreMissing := optBool(kwargs["ignore_missing"], false)
+	interactive := optBool(kwargs["interactive"], false)
 	description := kwargs["description"].(string)
-	command := kwargs["command"].(string)
-	updateGitIndex := kwargs["update_git_index"].(bool)
+	command := optStr(kwargs["command"], "")
+	updateGitIndex := optBool(kwargs["update_git_index"], true)
 	onError := kwargs["on_error"].(string)
-	metaValues := kwargs["meta"].([]interface{})
+	metaValues := optStrSlice(kwargs["meta"])
 	filesRaw := kwargs["files"].([]interface{})
 	verbose := ctx.Verbose()
 	dryRun := ctx.DryRun()
 	fx := ctx.Effects()
 
-	if len(filesRaw) == 0 {
-		fmt.Fprintln(os.Stderr, "error: no files specified")
-		return strictcli.Exit(ExitUsage)
-	}
-
 	// Parse --meta key=value pairs
 	customMeta := make(map[string]string)
-	for _, v := range metaValues {
-		s := v.(string)
+	for _, s := range metaValues {
 		key, value, ok := strings.Cut(s, "=")
 		if !ok {
 			fmt.Fprintf(os.Stderr, "error: --meta value %q must be in key=value format\n", s)

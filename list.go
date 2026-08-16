@@ -51,14 +51,18 @@ func registerListCmd(app *strictcli.App) {
 		strictcli.WithEffect(strictcli.EffectReadOnly),
 		strictcli.PayloadSchema(listPayloadSchema),
 		strictcli.WithFlags(
-			strictcli.StringFlag("path", "Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth)", strictcli.Default("")),
+			// Optional, not Default(""): the handler asked `!= ""` to find out
+			// whether a filter had been supplied at all, which is an absence
+			// sentinel. list is read_only so the mutating-default ban does not
+			// reach it; the declaration changes because it was never a default.
+			strictcli.StringFlag("path", "Filter results to original paths matching the given glob pattern (* spans directory separators, so /home/m/* reaches any depth); omitted, every path is listed", strictcli.Optional()),
 			strictcli.BoolFlag("all", "Include items that have already been restored or purged", strictcli.Default(false)),
 		),
 	)
 }
 
 func handleList(ctx *strictcli.Context, kwargs map[string]interface{}) strictcli.Outcome {
-	pathGlob := kwargs["path"].(string)
+	pathGlob := optStr(kwargs["path"], "")
 	includeAll := kwargs["all"].(bool)
 
 	dbPath := kwargs["db_path"].(string)
