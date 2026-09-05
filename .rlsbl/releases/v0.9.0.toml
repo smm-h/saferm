@@ -57,3 +57,7 @@ against.
 # blog = false
 include = ["go", "npm", "pypi"]
 exclude = []
+candidate_sha = "3810e9e5e6823d42a4606f8ebd975e29ce48a609"
+
+[tree_hashes]
+"." = "064a9bcb097d6e7db2c5cc10838173d76f77ebc2"

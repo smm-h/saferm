@@ -29,3 +29,7 @@ it for publication. Infrastructure only -- no code, no behaviour, nothing a
 # blog = false
 include = ["go", "npm", "pypi"]
 exclude = []
+candidate_sha = "25cd3cc41fc0a33eb9f5790e26eeab15c52e142b"
+
+[tree_hashes]
+"." = "0eb74cbd355e1fc7c99e57eb936684f50621c108"

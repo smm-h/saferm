@@ -37,3 +37,7 @@ the invocation shapes programs already build -- delete with --on-error, -r, -f,
 # blog = false
 include = ["go", "npm", "pypi"]
 exclude = []
+candidate_sha = "b601d23ea8fc5db5d427231dd829abbdfc5e5080"
+
+[tree_hashes]
+"." = "10dad57c4ee31a4afaef7d0c97af608aa6f62a0b"
