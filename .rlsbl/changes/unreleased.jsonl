@@ -1,0 +1,1 @@
+{"format_version":1,"id":"18d4fef15f23b097d26075aa28f5417da78423732426bdb1","commits":["b556c348b8e8f021f82f631ed7c6d2d051791d5e"],"user_facing":true,"description":"**Correct version reporting.** Released binaries reported a fallback version instead of the released one, because the linker's `-X` target named a symbol that did not exist.","type":"fix"}
