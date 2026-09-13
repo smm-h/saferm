@@ -5,15 +5,17 @@ import (
 	"strings"
 )
 
-// version is set by ldflags at build time: -X main.version=x.y.z
-var version = ""
+// Version is set by ldflags at build time: -X main.Version=x.y.z
+// The name must stay exported and spelled this way: .goreleaser.yml injects
+// main.Version, and the linker silently does nothing when the symbol is absent.
+var Version = ""
 
 func init() {
-	if version == "" || version == "dev" {
+	if Version == "" || Version == "dev" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
-			version = strings.TrimPrefix(info.Main.Version, "v")
+			Version = strings.TrimPrefix(info.Main.Version, "v")
 		} else {
-			version = "dev"
+			Version = "dev"
 		}
 	}
 }

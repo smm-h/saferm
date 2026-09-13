@@ -8,7 +8,7 @@ import (
 // tests can construct the same app and assert over its registration (see
 // classification_test.go); main does nothing but run it.
 func newApp() *strictcli.App {
-	app := strictcli.NewApp("saferm", version, "AI-first safe rm replacement",
+	app := strictcli.NewApp("saferm", Version, "AI-first safe rm replacement",
 		strictcli.WithEnvPrefix("SAFERM"),
 		strictcli.WithInfraRoot("SAFERM_HOME", "~/.saferm"),
 		strictcli.WithConfig(),
