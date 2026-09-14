@@ -5,14 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "saferm"
 version = "0.10.0"
-description = "AI-first safe rm replacement"
+description = "Command-line replacement for rm that archives every deletion with a mandatory reason and the context it ran in, so deleted files can be listed, inspected and restored"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.8"
-keywords = ["rm", "safe", "delete", "trash", "undelete", "cli", "rlsbl"]
+keywords = ["rm", "safe-delete", "undelete", "trash", "archive", "audit-trail", "cli", "ai-agents", "rlsbl"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+]
 
 [project.urls]
-Homepage = "https://github.com/smm-h/saferm"
+Homepage = "https://smmh.dev/saferm/"
+Documentation = "https://smmh.dev/saferm/"
 Repository = "https://github.com/smm-h/saferm"
+Issues = "https://github.com/smm-h/saferm/issues"
+Changelog = "https://github.com/smm-h/saferm/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 packages = ["saferm"]

@@ -29,6 +29,8 @@
   "docs": "docs/",
   "output": "docs/_build/",
   "base_url": "https://saferm.smmh.dev",
+  "description": "Command-line replacement for rm that archives every deletion with a mandatory reason and the context it ran in, so deleted files can be listed, inspected and restored",
+  "repo": "smm-h/saferm",
   "search_engine": "pagefind",
   "author": {
     "name": "SMMH",

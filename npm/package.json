@@ -1,13 +1,13 @@
 {
   "name": "saferemove",
   "version": "0.10.0",
-  "description": "AI-first safe rm replacement",
+  "description": "Command-line replacement for rm that archives every deletion with a mandatory reason and the context it ran in, so deleted files can be listed, inspected and restored",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/smm-h/saferm.git"
   },
-  "homepage": "https://github.com/smm-h/saferm",
+  "homepage": "https://smmh.dev/saferm/",
   "scripts": {
     "postinstall": "node install.js"
   },
@@ -20,11 +20,16 @@
   ],
   "keywords": [
     "rm",
-    "safe",
-    "delete",
-    "trash",
+    "safe-delete",
     "undelete",
+    "trash",
+    "archive",
+    "audit-trail",
     "cli",
+    "ai-agents",
     "rlsbl"
-  ]
+  ],
+  "bugs": {
+    "url": "https://github.com/smm-h/saferm/issues"
+  }
 }

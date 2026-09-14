@@ -1,3 +1,11 @@
+// Command saferm replaces rm by archiving every deletion with a mandatory
+// reason and the context it ran in, so deleted files can be listed, inspected
+// and restored.
+//
+// Every archived path is recorded in a SQLite database alongside the reason
+// the caller gave for the deletion, the environment it ran in, the git state
+// of the working tree and the process that invoked it. The archive is read
+// back with list, info and undelete, and emptied with purge.
 package main
 
 import (
