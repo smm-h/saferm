@@ -3,7 +3,7 @@
   "name": "saferm",
   "slug": "saferm",
   "version": "0.10.0",
-  "description": "",
+  "description": "Command-line replacement for rm that archives every deletion with a mandatory reason and the context it ran in, so deleted files can be listed, inspected and restored",
   "language": "go",
   "base_url": "https://saferm.smmh.dev",
   "pages": [
@@ -1485,6 +1485,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-13T21:34:28.142229+00:00",
+  "last_gen": "2026-09-14T14:39:11.012119+00:00",
   "theme": "minimal"
 }
