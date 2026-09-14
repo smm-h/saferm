@@ -1,7 +1,8 @@
 +++
 title = "saferm delete"
-description = "Reference for the saferm delete command — usage, flags, arguments, and examples for the delete subcommand of the saferm CLI."
+description = "Move files to the saferm archive with metadata tracking"
 generated = true
+seeded = true
 nav_group = "CLI Reference"
 nav_order = 3
 +++

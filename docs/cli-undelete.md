@@ -1,7 +1,8 @@
 +++
 title = "saferm undelete"
-description = "Reference for the saferm undelete command — usage, flags, arguments, and examples for the undelete subcommand of the saferm CLI."
+description = "Restore a previously archived file back to its original path"
 generated = true
+seeded = true
 nav_group = "CLI Reference"
 nav_order = 7
 +++

@@ -1,7 +1,8 @@
 +++
 title = "saferm list"
-description = "Reference for the saferm list command — usage, flags, arguments, and examples for the list subcommand of the saferm CLI."
+description = "Show all items currently held in the saferm archive"
 generated = true
+seeded = true
 nav_group = "CLI Reference"
 nav_order = 5
 +++

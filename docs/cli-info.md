@@ -1,7 +1,8 @@
 +++
 title = "saferm info"
-description = "Reference for the saferm info command — usage, flags, arguments, and examples for the info subcommand of the saferm CLI."
+description = "Display full metadata and context for an archived deletion"
 generated = true
+seeded = true
 nav_group = "CLI Reference"
 nav_order = 4
 +++

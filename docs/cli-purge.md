@@ -1,7 +1,8 @@
 +++
 title = "saferm purge"
-description = "Reference for the saferm purge command — usage, flags, arguments, and examples for the purge subcommand of the saferm CLI."
+description = "Permanently destroy archived items and free disk space"
 generated = true
+seeded = true
 nav_group = "CLI Reference"
 nav_order = 6
 +++
