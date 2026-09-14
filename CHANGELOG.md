@@ -2,6 +2,14 @@
 
 # Changelog
 
+## 0.10.2
+
+Documentation frontmatter converted to TOML for the current selfdoc; no user-facing change.
+
+### Infrastructure
+
+- Documentation frontmatter converted to TOML for the current selfdoc; no user-facing change.
+
 ## 0.10.1
 
 Version injection is fixed, the project describes itself consistently in its README, package documentation and registries, and its documentation base is the unified site.
