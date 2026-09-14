@@ -1,6 +1,6 @@
 ---
 title: internal/meta
-description: "API reference for the meta package — collects environment variables, git context, parent process info, and user-supplied key-value pairs for each deletion."
+description: "API reference for the meta package — environment variables, git context, parent process details, the resolved ancestry chain and custom pairs per deletion."
 ---
 
 # internal/meta
