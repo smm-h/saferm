@@ -2,6 +2,16 @@
 
 # Changelog
 
+## 0.10.1
+
+Version injection is fixed, the project describes itself consistently in its README, package documentation and registries, and its documentation base is the unified site.
+
+### Fixes
+
+- **Correct version reporting.** Released binaries reported a fallback version instead of the released one, because the linker's `-X` target named a symbol that did not exist.
+- **The project describes itself consistently in its README, package documentation and registries.** Each surface carried its own wording or none at all -- the Go package published no synopsis, the PyPI page no description, and neither registry entry carried the project's links or discovery keywords.
+- **Documentation links point at the unified site.** The declared docs base was the retired per-project host; it is `https://smmh.dev/saferm/` now, so generated sitemaps, feeds and llms.txt name the address that serves the pages.
+
 ## 0.10.0
 
 Every flag and argument declares whether it must be given, purge's selection rule becomes a declaration the parser enforces, and the machine envelope advances to version 2.
@@ -344,15 +354,21 @@ Dependency upgrades and housekeeping
 
 ## 0.2.0
 
+**Automatic git index management.** When deleting a git-tracked file, saferm now runs `git rm --cached` to stage the removal. When restoring via `undelete`, it runs `git add`. Use `--no-git` on delete to suppress. Both operations are best-effort -- failures produce warnings, not errors.
+
 ### Features
 
 - **Automatic git index management.** When deleting a git-tracked file, saferm now runs `git rm --cached` to stage the removal. When restoring via `undelete`, it runs `git add`. Use `--no-git` on delete to suppress. Both operations are best-effort -- failures produce warnings, not errors.
 
 ## 0.1.3
 
+No user-facing changes.
+
 - No user-facing changes.
 
 ## 0.1.2
+
+**New feature.** npm and PyPI binary wrapper packages for easier installation via `npm install -g saferm` and `pipx install saferm`.
 
 ### Features
 
@@ -360,11 +376,15 @@ Dependency upgrades and housekeeping
 
 ## 0.1.1
 
+**New feature.** SAFERM_HOME environment variable allows overriding the default config/data directory, enabling isolated testing and custom configurations.
+
 ### Features
 
 - **New feature.** SAFERM_HOME environment variable allows overriding the default config/data directory, enabling isolated testing and custom configurations.
 
 ## 0.1.0
+
+**Feature.** Safe file deletion with automatic archival
 
 ### Features
 
