@@ -5,7 +5,7 @@
   "version": "0.10.0",
   "description": "Command-line replacement for rm that archives every deletion with a mandatory reason and the context it ran in, so deleted files can be listed, inspected and restored",
   "language": "go",
-  "base_url": "https://saferm.smmh.dev",
+  "base_url": "https://smmh.dev/saferm",
   "pages": [
     {
       "path": "architecture.md",
@@ -1485,6 +1485,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-14T14:39:11.012119+00:00",
+  "last_gen": "2026-09-14T14:58:54.378913+00:00",
   "theme": "minimal"
 }
