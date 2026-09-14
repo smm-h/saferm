@@ -1,7 +1,7 @@
----
-title: Machine surface
-description: "How a program drives saferm: the --json envelope, the payload each consumer verb answers with (and when it is null), and the capabilities probe."
----
++++
+title = "Machine surface"
+description = "How a program drives saferm: the --json envelope, the payload each consumer verb answers with (and when it is null), and the capabilities probe."
++++
 
 # Machine surface
 

@@ -1,6 +1,6 @@
----
-title: CLAUDE.md
----
++++
+title = "CLAUDE.md"
++++
 # saferm
 
 Go CLI that replaces `rm` with safe archival to `~/.saferm/`. AI-first design: every deletion requires `--description` explaining why.

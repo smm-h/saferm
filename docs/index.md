@@ -1,7 +1,7 @@
----
-title: saferm
-description: "saferm is an AI-first safe rm replacement that archives files instead of deleting them, capturing metadata, with a JSON surface programs can drive."
----
++++
+title = "saferm"
+description = "saferm is an AI-first safe rm replacement that archives files instead of deleting them, capturing metadata, with a JSON surface programs can drive."
++++
 
 # saferm
 

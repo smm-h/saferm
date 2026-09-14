@@ -1,6 +1,6 @@
----
-title: README.md
----
++++
+title = "README.md"
++++
 # saferm
 
 saferm is a command-line replacement for rm that archives every deletion with a mandatory reason and the context it ran in, so deleted files can be listed, inspected and restored. It is built for AI coding agents and the scripts they run, where an unexplained `rm` is both unrecoverable and unaccountable. No deletion proceeds without a `--description` saying why, and that reason is stored with the environment, git state and calling process beside the archived copy in `~/.saferm/`.
