@@ -529,4 +529,3 @@ func TestSafermHome_IsolatesData(t *testing.T) {
 		t.Fatalf("home A list should still contain isolated.txt:\n%s", stdout)
 	}
 }
-

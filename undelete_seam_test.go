@@ -6,8 +6,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/smm-h/stricttest/go/hygiene"
 	"github.com/smm-h/strictcli/go/strictcli"
+	"github.com/smm-h/stricttest/go/hygiene"
 )
 
 // The cross-device branch of a file restore is unreachable from the outside: it

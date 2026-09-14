@@ -121,10 +121,10 @@ func TestDelete_DeeplyNestedDir(t *testing.T) {
 
 	// Create files at various levels.
 	files := map[string]string{
-		filepath.Join(workDir, "level1", "f1.txt"):                                       "level 1",
-		filepath.Join(workDir, "level1", "level2", "f2.txt"):                             "level 2",
-		filepath.Join(workDir, "level1", "level2", "level3", "f3.txt"):                   "level 3",
-		filepath.Join(workDir, "level1", "level2", "level3", "level4", "f4.txt"):         "level 4",
+		filepath.Join(workDir, "level1", "f1.txt"):                                         "level 1",
+		filepath.Join(workDir, "level1", "level2", "f2.txt"):                               "level 2",
+		filepath.Join(workDir, "level1", "level2", "level3", "f3.txt"):                     "level 3",
+		filepath.Join(workDir, "level1", "level2", "level3", "level4", "f4.txt"):           "level 4",
 		filepath.Join(workDir, "level1", "level2", "level3", "level4", "level5", "f5.txt"): "level 5",
 	}
 	for path, content := range files {
